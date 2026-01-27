@@ -1,2 +1,2 @@
 # ERECYCLOMATCH
-a mobile app for Rwaste segregation and trading
+a mobile app for Ewaste segregation and trading
