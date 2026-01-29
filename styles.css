@@ -1,0 +1,78 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  background-color: #f5fff5;
+  color: #2e7d32;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  text-align: center;
+  padding: 2rem;
+  max-width: 400px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.logo-section .graphic {
+  width: 120px;
+  margin-bottom: 1rem;
+}
+
+.app-name {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin: 0.5rem 0;
+}
+
+.tagline {
+  font-size: 1rem;
+  color: #388e3c;
+  margin-bottom: 2rem;
+}
+
+.button-section .btn {
+  display: block;
+  margin: 0.5rem auto;
+  padding: 0.75rem 1.5rem;
+  border-radius: 25px;
+  text-decoration: none;
+  font-weight: 600;
+  width: 80%;
+  transition: background-color 0.3s ease;
+}
+
+.btn.primary {
+  background-color: #4caf50;
+  color: white;
+}
+
+.btn.primary:hover {
+  background-color: #43a047;
+}
+
+.btn.secondary {
+  background-color: #ffffff;
+  color: #4caf50;
+  border: 2px solid #4caf50;
+}
+
+.btn.secondary:hover {
+  background-color: #e8f5e9;
+}
+
+.or-text {
+  margin: 1rem 0;
+  font-weight: bold;
+  color: #66bb6a;
+}
+
+footer {
+  margin-top: 2rem;
+  font-size: 0.9rem;
+  color: #388e3c;
+}
