@@ -1,29 +1,42 @@
-import { Text, View, ImageBackground, StyleSheet } from "react-native";
+import { Text, View, Image, StyleSheet, Pressable } from "react-native";
 
 export default function Index() {
   return (
-    <ImageBackground
-      source={{ uri: 'https://i.pinimg.com/736x/9c/67/38/9c6738bf74f94adf5ed0f9e4170cbf2d.jpg' }}
-      style={styles.background}
-      resizeMode="cover"
-    >
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <Text>Edit app/index.tsx to edit this screen.</Text>
-      </View>
-    </ImageBackground>
+    <View className="flex-1 justify-center items-center bg-backg">
+      
+      <Image
+        source={require("../assets/images/icon.png")}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+
+      <Text className="text-5xl text-primary font-bold">
+        ERECYCLOMATCH
+      </Text>
+      <Text className="text-1xl mt-3">Recyle Smarter. Match Faster</Text>
+
+      <Pressable
+        onPress={() => console.log("Get Started")}
+        className="mt-20 w-64 h-14 bg-primary rounded-full justify-center items-center">
+          <Text className="text-white font-bold">Get Started</Text>
+      </Pressable>
+
+      <Text className="mt-10">OR</Text>
+
+      <Pressable
+        onPress={() => console.log("I already have an account")}
+        className="mt-10 w-64 h-14 bg-white border border-black rounded-full justify-center items-center">
+          <Text className="text-black">I already have an account</Text>
+      </Pressable>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
+  logo: {
+    width: 1000,
+    height: 200,
+    marginBottom: 20,
   },
 });
