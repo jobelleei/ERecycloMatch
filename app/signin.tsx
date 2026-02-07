@@ -7,6 +7,7 @@ export default function Signup() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   return (
     <View className="flex-1 justify-center items-center bg-backg">
@@ -31,34 +32,31 @@ export default function Signup() {
           opacity: 0.5,
           zIndex: 1
         }}
-        resizeMode="cover"
-      />
+        resizeMode="cover"/>
 
-      <Pressable
+      <Pressable //this is for the back button
         onPress={() => router.push('/')}
         style={{ 
           position: 'absolute',
           top: 50,
           left: 10,
           zIndex: 10
-        }}
-      >
+        }}>
         <Image
-          source={require("../assets/images/backbutton.png")} 
+          source={require("../assets/icons/backbutton.png")} 
           style={{ width: 35, height: 35, marginStart: 5 }}
         />
       </Pressable>
 
-      <Image
-        source={require("../assets/images/icon.png")}
+      <Image //logo (to be changed/updated)
+        source={require("../assets/icons/icon.png")}
         style={{
           position: 'absolute',
           top: 110,
           zIndex: 10,
           width: 110,
           height: 110,
-        }}
-      />
+        }}/>
 
       <Text className="text-4xl font-bold" 
         style={{ 
@@ -92,7 +90,7 @@ export default function Signup() {
         width: 320,
         height: 50,
       }}>
-        <TextInput
+        <TextInput //Email input
           value={email}
           onChangeText={setEmail}
           placeholder="Enter Email"
@@ -110,7 +108,7 @@ export default function Signup() {
           }}
         />
         <Image
-          source={require("../assets/images/email.png")}
+          source={require("../assets/icons/email.png")}
           style={{
             position: 'absolute',
             left: 15,
@@ -139,12 +137,12 @@ export default function Signup() {
         width: 320,
         height: 50,
       }}>
-        <TextInput
+        <TextInput //password input
           value={password}
           onChangeText={setPassword}
           placeholder="Enter Password"
           placeholderTextColor="#999"
-          secureTextEntry={true} 
+          secureTextEntry={!isPasswordVisible}
           style={{
             width: '100%',
             height: '100%',
@@ -153,12 +151,12 @@ export default function Signup() {
             borderWidth: 1,
             borderColor: '#7ED957',
             paddingLeft: 45, 
-            paddingRight: 15,
+            paddingRight: 45,
             fontSize: 13,
           }}
         />
         <Image
-          source={require("../assets/images/padlock.png")} 
+          source={require("../assets/icons/padlock.png")} 
           style={{
             position: 'absolute',
             left: 15,
@@ -169,10 +167,32 @@ export default function Signup() {
             opacity: 0.3
           }}
         /> 
+        <Pressable //this is for the view/hide password function for the password form
+          onPress={() => setIsPasswordVisible(!isPasswordVisible)}
+          style={{
+            position: 'absolute',
+            right: 15,
+            top: 13,
+            zIndex: 11,
+          }}
+        >
+          <Image
+            source={
+              isPasswordVisible  //changing of "eye" icon when clicked
+                ? require("../assets/icons/hide.png")
+                : require("../assets/icons/view.png")
+            }
+            style={{
+              width: 24,
+              height: 24,
+              opacity: 0.3
+            }}
+          />
+        </Pressable>
       </View>
 
-      <Pressable
-        onPress={() => router.push('/')}
+      <Pressable //forgot password function
+        onPress={() => router.push('/')} //link to be updated since forgot password function is not yet created
         style={{
             position: 'absolute',
             top: 485,
@@ -183,11 +203,10 @@ export default function Signup() {
         <Text className="text-sm">
             Forgot Password?
         </Text>
-    </Pressable>
-
+      </Pressable>
 
       <Pressable
-        onPress={() => router.push('/')}
+        onPress={() => router.push('/')} //sign in button
         style={{
             position: 'absolute',
             top: 525,
@@ -208,8 +227,50 @@ export default function Signup() {
         position: 'absolute',
         zIndex: 10,
         fontSize: 12,
-        marginTop: 300
+        marginTop: 345
       }}>or continue with</Text>
+
+      <View //social sign in options button
+      style={{
+        position: 'absolute',
+        top: 630, 
+        zIndex: 20,
+        flexDirection: 'row',
+         alignItems: 'center',
+         gap: 20, }}>
+            <Pressable //sign in with fb button
+            onPress={() => router.push('/')}>
+            <Image
+            source={require("../assets/icons/fb.png")}
+            style={{
+                width: 45,
+                height: 45,}}/>
+            </Pressable>
+
+            <Pressable //sign in with google button
+            onPress={() => router.push('/')}>
+            <Image
+            source={require("../assets/icons/google.png")}
+            style={{
+                width: 45,
+                height: 45,}}/>
+            </Pressable>
+      </View>
+
+            <Pressable //sign up button
+            onPress={() => router.push('/individual_signup')} //link to be updated 
+            style={{
+                position: 'absolute',
+                zIndex: 20,
+                marginTop: 590
+            }}>
+                <Text
+                style={{
+                    zIndex: 10,
+                    fontSize: 12
+                }}>Dont have an account? Sign Up here!</Text>
+            </Pressable>
     </View>
+
   );
 }

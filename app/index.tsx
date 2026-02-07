@@ -8,7 +8,7 @@ export default function Index() {
     <View className="flex-1 justify-center items-center bg-backg">
       
       <Image
-        source={require("../assets/images/icon.png")}
+        source={require("../assets/icons/icon.png")}
         style={styles.logo}
         resizeMode="contain"
       />
@@ -19,11 +19,11 @@ export default function Index() {
       <Text className="text-1xl mt-3">Recyle Smarter. Match Faster</Text>
 
       <Pressable
-      onPress={() => router.push('/signup')}
+      onPress={() => router.push('/individual_signup')} //sign up button
       className="mt-20 w-64 h-14 bg-primary rounded-full justify-center items-center flex-row">
         <Text className="text-white font-bold">Get Started</Text>
         <Image
-          source={require("../assets/images/right-arrow.png")} 
+          source={require("../assets/icons/right-arrow.png")} 
           style={{ width: 20, height: 25, marginLeft: 10 }}
           resizeMode="contain"
         />
@@ -32,7 +32,7 @@ export default function Index() {
       <Text className="mt-10">OR</Text>
 
       <Pressable
-        onPress={() => router.push('/login')}
+        onPress={() => router.push('/signin')} //sign up button
         className="mt-10 w-64 h-14 bg-white border border-black rounded-full justify-center items-center">
           <Text className="text-black">I already have an account</Text>
       </Pressable>
