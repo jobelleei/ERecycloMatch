@@ -1,50 +1,28 @@
-import * as ImagePicker from 'expo-image-picker';
+import { ImageBackground, View, Image, Pressable, Text, TextInput, ScrollView } from "react-native";
 import { useRouter } from 'expo-router';
+import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import { useState } from "react";
-import { Image, ImageBackground, Pressable, ScrollView, Text, TextInput, View } from "react-native";
-
 
 export default function individual_signup() {
-  const router = useRouter();
-  const [user, setUser] = useState("facility");
-  const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
-  const [email, setEmail] = useState("");
-  const [contactNum, setContactNum] = useState("");
+  const router = useRouter(); 
+  const [user, setUser] = useState("facility"); 
+  const [name, setName] = useState(""); 
+  const [location, setLocation] = useState(""); 
+  const [email, setEmail] = useState(""); 
+  const [contactNum, setContactNum] = useState(""); 
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
-  const [image, setImage] = useState<string | null>(null);
-
-  const pickImage = async () => {
-  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-  if (!permission.granted) {
-    alert("Permission required to access gallery");
-    return;
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ImagePicker.MediaTypeOptions.Images,
-    allowsEditing: true,
-    quality: 1,
-  });
-
-  if (!result.canceled) {
-    setImage(result.assets[0].uri);
-  }
-};
-
   
   return (
     <View className="flex-1 bg-backg">
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
-        style={{
+        style={{ 
           position: 'absolute',
-          bottom: 0,
-          width: 400,
+          bottom: 0, 
+          width: 400, 
           height: 430,
           marginStart: 43,
           zIndex: 0
@@ -481,7 +459,7 @@ export default function individual_signup() {
             marginLeft: 45,}}>Facility Certification <Text style={{ color: '#666'}}>(Required)</Text></Text>
 
         <Pressable
-          onPress={(pickImage) => { //the upload image function should be added here
+          onPress={() => { //the upload image function should be added here
             console.log('Upload certification document');
           }}
           style={{
