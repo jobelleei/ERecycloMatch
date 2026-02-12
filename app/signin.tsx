@@ -1,7 +1,6 @@
-import { ImageBackground, View, Image, Pressable, Text, TextInput } from "react-native";
 import { useRouter } from 'expo-router';
-import {SafeAreaView, SafeAreaProvider} from 'react-native-safe-area-context';
 import { useState } from "react";
+import { Image, ImageBackground, Pressable, Text, TextInput, View } from "react-native";
 
 export default function Signup() {
   const router = useRouter();
@@ -13,10 +12,10 @@ export default function Signup() {
     <View className="flex-1 justify-center items-center bg-backg">
       <ImageBackground
         source={require("../assets/images/firstbg.png")}
-        style={{ 
+        style={{
           position: 'absolute',
-          bottom: 0, 
-          width: 450, 
+          bottom: 0,
+          width: 450,
           height: 530
         }}>
       </ImageBackground>
