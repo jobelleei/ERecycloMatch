@@ -12,10 +12,10 @@ export default function Signup() {
     <View className="flex-1 justify-center items-center bg-backg">
       <ImageBackground
         source={require("../assets/images/firstbg.png")}
-        style={{
+        style={{ 
           position: 'absolute',
-          bottom: 0,
-          width: 450,
+          bottom: 0, 
+          width: 450, 
           height: 530
         }}>
       </ImageBackground>
