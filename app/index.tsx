@@ -1,8 +1,20 @@
-import { Text, View, Image, StyleSheet, Pressable } from "react-native";
+import axios from "axios";
 import { useRouter } from 'expo-router';
+import { useEffect } from "react";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 export default function Index() {
   const router = useRouter();
+
+    useEffect(() => {
+    axios.get("http://YOUR_IP_ADDRESS:5000/")
+      .then(res => {
+        console.log("Backend says:", res.data);
+      })
+      .catch(err => {
+        console.log("Error connecting:", err);
+      });
+  }, []);
 
   return (
     <View className="flex-1 justify-center items-center bg-backg">
@@ -23,7 +35,7 @@ export default function Index() {
       className="mt-20 w-64 h-14 bg-primary rounded-full justify-center items-center flex-row">
         <Text className="text-white font-bold">Get Started</Text>
         <Image
-          source={require("../assets/icons/right-arrow.png")} 
+          source={require("../assets/icons/right-arrow.png")}
           style={{ width: 20, height: 25, marginLeft: 10 }}
           resizeMode="contain"
         />
