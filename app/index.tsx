@@ -2,12 +2,15 @@ import axios from "axios";
 import { useRouter } from 'expo-router';
 import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { API_URL } from "../config";
 
 export default function Index() {
   const router = useRouter();
 
     useEffect(() => {
-    axios.get("http://YOUR_IP_ADDRESS:5000/")
+    axios.get(`${API_URL}/`,{
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    })
       .then(res => {
         console.log("Backend says:", res.data);
       })
@@ -28,7 +31,12 @@ export default function Index() {
       <Text className="text-5xl text-primary font-bold">
         ERECYCLOMATCH
       </Text>
-      <Text className="text-1xl mt-3">Recyle Smarter. Match Faster</Text>
+      <Text className="text-1xl mt-3"
+      style={{
+        textAlign: 'center',
+        paddingHorizontal: 20,
+        width: '100%',
+      }}>Recyle Smarter. Match Faster</Text>
 
       <Pressable
       onPress={() => router.push('/individual_signup')} //sign up button
@@ -45,8 +53,8 @@ export default function Index() {
 
       <Pressable
         onPress={() => router.push('/signin')} //sign up button
-        className="mt-10 w-64 h-14 bg-white border border-black rounded-full justify-center items-center">
-          <Text className="text-black">I already have an account</Text>
+        className="mt-10 w-72 h-14 bg-white border border-black rounded-full justify-center items-center">
+          <Text className="text-black">I already have an account </Text>
       </Pressable>
 
     </View>

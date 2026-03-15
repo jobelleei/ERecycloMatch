@@ -1,21 +1,20 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "esModuleInterop": true,
-    "moduleResolution": "nodenext",
-    "module": "nodenext",
     "strict": true,
-    "target": "es6",
+    "jsx": "react-native",
     "paths": {
-      "@/*": ["./*"]
-    },
-    "types": ["node"]
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
+    ".expo/types/**/*.d.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    ".expo/types/**/*.ts"
   ]
 }

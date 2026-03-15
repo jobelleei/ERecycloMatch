@@ -3,13 +3,16 @@ import { useState } from "react";
 import {
   Image,
   ImageBackground,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import Toast from 'react-native-toast-message'; // import toast for showing notifications instead of alert()
+import { API_URL } from "../config"; //for running IP URL
 
 export default function individual_signup() {
   const router = useRouter();
@@ -22,6 +25,68 @@ export default function individual_signup() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false);
+
+
+  const handleSignUp = async () => {//allows the user to enter text
+    if (!name || !email || !address || !password) {
+      Toast.show({ //for error handling
+      type: 'error',
+      text1: 'Missing Fields',
+      text2: 'Please fill in all fields.',
+    });
+      return;
+      
+    }
+   
+
+  if (password !== confirmpass) {
+    Toast.show({
+      type: 'error',
+      text1: 'Password Error',
+      text2: 'Passwords do not match.',
+    });
+    return;
+  }
+
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/individual-signup`,
+  {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
+    },
+    body: JSON.stringify({ name, email, address, password, confirmpass }),
+  }
+);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Toast.show({//for error handling
+        type: 'success',
+        text1: 'Success!',
+        text2: 'Account created successfully!',
+      });
+        router.push("/signin");
+      } else {
+        Toast.show({//for error handling
+        type: 'error',
+        text1: 'Error',
+        text2: data.message || 'Something went wrong.',
+      });
+      }
+    } catch (err) {
+      console.log('Error:', err);
+      Toast.show({//for error handling
+      type: 'error',
+      text1: 'Connection Error',
+      text2: 'Could not connect to server.',
+    });
+    }
+  };
 
   return (
     <View className="flex-1 bg-backg">
@@ -37,19 +102,25 @@ export default function individual_signup() {
         }}
       ></ImageBackground>
 
-      <Image
-        source={require("../assets/images/bglayer.png")}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1000,
-          height: 1000,
-          opacity: 0.5,
-          zIndex: 1,
-        }}
-        resizeMode="cover"
-      />
+  <View
+  pointerEvents="none"
+  style={{
+    position: "absolute",
+    top: 0,
+    left: 0,
+    zIndex: 0
+    }}
+>
+  <Image
+    source={require("../assets/images/bglayer.png")}
+    style={{
+      width: 1000,
+      height: 1000,
+      opacity: 0.5,
+    }}
+    resizeMode="cover"
+  />
+</View>
 
       <Pressable // This is for the back button
         onPress={() => router.push("/")}
@@ -57,7 +128,7 @@ export default function individual_signup() {
           position: "absolute",
           top: 50,
           left: 10,
-          zIndex: 10,
+          zIndex: 3,
         }}
       >
         <Image
@@ -67,7 +138,7 @@ export default function individual_signup() {
       </Pressable>
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, zIndex: 2 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
@@ -399,6 +470,7 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
+          
           <Text
             className="text-1xl font-bold" //confirm password label
             style={{
@@ -475,7 +547,7 @@ export default function individual_signup() {
           {/*Not sure if the 'Terms and Policies should be added since there was none added/mentioned in the paper */}
 
           <Pressable //sign up button
-            onPress={() => router.push("/")} //sign up button
+            onPress={handleSignUp} //sign up button
             style={{
               marginTop: 30,
               width: 180,
@@ -525,9 +597,7 @@ export default function individual_signup() {
           <Pressable //sign in button
             onPress={() => router.push("/signin")}
             style={{
-              position: "absolute",
-              zIndex: 20,
-              marginTop: 950,
+              marginTop: 20,
             }}
           >
             <Text
