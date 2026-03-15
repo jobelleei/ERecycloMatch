@@ -2,6 +2,8 @@ import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import { useState } from "react";
 import { Image, ImageBackground, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import Toast from 'react-native-toast-message'; // import toast for showing notifications instead of alert()
+import { API_URL } from '../config'; //for IP URL
 
 
 export default function individual_signup() {
@@ -17,11 +19,15 @@ export default function individual_signup() {
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [image, setImage] = useState<string | null>(null);
 
-  const pickImage = async () => {
+  const pickImage = async () => {//for fetching image from gallery
   const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
-    alert("Permission required to access gallery");
+      Toast.show({//for error handling
+        type: 'error',
+        text1: 'Permission Denied',
+        text2: 'Permission required to access gallery.',
+    });
     return;
   }
 
@@ -33,6 +39,77 @@ export default function individual_signup() {
 
   if (!result.canceled) {
     setImage(result.assets[0].uri);
+  }
+};
+
+
+const handleSignUp = async () => {
+  if (!name || !location || !email || !contactNum || !password) {
+    Toast.show({
+      type: 'error',
+      text1: 'Missing Fields',
+      text2: 'Please fill in all fields.',
+    });
+    return;
+  }
+  if (password !== confirmpass) {
+    Toast.show({
+      type: 'error',
+      text1: 'Password Error',
+      text2: 'Passwords do not match.',
+    });
+    return;
+  }
+  if (!image) {
+    Toast.show({
+      type: 'error',
+      text1: 'Missing File',
+      text2: 'Please upload your facility certification.',
+    });
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('location', location);
+    formData.append('email', email);
+    formData.append('contactNum', contactNum);
+    formData.append('password', password);
+    formData.append('confirmpass', confirmpass);
+    formData.append('certification', {
+      uri: image,
+      name: 'certification.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    const response = await fetch(`${API_URL}/api/facility-signup`, {
+      method: 'POST',
+      body: formData,
+  });
+    const data = await response.json();
+
+    if (response.ok) {
+      Toast.show({
+        type: 'success',
+        text1: 'Success!',
+        text2: 'Facility registered successfully!',
+      });
+      router.push('/signin');
+    } else {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: data.message || 'Something went wrong.',
+      });
+    }
+  } catch (err: any) {
+      console.log('Facility signup error:', err.message);
+      Toast.show({
+      type: 'error',
+      text1: 'Connection Error',
+      text2: 'Could not connect to server.',
+    });
   }
 };
 
@@ -51,22 +128,24 @@ export default function individual_signup() {
         }}>
       </ImageBackground>
 
+      <View
+        pointerEvents="none" // prevents the background image from blocking touches on buttons and inputs
+        style={{ position: 'absolute', top: 0, left: 0, zIndex: 0 }}
+    >
       <Image
         source={require("../assets/images/bglayer.png")}
-        style={{ 
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 1000, 
-          height: 1000, 
+        style={{
+          width: 1000,
+          height: 1000,
           opacity: 0.5,
-          zIndex: 1
         }}
-        resizeMode="cover"/>
+        resizeMode="cover"
+      />
+</View>
 
       <Pressable // This is for the back button
         onPress={() => router.push('/')}
-        style={{ 
+        style={{
           position: 'absolute',
           top: 50,
           left: 10,
@@ -114,7 +193,9 @@ export default function individual_signup() {
         }}>
 
           <Pressable //for the individual user button
-            onPress={() => setUser("individual")}
+            onPress={() => {setUser("individual")
+              router.push("/individual_signup");
+            }}
             style={{
               flex: 1,
               backgroundColor: user === "individual" ? '#257901' : 'white',
@@ -288,7 +369,7 @@ export default function individual_signup() {
           />
 
           <Image
-            source={require("../assets/icons/email.png")} //email icon 
+            source={require("../assets/icons/email.png")} //email icon
             style={{
               position: 'absolute',
               left: 15,
@@ -332,7 +413,7 @@ export default function individual_signup() {
           />
 
           <Image
-            source={require("../assets/icons/telephone.png")} //contact number icon 
+            source={require("../assets/icons/telephone.png")} //contact number icon
             style={{
               position: 'absolute',
               left: 15,
@@ -369,13 +450,13 @@ export default function individual_signup() {
               borderRadius: 5,
               borderWidth: 1,
               borderColor: '#7ED957',
-              paddingLeft: 45, 
+              paddingLeft: 45,
               paddingRight: 45,
               fontSize: 13,
             }}
           />
           <Image
-            source={require("../assets/icons/padlock.png")} 
+            source={require("../assets/icons/padlock.png")}
             style={{
               position: 'absolute',
               left: 15,
@@ -384,7 +465,7 @@ export default function individual_signup() {
               height: 24,
               opacity: 0.3
             }}
-          /> 
+          />
           <Pressable //this is for the view/hide password function for the password form
             onPress={() => setIsPasswordVisible(!isPasswordVisible)}
             style={{
@@ -409,6 +490,7 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
+        
         <Text className="text-1xl font-bold" //confirm password label
           style={{
               marginTop: 15,
@@ -434,13 +516,13 @@ export default function individual_signup() {
               borderRadius: 5,
               borderWidth: 1,
               borderColor: '#7ED957',
-              paddingLeft: 45, 
+              paddingLeft: 45,
               paddingRight: 45,
               fontSize: 13,
             }}
           />
           <Image
-            source={require("../assets/icons/padlock.png")} 
+            source={require("../assets/icons/padlock.png")}
             style={{
               position: 'absolute',
               left: 15,
@@ -449,7 +531,7 @@ export default function individual_signup() {
               height: 24,
               opacity: 0.3
             }}
-          /> 
+          />
           <Pressable //this is for the view/hide password function for the confirm password form
             onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
             style={{
@@ -481,8 +563,9 @@ export default function individual_signup() {
             marginLeft: 45,}}>Facility Certification <Text style={{ color: '#666'}}>(Required)</Text></Text>
 
         <Pressable
-          onPress={(pickImage) => { //the upload image function should be added here
+          onPress={() => { //the upload image function should be added here
             console.log('Upload certification document');
+            pickImage();
           }}
           style={{
             marginTop: 15,
@@ -496,8 +579,33 @@ export default function individual_signup() {
             justifyContent: 'center',
             alignItems: 'center',
             gap: 10,
+            overflow: 'hidden', // add new code
           }}
         >
+  {image ? (
+    <>
+      <Image //new  blocks of code added for viewwing of image inside the box field
+        source={{ uri: image }}
+        style={{
+          width: '100%',
+          height: '100%',
+          borderRadius: 10
+        }}
+        resizeMode="cover"
+      />
+      <Text style={{
+        position: 'absolute',
+        bottom: 8,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        color: 'white',
+        fontSize: 11,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 5,
+      }}>Tap to change</Text>
+    </>
+  ) : (
+    <>
           <Image
             source={require("../assets/icons/upload.png")}
             style={{
@@ -510,6 +618,8 @@ export default function individual_signup() {
             color: '#999',
             textAlign: 'center',
           }}>Upload Certification Document</Text>
+          </>
+        )}
         </Pressable>
 
         <Text style={{
@@ -517,10 +627,11 @@ export default function individual_signup() {
           fontSize: 12,
           color: '#666',
           textAlign: 'center',
-          paddingHorizontal: 40,}}>This help us verify your facility is legitimate and compliant</Text>
+          paddingHorizontal: 40,
+          width: '100%', }}>This help us verify your facility is legitimate and compliant</Text>
             
         <Pressable //sign up button
-          onPress={() => router.push('/')}
+          onPress={handleSignUp} // calling the variable
           style={{
               marginTop: 30,
               width: 180,
@@ -536,7 +647,7 @@ export default function individual_signup() {
 
         <View //social sign up choices button
           style={{
-            marginTop: 30, 
+            marginTop: 30,
             flexDirection: 'row',
             alignItems: 'center',
             gap: 20,
@@ -563,7 +674,7 @@ export default function individual_signup() {
         </View>
 
         <Pressable //already have an account button
-            onPress={() => router.push('/signin')} 
+            onPress={() => router.push('/signin')}
             style={{
                 marginTop: 30,
             }}>
