@@ -1,3 +1,4 @@
+import * as Linking from 'expo-linking'; // expo-linking is used to open external URLs in the phone's default browser used here to open Facebook and Google websites when their buttons are tapped. Will be changed once done or upgrade
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import Toast from 'react-native-toast-message'; // import toast for showing notifications instead of alert()
 import { API_URL } from "../config"; //for running IP URL
+
 
 export default function individual_signup() {
   const router = useRouter();
@@ -458,8 +460,8 @@ export default function individual_signup() {
               <Image
                 source={
                   isPasswordVisible //changing of "eye" icon when clicked
-                    ? require("../assets/icons/hide.png")
-                    : require("../assets/icons/view.png")
+                    ? require("../assets/icons/view.png")
+                    : require("../assets/icons/hide.png")
                 }
                 style={{
                   width: 24,
@@ -531,8 +533,8 @@ export default function individual_signup() {
               <Image
                 source={
                   isConfirmPasswordVisible //changing of "eye" icon when clicked
-                    ? require("../assets/icons/hide.png")
-                    : require("../assets/icons/view.png")
+                    ? require("../assets/icons/view.png")
+                    : require("../assets/icons/hide.png")
                 }
                 style={{
                   width: 24,
@@ -582,7 +584,7 @@ export default function individual_signup() {
             </Pressable>
 
             <Pressable //sign in with google button
-              onPress={() => router.push("/")}
+            onPress={() => Linking.openURL('https://www.google.com')}
             >
               <Image
                 source={require("../assets/icons/google.png")}

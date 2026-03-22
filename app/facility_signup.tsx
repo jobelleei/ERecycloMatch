@@ -1,4 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking'; // expo-linking is used to open external URLs in the phone's default browser used here to open Facebook and Google websites when their buttons are tapped. Will be changed once done or upgrade
 import { useRouter } from 'expo-router';
 import { useState } from "react";
 import { Image, ImageBackground, Pressable, ScrollView, Text, TextInput, View } from "react-native";
@@ -174,15 +175,15 @@ const handleSignUp = async () => {
             height: 100,
           }}/>
 
-        <Text className="text-3xl font-bold" 
-          style={{ 
+        <Text className="text-3xl font-bold"
+          style={{
             marginTop: 5,
             textAlign: 'center',
             paddingHorizontal: 20,
           }}>Sign up and join the platform today!</Text>
 
         <View style={{ //user type choices
-          marginTop: 25, 
+          marginTop: 25,
           flexDirection: 'row',
           borderColor: '#7ED957',
           width: 280,
@@ -477,8 +478,8 @@ const handleSignUp = async () => {
             <Image
               source={
                 isPasswordVisible  //changing of "eye" icon when clicked
-                  ? require("../assets/icons/hide.png")
-                  : require("../assets/icons/view.png")
+                  ? require("../assets/icons/view.png")
+                  : require("../assets/icons/hide.png")
               }
               style={{
                 width: 24,
@@ -543,8 +544,8 @@ const handleSignUp = async () => {
             <Image
               source={
                 isConfirmPasswordVisible  //changing of "eye" icon when clicked
-                  ? require("../assets/icons/hide.png")
-                  : require("../assets/icons/view.png")
+                  ? require("../assets/icons/view.png")
+                  : require("../assets/icons/hide.png")
               }
               style={{
                 width: 24,
@@ -560,7 +561,7 @@ const handleSignUp = async () => {
           style={{
             marginTop: 15,
             alignSelf: 'flex-start',
-            marginLeft: 45,}}>Facility Certification <Text style={{ color: '#666'}}>(Required)</Text></Text>
+            marginLeft: 45,}}>{"Facility Certification"}<Text style={{ color: '#666'}}>(Required)</Text></Text>
 
         <Pressable
           onPress={() => { //the upload image function should be added here
@@ -652,8 +653,9 @@ const handleSignUp = async () => {
             alignItems: 'center',
             gap: 20,
           }}>
-          <Pressable //sign in with fb button
-            onPress={() => router.push('/')}>
+          <Pressable //* opens Facebook website in the phone's browser when tapped
+            onPress={() => Linking.openURL('https://www.facebook.com')}
+          >
             <Image
               source={require("../assets/icons/fb.png")}
               style={{
@@ -662,8 +664,9 @@ const handleSignUp = async () => {
               }}/>
           </Pressable>
 
-          <Pressable //sign in with google button
-            onPress={() => router.push('/')}>
+        <Pressable //* opens Google website in the phone's browser when tapped
+          onPress={() => Linking.openURL('https://www.google.com')}
+          >
             <Image
               source={require("../assets/icons/google.png")}
               style={{

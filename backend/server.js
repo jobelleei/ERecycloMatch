@@ -65,6 +65,7 @@ app.post("/api/individual-signup", async (req, res) => {
 
     db.query(sql, [name, email, address, hashedPassword], (err, result) => {
       if (err) {
+        console.log("DB ERROR:", err);
         if (err.code === "ER_DUP_ENTRY") {
           return res.status(409).json({ message: "Email already registered." });
         }
@@ -105,8 +106,9 @@ app.post("/api/facility-signup", upload.single("certification"), async (req, res
     const certificationPath = req.file.filename; // filename of uploaded certification image
     const sql = `INSERT INTO facilities (name, location, email, contact_num, password, certification_image) VALUES (?, ?, ?, ?, ?, ?)`;
 
-    db.query(sql, [name, location, email, contactNum, hashedPassword, certificationPath], (err, result) => {
+    db.query(sql, [name, location, email, contactNum, hashedPassword, certificationPath], (err, result) => { //for facility signup
       if (err) {
+        console.log("DB ERROR:", err);
         if (err.code === "ER_DUP_ENTRY") {
           return res.status(409).json({ message: "Email already registered." });
         }
