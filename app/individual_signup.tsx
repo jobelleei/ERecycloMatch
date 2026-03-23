@@ -546,7 +546,7 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
-          {/*Not sure if the 'Terms and Policies should be added since there was none added/mentioned in the paper */}
+          {/* Not sure if the 'Terms and Policies should be added since there was none added/mentioned in the paper */}
 
           <Pressable //sign up button
             onPress={handleSignUp} //sign up button
