@@ -8,9 +8,9 @@ import {
   TextInput,
   View,
 } from "react-native";
-import Toast from 'react-native-toast-message';
+import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
-
+import signinStyles from "../styles/signin";
 
 export default function Signup() {
   const router = useRouter();
@@ -18,358 +18,189 @@ export default function Signup() {
   const [password, setPassword] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
-const handleSignIn = async () => {
-  if (!email || !password) {
-    // shows error toast if fields are empty
-    Toast.show({
-      type: 'error',
-      text1: 'Missing Fields',
-      text2: 'Please fill in all fields.',
-    });
-    return;
-  }
-
-  try {
-    const response = await fetch(`${API_URL}/api/signin`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'ngrok-skip-browser-warning': 'true',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-
-    if (response.ok) {
-      // shows success toast after login is successful
+  const handleSignIn = async () => {
+    if (!email || !password) {
       Toast.show({
-        type: 'success',
-        text1: 'Welcome Back!',
-        text2: 'Login successful!',
+        type: "error",
+        text1: "Missing Fields",
+        text2: "Please fill in all fields.",
       });
-      if (data.userType === 'individual') {
-        router.push('/');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/signin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "true",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Toast.show({
+          type: "success",
+          text1: "Welcome Back!",
+          text2: "Login successful!",
+        });
+        if (data.userType === "individual") {
+          router.push("/");
+        } else {
+          router.push("/");
+        }
       } else {
-        router.push('/');
+        Toast.show({
+          type: "error",
+          text1: "Error",
+          text2: data.message || "Something went wrong.",
+        });
       }
-    } else {
-      // shows error toast if server returns an error
+    } catch (err) {
       Toast.show({
-        type: 'error',
-        text1: 'Error',
-        text2: data.message || 'Something went wrong.',
+        type: "error",
+        text1: "Connection Error",
+        text2: "Could not connect to server.",
       });
     }
-  } catch (err) {
-    // shows error toast if phone cannot reach the server
-    Toast.show({
-      type: 'error',
-      text1: 'Connection Error',
-      text2: 'Could not connect to server.',
-    });
-  }
-};
+  };
 
   return (
     <View className="flex-1 justify-center items-center bg-backg">
       <ImageBackground
         source={require("../assets/images/firstbg.png")}
-        style={{
-          position: "absolute",
-          bottom: 0,
-
-          width: 450,
-          height: 530,
-        }}
-      ></ImageBackground>
+        style={signinStyles.backgroundImage}
+      />
 
       <Image
         source={require("../assets/images/bglayer.png")}
-        style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: 1000,
-          height: 1000,
-          opacity: 0.5,
-          zIndex: 1,
-        }}
+        style={signinStyles.bgLayer}
         resizeMode="cover"
       />
 
-      <Pressable //this is for the back button
+      {/* Back Button */}
+      <Pressable
         onPress={() => router.push("/")}
-        style={{
-          position: "absolute",
-          top: 50,
-          left: 10,
-          zIndex: 10,
-        }}
+        style={signinStyles.backButton}
       >
         <Image
           source={require("../assets/icons/backbutton.png")}
-          style={{ width: 35, height: 35, marginStart: 5 }}
+          style={signinStyles.backButtonIcon}
         />
       </Pressable>
 
-      <Image //logo (to be changed/updated)
+      {/* Logo */}
+      <Image
         source={require("../assets/icons/icon.png")}
-        style={{
-          position: "absolute",
-          top: 110,
-          zIndex: 10,
-          width: 110,
-          height: 110,
-        }}
+        style={signinStyles.logo}
       />
 
-      <Text
-        className="text-4xl font-bold"
-        style={{
-          position: "absolute",
-          top: 215,
-          zIndex: 10,
-        }}
-      >
+      {/* Welcome Text */}
+      <Text className="text-4xl font-bold" style={signinStyles.welcomeText}>
         Welcome Back!
       </Text>
 
-      <Text
-        className="text-1xl"
-        style={{
-          position: "absolute",
-          top: 250,
-          zIndex: 10,
-          textAlign: 'center',
-          paddingHorizontal: 20,
-          width: '100%',
-        }}
-      >
+      {/* Subtitle */}
+      <Text className="text-1xl" style={signinStyles.subtitleText}>
         Sign in to continue recycling.
       </Text>
 
-      <Text
-        className="text-1xl font-bold"
-        style={{
-          position: "absolute",
-          zIndex: 10,
-          top: 310,
-          left: 50,
-        }}
-      >
+      {/* Email Label */}
+      <Text className="text-1xl font-bold" style={signinStyles.emailLabel}>
         Email
       </Text>
 
-      <View
-        style={{
-          position: "absolute",
-          top: 335,
-          alignSelf: "center",
-          zIndex: 10,
-          width: 320,
-          height: 50,
-        }}
-      >
-        <TextInput //Email input
+      {/* Email Input */}
+      <View style={signinStyles.emailInputWrapper}>
+        <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="Enter Email"
           placeholderTextColor="#999"
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundColor: "white",
-            borderRadius: 5,
-            borderWidth: 1,
-            borderColor: "#7ED957",
-            paddingLeft: 45,
-            paddingRight: 15,
-            fontSize: 13,
-          }}
+          style={[signinStyles.textInput, signinStyles.textInputWithLeftPadding]}
         />
         <Image
           source={require("../assets/icons/email.png")}
-          style={{
-            position: "absolute",
-            left: 15,
-            top: 13,
-            width: 24,
-            height: 24,
-            zIndex: 11,
-            opacity: 0.3,
-          }}
+          style={signinStyles.inputIconLeft}
         />
       </View>
 
-      <Text
-        className="text-1xl font-bold"
-        style={{
-          position: "absolute",
-          zIndex: 10,
-          top: 400,
-          left: 50,
-        }}
-      >
+      {/* Password Label */}
+      <Text className="text-1xl font-bold" style={signinStyles.passwordLabel}>
         Password
       </Text>
 
-      <View
-        style={{
-          position: "absolute",
-          top: 425,
-          alignSelf: "center",
-          zIndex: 10,
-          width: 320,
-          height: 50,
-        }}
-      >
-        <TextInput //password input
+      {/* Password Input */}
+      <View style={signinStyles.passwordInputWrapper}>
+        <TextInput
           value={password}
           onChangeText={setPassword}
           placeholder="Enter Password"
           placeholderTextColor="#999"
           secureTextEntry={!isPasswordVisible}
-          style={{
-            width: "100%",
-            height: "100%",
-            backgroundColor: "white",
-            borderRadius: 5,
-            borderWidth: 1,
-            borderColor: "#7ED957",
-            paddingLeft: 45,
-            paddingRight: 45,
-            fontSize: 13,
-          }}
+          style={[signinStyles.textInput, signinStyles.textInputWithRightPadding]}
         />
         <Image
           source={require("../assets/icons/padlock.png")}
-          style={{
-            position: "absolute",
-            left: 15,
-            top: 13,
-            width: 24,
-            height: 24,
-            zIndex: 11,
-            opacity: 0.3,
-          }}
+          style={signinStyles.inputIconLeft}
         />
-        <Pressable //this is for the view/hide password function for the password form
+        {/* Show/Hide Password Toggle */}
+        <Pressable
           onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-          style={{
-            position: "absolute",
-            right: 15,
-            top: 13,
-            zIndex: 11,
-          }}
+          style={signinStyles.inputIconRight}
         >
           <Image
             source={
-              isPasswordVisible //changing of "eye" icon when clicked
+              isPasswordVisible
                 ? require("../assets/icons/hide.png")
                 : require("../assets/icons/view.png")
             }
-            style={{
-              width: 24,
-              height: 24,
-              opacity: 0.3,
-            }}
+            style={signinStyles.inputIconRightImage}
           />
         </Pressable>
       </View>
 
-      <Pressable //forgot password function
-        onPress={() => router.push("/")} //link to be updated since forgot password function is not yet created
-        style={{
-          position: "absolute",
-          top: 485,
-          right: 50,
-          zIndex: 15,
-          width: 120,
-        }}
+      {/* Forgot Password */}
+      <Pressable
+        onPress={() => router.push("/")}
+        style={signinStyles.forgotPassword}
       >
-        <Text className="text-sm" >Forgot Password?</Text>
+        <Text className="text-sm">Forgot Password?</Text>
       </Pressable>
 
-      <Pressable
-        onPress={handleSignIn} //sign in button
-        style={{
-          position: "absolute",
-          top: 525,
-          zIndex: 10,
-          width: 180,
-          height: 45,
-          backgroundColor: "#257901",
-          borderRadius: 20,
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
+      {/* Sign In Button */}
+      <Pressable onPress={handleSignIn} style={signinStyles.signInButton}>
         <Text className="text-white font-bold text-lg">Sign In</Text>
       </Pressable>
 
-      <Text
-        style={{
-          position: "absolute",
-          zIndex: 10,
-          fontSize: 12,
-          marginTop: 345,
-          width: 120, // added width for large screens
-          textAlign: "center",
-        }}
-      >
-        or continue with
-      </Text>
+      {/* Or Continue With */}
+      <Text style={signinStyles.orContinueText}>or continue with</Text>
 
-      <View //social sign in options button
-        style={{
-          position: "absolute",
-          top: 670,
-          zIndex: 20,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 20,
-        }}
-      >
-        <Pressable //sign in with fb button
-          onPress={() => router.push("/")}
-        >
+      {/* Social Sign In */}
+      <View style={signinStyles.socialRow}>
+        <Pressable onPress={() => router.push("/")}>
           <Image
             source={require("../assets/icons/fb.png")}
-            style={{
-              width: 45,
-              height: 45,
-            }}
+            style={signinStyles.socialIcon}
           />
         </Pressable>
 
-        <Pressable //sign in with google button
-          onPress={() => router.push("/")}
-        >
+        <Pressable onPress={() => router.push("/")}>
           <Image
             source={require("../assets/icons/google.png")}
-            style={{
-              width: 45,
-              height: 45,
-            }}
+            style={signinStyles.socialIcon}
           />
         </Pressable>
       </View>
 
-      <Pressable //sign up button
-        onPress={() => router.push("/individual_signup")} //link to be updated
-        style={{
-          position: "absolute",
-          zIndex: 10,
-          bottom: 40,
-        }}
+      {/* Sign Up Link */}
+      <Pressable
+        onPress={() => router.push("/individual_signup")}
+        style={signinStyles.signUpLink}
       >
-        <Text
-          style={{
-            zIndex: 10,
-            fontSize: 12,
-          }}
-        >
+        <Text style={signinStyles.signUpLinkText}>
           Dont have an account? Sign Up here!
         </Text>
       </Pressable>
