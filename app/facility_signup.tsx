@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
-import styles from "../styles/facility_signup";
+import styles from "./styles/facility_signup";
 
 export default function individual_signup() {
   const router = useRouter();
@@ -25,7 +25,8 @@ export default function individual_signup() {
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
+    useState(false);
   const [image, setImage] = useState<string | null>(null);
 
   const pickImage = async () => {
@@ -171,13 +172,27 @@ export default function individual_signup() {
               setUser("individual");
               router.push("/individual_signup");
             }}
-            style={user === "individual" ? styles.individualTabActive : styles.individualTabInactive}
+            style={
+              user === "individual"
+                ? styles.individualTabActive
+                : styles.individualTabInactive
+            }
           >
             <Image
               source={require("../assets/icons/individual.png")}
-              style={user === "individual" ? styles.individualTabIconActive : styles.individualTabIconInactive}
+              style={
+                user === "individual"
+                  ? styles.individualTabIconActive
+                  : styles.individualTabIconInactive
+              }
             />
-            <Text style={user === "individual" ? styles.tabTextActive : styles.tabTextInactive}>
+            <Text
+              style={
+                user === "individual"
+                  ? styles.tabTextActive
+                  : styles.tabTextInactive
+              }
+            >
               Individual
             </Text>
           </Pressable>
@@ -188,13 +203,27 @@ export default function individual_signup() {
               setUser("facility");
               router.push("/facility_signup");
             }}
-            style={user === "facility" ? styles.facilityTabActive : styles.facilityTabInactive}
+            style={
+              user === "facility"
+                ? styles.facilityTabActive
+                : styles.facilityTabInactive
+            }
           >
             <Image
               source={require("../assets/icons/facility.png")}
-              style={user === "facility" ? styles.facilityTabIconActive : styles.facilityTabIconInactive}
+              style={
+                user === "facility"
+                  ? styles.facilityTabIconActive
+                  : styles.facilityTabIconInactive
+              }
             />
-            <Text style={user === "facility" ? styles.tabTextActive : styles.tabTextInactive}>
+            <Text
+              style={
+                user === "facility"
+                  ? styles.tabTextActive
+                  : styles.tabTextInactive
+              }
+            >
               Facility/Shop
             </Text>
           </Pressable>
@@ -318,7 +347,10 @@ export default function individual_signup() {
         </View>
 
         {/* Confirm Password Label */}
-        <Text className="text-1xl font-bold" style={styles.confirmPasswordLabel}>
+        <Text
+          className="text-1xl font-bold"
+          style={styles.confirmPasswordLabel}
+        >
           Confirm Password
         </Text>
 
@@ -337,7 +369,9 @@ export default function individual_signup() {
             style={styles.inputIconLeft}
           />
           <Pressable
-            onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+            onPress={() =>
+              setIsConfirmPasswordVisible(!isConfirmPasswordVisible)
+            }
             style={styles.passwordToggle}
           >
             <Image
@@ -393,7 +427,9 @@ export default function individual_signup() {
 
         {/* Social Sign Up */}
         <View style={styles.socialRow}>
-          <Pressable onPress={() => Linking.openURL("https://www.facebook.com")}>
+          <Pressable
+            onPress={() => Linking.openURL("https://www.facebook.com")}
+          >
             <Image
               source={require("../assets/icons/fb.png")}
               style={styles.socialIcon}

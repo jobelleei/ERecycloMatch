@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
-import signinStyles from "../styles/signin";
+import signinStyles from "./styles/signin";
 
 export default function Signup() {
   const router = useRouter();
@@ -119,7 +119,10 @@ export default function Signup() {
           onChangeText={setEmail}
           placeholder="Enter Email"
           placeholderTextColor="#999"
-          style={[signinStyles.textInput, signinStyles.textInputWithLeftPadding]}
+          style={[
+            signinStyles.textInput,
+            signinStyles.textInputWithLeftPadding,
+          ]}
         />
         <Image
           source={require("../assets/icons/email.png")}
@@ -140,7 +143,10 @@ export default function Signup() {
           placeholder="Enter Password"
           placeholderTextColor="#999"
           secureTextEntry={!isPasswordVisible}
-          style={[signinStyles.textInput, signinStyles.textInputWithRightPadding]}
+          style={[
+            signinStyles.textInput,
+            signinStyles.textInputWithRightPadding,
+          ]}
         />
         <Image
           source={require("../assets/icons/padlock.png")}

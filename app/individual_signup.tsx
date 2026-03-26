@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
-import styles from "../styles/individual_signup";
+import styles from "./styles/individual_signup";
 
 export default function individual_signup() {
   const router = useRouter();
@@ -25,7 +25,8 @@ export default function individual_signup() {
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
+    useState(false);
 
   const handleSignUp = async () => {
     if (!name || !email || !address || !password) {
@@ -133,13 +134,27 @@ export default function individual_signup() {
             {/* Individual Tab */}
             <Pressable
               onPress={() => setUser("individual")}
-              style={user === "individual" ? styles.individualTabActive : styles.individualTabInactive}
+              style={
+                user === "individual"
+                  ? styles.individualTabActive
+                  : styles.individualTabInactive
+              }
             >
               <Image
                 source={require("../assets/icons/individual.png")}
-                style={user === "individual" ? styles.individualTabIconActive : styles.individualTabIconInactive}
+                style={
+                  user === "individual"
+                    ? styles.individualTabIconActive
+                    : styles.individualTabIconInactive
+                }
               />
-              <Text style={user === "individual" ? styles.tabTextActive : styles.tabTextInactive}>
+              <Text
+                style={
+                  user === "individual"
+                    ? styles.tabTextActive
+                    : styles.tabTextInactive
+                }
+              >
                 Individual
               </Text>
             </Pressable>
@@ -150,13 +165,27 @@ export default function individual_signup() {
                 setUser("facility");
                 router.push("/facility_signup");
               }}
-              style={user === "facility" ? styles.facilityTabActive : styles.facilityTabInactive}
+              style={
+                user === "facility"
+                  ? styles.facilityTabActive
+                  : styles.facilityTabInactive
+              }
             >
               <Image
                 source={require("../assets/icons/facility.png")}
-                style={user === "facility" ? styles.facilityTabIconActive : styles.facilityTabIconInactive}
+                style={
+                  user === "facility"
+                    ? styles.facilityTabIconActive
+                    : styles.facilityTabIconInactive
+                }
               />
-              <Text style={user === "facility" ? styles.tabTextActive : styles.tabTextInactive}>
+              <Text
+                style={
+                  user === "facility"
+                    ? styles.tabTextActive
+                    : styles.tabTextInactive
+                }
+              >
                 Facility/Shop
               </Text>
             </Pressable>
@@ -260,7 +289,10 @@ export default function individual_signup() {
           </View>
 
           {/* Confirm Password Label */}
-          <Text className="text-1xl font-bold" style={styles.confirmPasswordLabel}>
+          <Text
+            className="text-1xl font-bold"
+            style={styles.confirmPasswordLabel}
+          >
             Confirm Password
           </Text>
 
@@ -280,7 +312,9 @@ export default function individual_signup() {
             />
             {/* Show/Hide Confirm Password Toggle */}
             <Pressable
-              onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
+              onPress={() =>
+                setIsConfirmPasswordVisible(!isConfirmPasswordVisible)
+              }
               style={styles.confirmPasswordToggle}
             >
               <Image
@@ -308,7 +342,9 @@ export default function individual_signup() {
               />
             </Pressable>
 
-            <Pressable onPress={() => Linking.openURL("https://www.google.com")}>
+            <Pressable
+              onPress={() => Linking.openURL("https://www.google.com")}
+            >
               <Image
                 source={require("../assets/icons/google.png")}
                 style={styles.socialIcon}
