@@ -62,11 +62,11 @@
         <div class="main">
             <div class="header">
                 <div class="dropdown-container">
-                    <h1>Users</h1>
+                    <h1>Facilities/Shops</h1>
                     <button class="dropdown-btn">▼</button>
                     <div class="dropdown-menu">
-                        <p>Registered Users</p>
-                        <p>Pending Approval</p>
+                        <p>Registered Facilities/Shops</p>
+                        <p>Pending Facilities/Shops</p>
                     </div>
                 </div>
             </div>
