@@ -1,4 +1,4 @@
-// Dropdown toggle
+//Dropdown
 const btn = document.querySelector(".dropdown-btn");
 const menu = document.querySelector(".dropdown-menu");
 const items = document.querySelectorAll(".dropdown-item");
@@ -17,7 +17,7 @@ items.forEach(item => {
     });
 });
 
-// Sidebar active highlight
+//Sidebar
 const currentPage = window.location.pathname.split("/").pop();
 
 const pageMap = {
