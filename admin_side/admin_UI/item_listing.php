@@ -30,7 +30,7 @@
                     <span>Users</span>
                 </li>
 
-                <!--Facilities/Shops-->
+                <!--Facility/Shops-->
                 <li onclick="window.location.href='facility_ver.php'"
                     class="<?= $currentPage === 'facility_ver.php' ? 'active' : '' ?>">
                     <img src="../../assets/icons/building.png" alt="">
@@ -52,33 +52,26 @@
                 </li>
             </ul>
 
-            <!--Log Out Button-->
+            <!--Log out button-->
             <a href="login.php" class="logout">
                 <span>Log Out</span>
                 <img id="leave" src="../../assets/icons/logout.png">
             </a>
-        </div>
 
+        </div>
         <div class="main">
             <div class="header">
-                <div class="dropdown-container">
-                    <h1>Users</h1>
-                    <button class="dropdown-btn">▼</button>
-                    <div class="dropdown-menu">
-                        <p>Registered Users</p>
-                        <p>Pending Approval</p>
-                    </div>
-                </div>
+                <h1>Item Listing</h1>
             </div>
 
             <div class="controls">
-                <!--Search Box-->
                 <div class="search-box">
+                    <!--Search Box-->
                     <input type="text" placeholder="Search">
                 </div>
 
-                <!--Sorting Button-->
                 <button class="sort-btn">
+                    <!--Sorting Button-->
                     <img src="../../assets/icons/sort.png" alt="sort">
                 </button>
             </div>

@@ -52,36 +52,13 @@
                 </li>
             </ul>
 
-            <!--Log Out Button-->
+            <!--Log out button-->
             <a href="login.php" class="logout">
                 <span>Log Out</span>
                 <img id="leave" src="../../assets/icons/logout.png">
             </a>
         </div>
-
         <div class="main">
-            <div class="header">
-                <div class="dropdown-container">
-                    <h1>Users</h1>
-                    <button class="dropdown-btn">▼</button>
-                    <div class="dropdown-menu">
-                        <p>Registered Users</p>
-                        <p>Pending Approval</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="controls">
-                <!--Search Box-->
-                <div class="search-box">
-                    <input type="text" placeholder="Search">
-                </div>
-
-                <!--Sorting Button-->
-                <button class="sort-btn">
-                    <img src="../../assets/icons/sort.png" alt="sort">
-                </button>
-            </div>
         </div>
     </div>
 </body>
