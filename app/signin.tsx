@@ -1,5 +1,6 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
+
 import {
   Image,
   ImageBackground,
@@ -46,11 +47,8 @@ export default function Signup() {
           text1: "Welcome Back!",
           text2: "Login successful!",
         });
-        if (data.userType === "individual") {
-          router.push("/");
-        } else {
-          router.push("/");
-        }
+        router.replace("/dashboard");
+
       } else {
         Toast.show({
           type: "error",
@@ -80,7 +78,7 @@ export default function Signup() {
         resizeMode="cover"
       />
 
-      {/* Back Button */}
+      {/*Back Button*/}
       <Pressable
         onPress={() => router.push("/")}
         style={signinStyles.backButton}
@@ -91,34 +89,32 @@ export default function Signup() {
         />
       </Pressable>
 
-      {/* Logo */}
+      {/*Logo*/}
       <Image
         source={require("../assets/icons/icon.png")}
         style={signinStyles.logo}
       />
 
-      {/* Welcome Text */}
       <Text className="text-4xl font-bold" style={signinStyles.welcomeText}>
         Welcome Back!
       </Text>
 
-      {/* Subtitle */}
       <Text className="text-1xl" style={signinStyles.subtitleText}>
         Sign in to continue recycling.
       </Text>
 
-      {/* Email Label */}
+      {/*Email*/}
       <Text className="text-1xl font-bold" style={signinStyles.emailLabel}>
         Email
       </Text>
 
-      {/* Email Input */}
+      {/*Email Input*/}
       <View style={signinStyles.emailInputWrapper}>
         <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="Enter Email"
-          placeholderTextColor="#999"
+          placeholderTextColor="#D3D3D3"
           style={[
             signinStyles.textInput,
             signinStyles.textInputWithLeftPadding,
@@ -130,12 +126,12 @@ export default function Signup() {
         />
       </View>
 
-      {/* Password Label */}
+      {/*Password*/}
       <Text className="text-1xl font-bold" style={signinStyles.passwordLabel}>
         Password
       </Text>
 
-      {/* Password Input */}
+      {/*Password Input*/}
       <View style={signinStyles.passwordInputWrapper}>
         <TextInput
           value={password}
@@ -152,7 +148,8 @@ export default function Signup() {
           source={require("../assets/icons/padlock.png")}
           style={signinStyles.inputIconLeft}
         />
-        {/* Show/Hide Password Toggle */}
+
+        {/*Show/Hide Password*/}
         <Pressable
           onPress={() => setIsPasswordVisible(!isPasswordVisible)}
           style={signinStyles.inputIconRight}
@@ -168,7 +165,7 @@ export default function Signup() {
         </Pressable>
       </View>
 
-      {/* Forgot Password */}
+      {/*Forgot Password*/}
       <Pressable
         onPress={() => router.push("/")}
         style={signinStyles.forgotPassword}
@@ -176,15 +173,20 @@ export default function Signup() {
         <Text className="text-sm">Forgot Password?</Text>
       </Pressable>
 
-      {/* Sign In Button */}
+      {/* Sign In Button 
       <Pressable onPress={handleSignIn} style={signinStyles.signInButton}>
+        <Text className="text-white font-bold text-lg">Sign In</Text>
+      </Pressable> */}
+
+      {/*Sign In Button*/}  
+      <Pressable
+        onPress={() => router.push("/dashboard")}
+        style={signinStyles.signInButton}>
         <Text className="text-white font-bold text-lg">Sign In</Text>
       </Pressable>
 
-      {/* Or Continue With */}
       <Text style={signinStyles.orContinueText}>or continue with</Text>
 
-      {/* Social Sign In */}
       <View style={signinStyles.socialRow}>
         <Pressable onPress={() => router.push("/")}>
           <Image
@@ -201,7 +203,7 @@ export default function Signup() {
         </Pressable>
       </View>
 
-      {/* Sign Up Link */}
+      {/*Sign Up Link*/}
       <Pressable
         onPress={() => router.push("/individual_signup")}
         style={signinStyles.signUpLink}
