@@ -29,26 +29,26 @@ export default function individual_signup() {
     useState(false);
   const [image, setImage] = useState<string | null>(null);
 
-  const pickImage = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
 
-    if (!permission.granted) {
+    if (status !== "granted") {
       Toast.show({
         type: "error",
         text1: "Permission Denied",
-        text2: "Permission required to access gallery.",
+        text2: "Camera access is required to take a photo.",
       });
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 1,
+      quality: 0.8,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      setImage(result.assets[0].uri ?? null);
     }
   };
 
@@ -125,13 +125,11 @@ export default function individual_signup() {
 
   return (
     <View className="flex-1 bg-backg">
-      {/* Background Image */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
       />
 
-      {/* BG Layer */}
       <View pointerEvents="none" style={styles.bgLayerWrapper}>
         <Image
           source={require("../assets/images/bglayer.png")}
@@ -140,7 +138,6 @@ export default function individual_signup() {
         />
       </View>
 
-      {/* Back Button */}
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
         <Image
           source={require("../assets/icons/backbutton.png")}
@@ -153,20 +150,18 @@ export default function individual_signup() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
+        {/*Logo*/}
         <Image
           source={require("../assets/icons/icon.png")}
           style={styles.logo}
         />
 
-        {/* Title */}
         <Text className="text-3xl font-bold" style={styles.title}>
           Sign up and join the platform today!
         </Text>
 
-        {/* User Type Toggle */}
         <View style={styles.userTypeToggle}>
-          {/* Individual Tab */}
+          {/*Individual button*/}
           <Pressable
             onPress={() => {
               setUser("individual");
@@ -197,7 +192,7 @@ export default function individual_signup() {
             </Text>
           </Pressable>
 
-          {/* Facility Tab */}
+          {/*Facility button*/}
           <Pressable
             onPress={() => {
               setUser("facility");
@@ -229,12 +224,11 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
-        {/* Facility Name Label */}
+        {/*Name input*/}
         <Text className="text-1xl font-bold" style={styles.firstInputLabel}>
           Facility Name
         </Text>
 
-        {/* Facility Name Input */}
         <View style={styles.inputWrapper}>
           <TextInput
             value={name}
@@ -249,12 +243,11 @@ export default function individual_signup() {
           />
         </View>
 
-        {/* Location Label */}
+        {/*Location input*/}
         <Text className="text-1xl font-bold" style={styles.inputLabel}>
           Location
         </Text>
 
-        {/* Location Input */}
         <View style={styles.inputWrapper}>
           <TextInput
             value={location}
@@ -269,12 +262,11 @@ export default function individual_signup() {
           />
         </View>
 
-        {/* Email Label */}
+        {/*Email input*/}
         <Text className="text-1xl font-bold" style={styles.inputLabel}>
           Email
         </Text>
 
-        {/* Email Input */}
         <View style={styles.inputWrapper}>
           <TextInput
             value={email}
@@ -291,12 +283,11 @@ export default function individual_signup() {
           />
         </View>
 
-        {/* Contact Number Label */}
+        {/*Contact # input*/}
         <Text className="text-1xl font-bold" style={styles.inputLabel}>
           Contact Number
         </Text>
 
-        {/* Contact Number Input */}
         <View style={styles.inputWrapper}>
           <TextInput
             value={contactNum}
@@ -312,12 +303,11 @@ export default function individual_signup() {
           />
         </View>
 
-        {/* Password Label */}
+        {/*Password input*/}
         <Text className="text-1xl font-bold" style={styles.inputLabel}>
           Password
         </Text>
 
-        {/* Password Input */}
         <View style={styles.inputWrapper}>
           <TextInput
             value={password}
@@ -346,7 +336,7 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
-        {/* Confirm Password Label */}
+        {/*Confirm password input*/}
         <Text
           className="text-1xl font-bold"
           style={styles.confirmPasswordLabel}
@@ -354,7 +344,6 @@ export default function individual_signup() {
           Confirm Password
         </Text>
 
-        {/* Confirm Password Input */}
         <View style={styles.confirmPasswordWrapper}>
           <TextInput
             value={confirmpass}
@@ -385,14 +374,13 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
-        {/* Upload Label */}
+        {/*File open camera*/}
         <Text className="text-1xl font-bold" style={styles.uploadLabel}>
           {"Facility Certification"}
           <Text style={styles.uploadLabelSub}>(Required)</Text>
         </Text>
 
-        {/* Upload Box */}
-        <Pressable onPress={pickImage} style={styles.uploadBox}>
+        <Pressable onPress={openCamera} style={styles.uploadBox}>
           {image ? (
             <>
               <Image
@@ -400,32 +388,31 @@ export default function individual_signup() {
                 style={styles.uploadedImage}
                 resizeMode="cover"
               />
-              <Text style={styles.uploadedImageLabel}>Tap to change</Text>
+              <Text style={styles.uploadedImageLabel}>Tap to retake</Text>
             </>
           ) : (
             <>
               <Image
-                source={require("../assets/icons/upload.png")}
+                source={require("../assets/icons/camera.png")}
                 style={styles.uploadIcon}
               />
               <Text style={styles.uploadPlaceholderText}>
-                Upload Certification Document
+                Tap to open camera
               </Text>
             </>
           )}
         </Pressable>
 
-        {/* Upload Helper Text */}
         <Text style={styles.uploadHelperText}>
           This help us verify your facility is legitimate and compliant
         </Text>
 
-        {/* Sign Up Button */}
+        {/*Sign up button*/}
         <Pressable onPress={handleSignUp} style={styles.signUpButton}>
           <Text className="text-white font-bold text-lg">Sign Up</Text>
         </Pressable>
 
-        {/* Social Sign Up */}
+        {/*Social sign up*/}
         <View style={styles.socialRow}>
           <Pressable
             onPress={() => Linking.openURL("https://www.facebook.com")}
@@ -444,7 +431,6 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
-        {/* Sign In Link */}
         <Pressable
           onPress={() => router.push("/signin")}
           style={styles.signInLink}

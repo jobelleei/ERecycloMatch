@@ -1,3 +1,4 @@
+import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -25,8 +26,31 @@ export default function individual_signup() {
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
-  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
-    useState(false);
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (status !== "granted") {
+      Toast.show({
+        type: "error",
+        text1: "Permission Denied",
+        text2: "Camera access is required to take a photo.",
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setImage(result.assets[0].uri ?? null);
+    }
+  };
 
   const handleSignUp = async () => {
     if (!name || !email || !address || !password) {
@@ -85,13 +109,11 @@ export default function individual_signup() {
 
   return (
     <View className="flex-1 bg-backg">
-      {/* Background Image */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
       />
 
-      {/* BG Layer */}
       <View pointerEvents="none" style={styles.bgLayerWrapper}>
         <Image
           source={require("../assets/images/bglayer.png")}
@@ -100,7 +122,6 @@ export default function individual_signup() {
         />
       </View>
 
-      {/* Back Button */}
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
         <Image
           source={require("../assets/icons/backbutton.png")}
@@ -118,20 +139,18 @@ export default function individual_signup() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Logo */}
+          {/*Logo*/}
           <Image
             source={require("../assets/icons/icon.png")}
             style={styles.logo}
           />
 
-          {/* Title */}
           <Text className="text-3xl font-bold" style={styles.title}>
             Sign up and join the platform today!
           </Text>
 
-          {/* User Type Toggle */}
           <View style={styles.userTypeToggle}>
-            {/* Individual Tab */}
+            {/*Individual button*/}
             <Pressable
               onPress={() => setUser("individual")}
               style={
@@ -159,7 +178,7 @@ export default function individual_signup() {
               </Text>
             </Pressable>
 
-            {/* Facility Tab */}
+            {/*Facility button*/}
             <Pressable
               onPress={() => {
                 setUser("facility");
@@ -191,12 +210,11 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
-          {/* Name Label */}
+          {/*Name input*/}
           <Text className="text-1xl font-bold" style={styles.firstInputLabel}>
             Name
           </Text>
 
-          {/* Name Input */}
           <View style={styles.inputWrapper}>
             <TextInput
               value={name}
@@ -211,12 +229,11 @@ export default function individual_signup() {
             />
           </View>
 
-          {/* Email Label */}
+          {/*Email input*/}
           <Text className="text-1xl font-bold" style={styles.inputLabel}>
             Email
           </Text>
 
-          {/* Email Input */}
           <View style={styles.inputWrapper}>
             <TextInput
               value={email}
@@ -233,12 +250,11 @@ export default function individual_signup() {
             />
           </View>
 
-          {/* Address Label */}
+          {/*Address input*/}
           <Text className="text-1xl font-bold" style={styles.inputLabel}>
             Address
           </Text>
 
-          {/* Address Input */}
           <View style={styles.inputWrapper}>
             <TextInput
               value={address}
@@ -253,12 +269,40 @@ export default function individual_signup() {
             />
           </View>
 
-          {/* Password Label */}
+          {/*ID open camera*/}
+          <Text className="text-1xl font-bold" style={styles.uploadLabel}>
+            {"ID Verification"}
+            <Text style={styles.uploadLabelSub}> (Required)</Text>
+          </Text>
+
+          <Pressable onPress={openCamera} style={styles.uploadBox}>
+            {image ? (
+              <>
+                <Image
+                  source={{ uri: image }}
+                  style={styles.uploadedImage}
+                  resizeMode="cover"
+                />
+                <Text style={styles.uploadedImageLabel}>Tap to retake</Text>
+              </>
+            ) : (
+              <>
+                <Image
+                  source={require("../assets/icons/camera.png")}
+                  style={styles.uploadIcon}
+                />
+                <Text style={styles.uploadPlaceholderText}>
+                  Tap to open camera
+                </Text>
+              </>
+            )}
+          </Pressable>
+
+          {/*Password input*/}
           <Text className="text-1xl font-bold" style={styles.inputLabel}>
             Password
           </Text>
 
-          {/* Password Input */}
           <View style={styles.inputWrapper}>
             <TextInput
               value={password}
@@ -272,7 +316,6 @@ export default function individual_signup() {
               source={require("../assets/icons/padlock.png")}
               style={styles.inputIconLeft}
             />
-            {/* Show/Hide Password Toggle */}
             <Pressable
               onPress={() => setIsPasswordVisible(!isPasswordVisible)}
               style={styles.passwordToggle}
@@ -288,15 +331,11 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
-          {/* Confirm Password Label */}
-          <Text
-            className="text-1xl font-bold"
-            style={styles.confirmPasswordLabel}
-          >
+          {/*Confirm password input*/}
+          <Text className="text-1xl font-bold" style={styles.confirmPasswordLabel}>
             Confirm Password
           </Text>
 
-          {/* Confirm Password Input */}
           <View style={styles.confirmPasswordWrapper}>
             <TextInput
               value={confirmpass}
@@ -310,11 +349,8 @@ export default function individual_signup() {
               source={require("../assets/icons/padlock.png")}
               style={styles.inputIconLeft}
             />
-            {/* Show/Hide Confirm Password Toggle */}
             <Pressable
-              onPress={() =>
-                setIsConfirmPasswordVisible(!isConfirmPasswordVisible)
-              }
+              onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
               style={styles.confirmPasswordToggle}
             >
               <Image
@@ -328,12 +364,12 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
-          {/* Sign Up Button */}
+          {/*Sign up button*/}
           <Pressable onPress={handleSignUp} style={styles.signUpButton}>
             <Text className="text-white font-bold text-lg">Sign Up</Text>
           </Pressable>
 
-          {/* Social Sign Up */}
+          {/*Social sign up*/}
           <View style={styles.socialRow}>
             <Pressable onPress={() => router.push("/")}>
               <Image
@@ -342,9 +378,7 @@ export default function individual_signup() {
               />
             </Pressable>
 
-            <Pressable
-              onPress={() => Linking.openURL("https://www.google.com")}
-            >
+            <Pressable onPress={() => Linking.openURL("https://www.google.com")}>
               <Image
                 source={require("../assets/icons/google.png")}
                 style={styles.socialIcon}
@@ -352,7 +386,6 @@ export default function individual_signup() {
             </Pressable>
           </View>
 
-          {/* Sign In Link */}
           <Pressable
             onPress={() => router.push("/signin")}
             style={styles.signInLink}

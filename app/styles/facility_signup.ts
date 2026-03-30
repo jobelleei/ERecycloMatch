@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 
 const facilitySignupStyles = StyleSheet.create({
-  // Background images
   backgroundImage: {
     position: "absolute",
     bottom: 0,
@@ -22,7 +21,6 @@ const facilitySignupStyles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Back button
   backButton: {
     position: "absolute",
     top: 50,
@@ -35,7 +33,6 @@ const facilitySignupStyles = StyleSheet.create({
     marginStart: 5,
   },
 
-  // ScrollView
   scrollView: {
     zIndex: 2,
   },
@@ -45,21 +42,18 @@ const facilitySignupStyles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  // Logo
   logo: {
     marginTop: 20,
     width: 100,
     height: 100,
   },
 
-  // Title
   title: {
     marginTop: 5,
     textAlign: "center",
     paddingHorizontal: 20,
   },
 
-  // User type toggle
   userTypeToggle: {
     marginTop: 25,
     flexDirection: "row",
@@ -133,7 +127,6 @@ const facilitySignupStyles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Input labels
   firstInputLabel: {
     marginTop: 30,
     alignSelf: "flex-start",
@@ -158,7 +151,6 @@ const facilitySignupStyles = StyleSheet.create({
     color: "#666",
   },
 
-  // Input wrappers
   inputWrapper: {
     marginTop: 5,
     width: 320,
@@ -170,7 +162,6 @@ const facilitySignupStyles = StyleSheet.create({
     height: 50,
   },
 
-  // TextInput styles
   textInputShort: {
     width: "100%",
     height: "85%",
@@ -205,7 +196,6 @@ const facilitySignupStyles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Left icon inside input
   inputIconLeft: {
     position: "absolute",
     left: 15,
@@ -216,7 +206,6 @@ const facilitySignupStyles = StyleSheet.create({
     opacity: 0.3,
   },
 
-  // Password toggle buttons
   passwordToggle: {
     position: "absolute",
     right: 15,
@@ -229,11 +218,10 @@ const facilitySignupStyles = StyleSheet.create({
     top: -2,
   },
 
-  // Upload / certification box
   uploadBox: {
     marginTop: 15,
     width: 320,
-    height: 150,
+    height: 300,
     backgroundColor: "white",
     borderRadius: 10,
     borderWidth: 1,
@@ -260,8 +248,8 @@ const facilitySignupStyles = StyleSheet.create({
     borderRadius: 5,
   },
   uploadIcon: {
-    width: 30,
-    height: 30,
+    width: 50,
+    height: 50,
     opacity: 0.4,
   },
   uploadPlaceholderText: {
@@ -269,7 +257,6 @@ const facilitySignupStyles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Upload helper text
   uploadHelperText: {
     marginTop: 10,
     fontSize: 12,
@@ -279,7 +266,6 @@ const facilitySignupStyles = StyleSheet.create({
     width: "100%",
   },
 
-  // Sign Up button
   signUpButton: {
     marginTop: 30,
     width: 180,
@@ -290,7 +276,6 @@ const facilitySignupStyles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Social buttons row
   socialRow: {
     marginTop: 30,
     flexDirection: "row",
@@ -302,7 +287,6 @@ const facilitySignupStyles = StyleSheet.create({
     height: 45,
   },
 
-  // Sign in link
   signInLink: {
     marginTop: 30,
   },
