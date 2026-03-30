@@ -1,7 +1,6 @@
 import { StyleSheet } from "react-native";
 
 const individualSignupStyles = StyleSheet.create({
-  // Background images
   backgroundImage: {
     position: "absolute",
     bottom: 0,
@@ -22,7 +21,6 @@ const individualSignupStyles = StyleSheet.create({
     opacity: 0.5,
   },
 
-  // Back button
   backButton: {
     position: "absolute",
     top: 50,
@@ -35,39 +33,33 @@ const individualSignupStyles = StyleSheet.create({
     marginStart: 5,
   },
 
-  // KeyboardAvoidingView
   keyboardAvoidingView: {
     flex: 1,
     zIndex: 2,
   },
 
-  // ScrollView
   scrollView: {
     zIndex: 2,
   },
 
-  // ScrollView content
   scrollContent: {
     alignItems: "center",
     paddingTop: 70,
     paddingBottom: 100,
   },
 
-  // Logo
   logo: {
     marginTop: 20,
     width: 100,
     height: 100,
   },
 
-  // Title
   title: {
     marginTop: 5,
     textAlign: "center",
     paddingHorizontal: 20,
   },
 
-  // User type toggle container
   userTypeToggle: {
     marginTop: 25,
     flexDirection: "row",
@@ -79,7 +71,6 @@ const individualSignupStyles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  // Individual tab - active
   individualTabActive: {
     flex: 1,
     backgroundColor: "#257901",
@@ -88,7 +79,7 @@ const individualSignupStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
   },
-  // Individual tab - inactive
+
   individualTabInactive: {
     flex: 1,
     backgroundColor: "white",
@@ -118,7 +109,6 @@ const individualSignupStyles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Facility tab - active
   facilityTabActive: {
     flex: 1,
     backgroundColor: "#257901",
@@ -127,7 +117,7 @@ const individualSignupStyles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
   },
-  // Facility tab - inactive
+
   facilityTabInactive: {
     flex: 1,
     backgroundColor: "white",
@@ -147,7 +137,6 @@ const individualSignupStyles = StyleSheet.create({
     tintColor: "#666",
   },
 
-  // Input field labels
   firstInputLabel: {
     marginTop: 30,
     alignSelf: "flex-start",
@@ -164,7 +153,6 @@ const individualSignupStyles = StyleSheet.create({
     marginLeft: 45,
   },
 
-  // Input wrappers
   inputWrapper: {
     marginTop: 5,
     width: 320,
@@ -176,7 +164,6 @@ const individualSignupStyles = StyleSheet.create({
     height: 50,
   },
 
-  // TextInput styles
   textInputShort: {
     width: "100%",
     height: "85%",
@@ -211,7 +198,6 @@ const individualSignupStyles = StyleSheet.create({
     fontSize: 13,
   },
 
-  // Left icon inside input
   inputIconLeft: {
     position: "absolute",
     left: 15,
@@ -222,7 +208,6 @@ const individualSignupStyles = StyleSheet.create({
     opacity: 0.3,
   },
 
-  // Right icon (show/hide password)
   passwordToggle: {
     position: "absolute",
     right: 15,
@@ -245,7 +230,6 @@ const individualSignupStyles = StyleSheet.create({
     top: -2,
   },
 
-  // Sign Up button
   signUpButton: {
     marginTop: 30,
     width: 180,
@@ -256,7 +240,6 @@ const individualSignupStyles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Social buttons row
   socialRow: {
     marginTop: 30,
     flexDirection: "row",
@@ -268,13 +251,61 @@ const individualSignupStyles = StyleSheet.create({
     height: 45,
   },
 
-  // Sign in link
   signInLink: {
     marginTop: 20,
   },
   signInLinkText: {
     zIndex: 10,
     fontSize: 12,
+  },
+
+  uploadLabel: {
+    marginTop: 10,
+    alignSelf: "flex-start",
+    marginLeft: 45,
+    fontWeight: "bold",
+  },
+  uploadLabelSub: {
+    fontWeight: "normal",
+    color: "#999",
+    fontSize: 12,
+  },
+  uploadBox: {
+    marginTop: 15,
+    width: 320,
+    height: 300,
+    backgroundColor: "white",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#7ED957",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+    overflow: "hidden",
+  },
+  uploadedImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 10,
+  },
+  uploadedImageLabel: {
+    position: "absolute",
+    bottom: 8,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    color: "white",
+    fontSize: 11,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  uploadIcon: {
+    width: 50,
+    height: 50,
+  },
+  uploadPlaceholderText: {
+    color: "#999",
+    textAlign: "center",
   },
 });
 
