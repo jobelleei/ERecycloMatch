@@ -28,6 +28,7 @@ export default function individual_signup() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] = useState(false);
   const [image, setImage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const openCamera = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -71,14 +72,32 @@ export default function individual_signup() {
       return;
     }
 
+    setIsLoading(true);
+
     try {
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("email", email);
+      formData.append("address", address);
+      formData.append("password", password);
+      formData.append("confirmpass", confirmpass);
+
+      if (image) {
+        formData.append("id_image", {
+          uri: image,
+          name: "id_photo.jpg",
+          type: "image/jpeg",
+        } as any);
+      }
+
+      // ✅ Do NOT set Content-Type manually — React Native sets it automatically
+      // with the correct multipart boundary. Setting it manually breaks multer.
       const response = await fetch(`${API_URL}/api/individual-signup`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "true",
         },
-        body: JSON.stringify({ name, email, address, password, confirmpass }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -104,6 +123,8 @@ export default function individual_signup() {
         text1: "Connection Error",
         text2: "Could not connect to server.",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -153,27 +174,13 @@ export default function individual_signup() {
             {/*Individual button*/}
             <Pressable
               onPress={() => setUser("individual")}
-              style={
-                user === "individual"
-                  ? styles.individualTabActive
-                  : styles.individualTabInactive
-              }
+              style={user === "individual" ? styles.individualTabActive : styles.individualTabInactive}
             >
               <Image
                 source={require("../assets/icons/individual.png")}
-                style={
-                  user === "individual"
-                    ? styles.individualTabIconActive
-                    : styles.individualTabIconInactive
-                }
+                style={user === "individual" ? styles.individualTabIconActive : styles.individualTabIconInactive}
               />
-              <Text
-                style={
-                  user === "individual"
-                    ? styles.tabTextActive
-                    : styles.tabTextInactive
-                }
-              >
+              <Text style={user === "individual" ? styles.tabTextActive : styles.tabTextInactive}>
                 Individual
               </Text>
             </Pressable>
@@ -184,37 +191,20 @@ export default function individual_signup() {
                 setUser("facility");
                 router.push("/facility_signup");
               }}
-              style={
-                user === "facility"
-                  ? styles.facilityTabActive
-                  : styles.facilityTabInactive
-              }
+              style={user === "facility" ? styles.facilityTabActive : styles.facilityTabInactive}
             >
               <Image
                 source={require("../assets/icons/facility.png")}
-                style={
-                  user === "facility"
-                    ? styles.facilityTabIconActive
-                    : styles.facilityTabIconInactive
-                }
+                style={user === "facility" ? styles.facilityTabIconActive : styles.facilityTabIconInactive}
               />
-              <Text
-                style={
-                  user === "facility"
-                    ? styles.tabTextActive
-                    : styles.tabTextInactive
-                }
-              >
+              <Text style={user === "facility" ? styles.tabTextActive : styles.tabTextInactive}>
                 Facility/Shop
               </Text>
             </Pressable>
           </View>
 
           {/*Name input*/}
-          <Text className="text-1xl font-bold" style={styles.firstInputLabel}>
-            Name
-          </Text>
-
+          <Text className="text-1xl font-bold" style={styles.firstInputLabel}>Name</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={name}
@@ -223,17 +213,11 @@ export default function individual_signup() {
               placeholderTextColor="#999"
               style={styles.textInputShort}
             />
-            <Image
-              source={require("../assets/icons/individual.png")}
-              style={styles.inputIconLeft}
-            />
+            <Image source={require("../assets/icons/individual.png")} style={styles.inputIconLeft} />
           </View>
 
           {/*Email input*/}
-          <Text className="text-1xl font-bold" style={styles.inputLabel}>
-            Email
-          </Text>
-
+          <Text className="text-1xl font-bold" style={styles.inputLabel}>Email</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={email}
@@ -244,17 +228,11 @@ export default function individual_signup() {
               autoCapitalize="none"
               style={styles.textInputTall}
             />
-            <Image
-              source={require("../assets/icons/email.png")}
-              style={styles.inputIconLeft}
-            />
+            <Image source={require("../assets/icons/email.png")} style={styles.inputIconLeft} />
           </View>
 
           {/*Address input*/}
-          <Text className="text-1xl font-bold" style={styles.inputLabel}>
-            Address
-          </Text>
-
+          <Text className="text-1xl font-bold" style={styles.inputLabel}>Address</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={address}
@@ -263,10 +241,7 @@ export default function individual_signup() {
               placeholderTextColor="#999"
               style={styles.textInputTall}
             />
-            <Image
-              source={require("../assets/icons/location.png")}
-              style={styles.inputIconLeft}
-            />
+            <Image source={require("../assets/icons/location.png")} style={styles.inputIconLeft} />
           </View>
 
           {/*ID open camera*/}
@@ -278,31 +253,19 @@ export default function individual_signup() {
           <Pressable onPress={openCamera} style={styles.uploadBox}>
             {image ? (
               <>
-                <Image
-                  source={{ uri: image }}
-                  style={styles.uploadedImage}
-                  resizeMode="cover"
-                />
+                <Image source={{ uri: image }} style={styles.uploadedImage} resizeMode="cover" />
                 <Text style={styles.uploadedImageLabel}>Tap to retake</Text>
               </>
             ) : (
               <>
-                <Image
-                  source={require("../assets/icons/camera.png")}
-                  style={styles.uploadIcon}
-                />
-                <Text style={styles.uploadPlaceholderText}>
-                  Tap to open camera
-                </Text>
+                <Image source={require("../assets/icons/camera.png")} style={styles.uploadIcon} />
+                <Text style={styles.uploadPlaceholderText}>Tap to open camera</Text>
               </>
             )}
           </Pressable>
 
           {/*Password input*/}
-          <Text className="text-1xl font-bold" style={styles.inputLabel}>
-            Password
-          </Text>
-
+          <Text className="text-1xl font-bold" style={styles.inputLabel}>Password</Text>
           <View style={styles.inputWrapper}>
             <TextInput
               value={password}
@@ -312,30 +275,17 @@ export default function individual_signup() {
               secureTextEntry={!isPasswordVisible}
               style={styles.textInputTallWithRightPadding}
             />
-            <Image
-              source={require("../assets/icons/padlock.png")}
-              style={styles.inputIconLeft}
-            />
-            <Pressable
-              onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-              style={styles.passwordToggle}
-            >
+            <Image source={require("../assets/icons/padlock.png")} style={styles.inputIconLeft} />
+            <Pressable onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={styles.passwordToggle}>
               <Image
-                source={
-                  isPasswordVisible
-                    ? require("../assets/icons/view.png")
-                    : require("../assets/icons/hide.png")
-                }
+                source={isPasswordVisible ? require("../assets/icons/view.png") : require("../assets/icons/hide.png")}
                 style={styles.passwordToggleIcon}
               />
             </Pressable>
           </View>
 
           {/*Confirm password input*/}
-          <Text className="text-1xl font-bold" style={styles.confirmPasswordLabel}>
-            Confirm Password
-          </Text>
-
+          <Text className="text-1xl font-bold" style={styles.confirmPasswordLabel}>Confirm Password</Text>
           <View style={styles.confirmPasswordWrapper}>
             <TextInput
               value={confirmpass}
@@ -345,54 +295,41 @@ export default function individual_signup() {
               secureTextEntry={!isConfirmPasswordVisible}
               style={styles.textInputTallWithRightPadding}
             />
-            <Image
-              source={require("../assets/icons/padlock.png")}
-              style={styles.inputIconLeft}
-            />
+            <Image source={require("../assets/icons/padlock.png")} style={styles.inputIconLeft} />
             <Pressable
               onPress={() => setIsConfirmPasswordVisible(!isConfirmPasswordVisible)}
               style={styles.confirmPasswordToggle}
             >
               <Image
-                source={
-                  isConfirmPasswordVisible
-                    ? require("../assets/icons/view.png")
-                    : require("../assets/icons/hide.png")
-                }
+                source={isConfirmPasswordVisible ? require("../assets/icons/view.png") : require("../assets/icons/hide.png")}
                 style={styles.confirmPasswordToggleIcon}
               />
             </Pressable>
           </View>
 
           {/*Sign up button*/}
-          <Pressable onPress={handleSignUp} style={styles.signUpButton}>
-            <Text className="text-white font-bold text-lg">Sign Up</Text>
+          <Pressable
+            onPress={handleSignUp}
+            style={[styles.signUpButton, isLoading && { opacity: 0.7 }]}
+            disabled={isLoading}
+          >
+            <Text className="text-white font-bold text-lg">
+              {isLoading ? "Signing Up..." : "Sign Up"}
+            </Text>
           </Pressable>
 
           {/*Social sign up*/}
           <View style={styles.socialRow}>
             <Pressable onPress={() => router.push("/")}>
-              <Image
-                source={require("../assets/icons/fb.png")}
-                style={styles.socialIcon}
-              />
+              <Image source={require("../assets/icons/fb.png")} style={styles.socialIcon} />
             </Pressable>
-
             <Pressable onPress={() => Linking.openURL("https://www.google.com")}>
-              <Image
-                source={require("../assets/icons/google.png")}
-                style={styles.socialIcon}
-              />
+              <Image source={require("../assets/icons/google.png")} style={styles.socialIcon} />
             </Pressable>
           </View>
 
-          <Pressable
-            onPress={() => router.push("/signin")}
-            style={styles.signInLink}
-          >
-            <Text style={styles.signInLinkText}>
-              Already have an account? Sign in here!
-            </Text>
+          <Pressable onPress={() => router.push("/signin")} style={styles.signInLink}>
+            <Text style={styles.signInLinkText}>Already have an account? Sign in here!</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
