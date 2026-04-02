@@ -7,7 +7,6 @@ if ($conn->connect_error) {
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 
-// get pending users
 $sql = "SELECT * FROM individuals WHERE status='pending'";
 $result = $conn->query($sql);
 ?>
@@ -23,10 +22,9 @@ $result = $conn->query($sql);
 </head>
 
 <body>
-
     <div class="container">
 
-        <!-- SIDEBAR -->
+        <!--Sidebar-->
         <div class="sidebar">
             <div class="admin">
                 <div class="logo">
@@ -54,15 +52,11 @@ $result = $conn->query($sql);
             </a>
         </div>
 
-        <!-- MAIN -->
         <div class="main">
-
-            <!-- HEADER -->
             <div class="header">
                 <div class="dropdown-container">
                     <h1>Users</h1>
                     <button class="dropdown-btn">▼</button>
-
                     <div class="dropdown-menu">
                         <p onclick="window.location.href='registered_users.php'">Registered Users</p>
                         <p onclick="window.location.href='user_ver.php'">Pending Approval</p>
@@ -70,7 +64,6 @@ $result = $conn->query($sql);
                 </div>
             </div>
 
-            <!-- CONTROLS -->
             <div class="controls">
                 <div class="search-box">
                     <input type="text" placeholder="Search">
@@ -81,7 +74,6 @@ $result = $conn->query($sql);
                 </button>
             </div>
 
-            <!-- TABLE -->
             <div class="table-container">
                 <table border="1" cellpadding="10">
                     <tr>
@@ -103,12 +95,10 @@ $result = $conn->query($sql);
                         <td><?= $row['email'] ?></td>
                         <td><?= $row['address'] ?></td>
 
-                        <!-- IMAGE -->
                         <td>
                             <img src="http://192.168.1.14:3000/uploads/<?= $row['id_image'] ?>" width="80">
                         </td>
 
-                        <!-- ACTION -->
                         <td>
                             <a href="approve.php?id=<?= $row['id'] ?>">✔</a>
                             <a href="reject.php?id=<?= $row['id'] ?>">✖</a>
