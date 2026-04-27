@@ -1,5 +1,4 @@
 import * as ImagePicker from "expo-image-picker";
-import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -15,8 +14,9 @@ import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import styles from "./styles/facility_signup";
 
-export default function individual_signup() {
+export default function FacilitySignup() {
   const router = useRouter();
+
   const [user, setUser] = useState("facility");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
@@ -42,7 +42,6 @@ export default function individual_signup() {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       quality: 0.8,
     });
@@ -61,6 +60,7 @@ export default function individual_signup() {
       });
       return;
     }
+
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
@@ -69,6 +69,7 @@ export default function individual_signup() {
       });
       return;
     }
+
     if (!image) {
       Toast.show({
         type: "error",
@@ -114,7 +115,6 @@ export default function individual_signup() {
         });
       }
     } catch (err: any) {
-      console.log("Facility signup error:", err.message);
       Toast.show({
         type: "error",
         text1: "Connection Error",
@@ -138,6 +138,7 @@ export default function individual_signup() {
         />
       </View>
 
+      {/* Back Button */}
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
         <Image
           source={require("../assets/icons/backbutton.png")}
@@ -150,7 +151,7 @@ export default function individual_signup() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/*Logo*/}
+        {/* Logo */}
         <Image
           source={require("../assets/icons/icon.png")}
           style={styles.logo}
@@ -160,8 +161,9 @@ export default function individual_signup() {
           Sign up and join the platform today!
         </Text>
 
+        {/* 🔥 FIXED TOGGLE */}
         <View style={styles.userTypeToggle}>
-          {/*Individual button*/}
+          {/* Individual */}
           <Pressable
             onPress={() => {
               setUser("individual");
@@ -192,12 +194,9 @@ export default function individual_signup() {
             </Text>
           </Pressable>
 
-          {/*Facility button*/}
+          {/* Facility */}
           <Pressable
-            onPress={() => {
-              setUser("facility");
-              router.push("/facility_signup");
-            }}
+            onPress={() => setUser("facility")}
             style={
               user === "facility"
                 ? styles.facilityTabActive
@@ -224,170 +223,92 @@ export default function individual_signup() {
           </Pressable>
         </View>
 
-        {/*Name input*/}
-        <Text className="text-1xl font-bold" style={styles.firstInputLabel}>
-          Facility Name
-        </Text>
-
+        {/* Name */}
+        <Text style={styles.firstInputLabel}>Facility Name</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Enter Facility Name"
-            placeholderTextColor="#999"
             style={styles.textInputShort}
           />
-          <Image
-            source={require("../assets/icons/facility.png")}
-            style={styles.inputIconLeft}
-          />
+            <Image source={require("../assets/icons/facility.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*Location input*/}
-        <Text className="text-1xl font-bold" style={styles.inputLabel}>
-          Location
-        </Text>
-
+        {/* Location */}
+        <Text style={styles.inputLabel}>Location</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             value={location}
             onChangeText={setLocation}
             placeholder="Enter your Location"
-            placeholderTextColor="#999"
             style={styles.textInputTall}
           />
-          <Image
-            source={require("../assets/icons/location.png")}
-            style={styles.inputIconLeft}
-          />
+          <Image source={require("../assets/icons/location.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*Email input*/}
-        <Text className="text-1xl font-bold" style={styles.inputLabel}>
-          Email
-        </Text>
-
+        {/* Email */}
+        <Text style={styles.inputLabel}>Email</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="Enter your Email"
-            placeholderTextColor="#999"
             keyboardType="email-address"
-            autoCapitalize="none"
             style={styles.textInputTall}
           />
-          <Image
-            source={require("../assets/icons/email.png")}
-            style={styles.inputIconLeft}
-          />
+          <Image source={require("../assets/icons/email.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*Contact # input*/}
-        <Text className="text-1xl font-bold" style={styles.inputLabel}>
-          Contact Number
-        </Text>
-
+        {/* Contact */}
+        <Text style={styles.inputLabel}>Contact Number</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             value={contactNum}
             onChangeText={setContactNum}
             placeholder="Enter your Contact Number"
-            placeholderTextColor="#999"
             keyboardType="phone-pad"
             style={styles.textInputTall}
           />
-          <Image
-            source={require("../assets/icons/telephone.png")}
-            style={styles.inputIconLeft}
-          />
+          <Image source={require("../assets/icons/telephone.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*Password input*/}
-        <Text className="text-1xl font-bold" style={styles.inputLabel}>
-          Password
-        </Text>
-
+        {/* Password */}
+        <Text style={styles.inputLabel}>Password</Text>
         <View style={styles.inputWrapper}>
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Create a Password"
-            placeholderTextColor="#999"
             secureTextEntry={!isPasswordVisible}
             style={styles.textInputTallWithRightPadding}
           />
-          <Image
-            source={require("../assets/icons/padlock.png")}
-            style={styles.inputIconLeft}
-          />
-          <Pressable
-            onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-            style={styles.passwordToggle}
-          >
-            <Image
-              source={
-                isPasswordVisible
-                  ? require("../assets/icons/view.png")
-                  : require("../assets/icons/hide.png")
-              }
-              style={styles.passwordToggleIcon}
-            />
-          </Pressable>
+          <Image source={require("../assets/icons/padlock.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*Confirm password input*/}
-        <Text
-          className="text-1xl font-bold"
-          style={styles.confirmPasswordLabel}
-        >
-          Confirm Password
-        </Text>
-
+        {/* Confirm Password */}
+        <Text style={styles.confirmPasswordLabel}>Confirm Password</Text>
         <View style={styles.confirmPasswordWrapper}>
           <TextInput
             value={confirmpass}
             onChangeText={setConfirmPass}
             placeholder="Confirm your Password"
-            placeholderTextColor="#999"
             secureTextEntry={!isConfirmPasswordVisible}
             style={styles.textInputTallWithRightPadding}
           />
-          <Image
-            source={require("../assets/icons/padlock.png")}
-            style={styles.inputIconLeft}
-          />
-          <Pressable
-            onPress={() =>
-              setIsConfirmPasswordVisible(!isConfirmPasswordVisible)
-            }
-            style={styles.passwordToggle}
-          >
-            <Image
-              source={
-                isConfirmPasswordVisible
-                  ? require("../assets/icons/view.png")
-                  : require("../assets/icons/hide.png")
-              }
-              style={styles.passwordToggleIcon}
-            />
-          </Pressable>
+          <Image source={require("../assets/icons/padlock.png")} style={styles.inputIconLeft} />
         </View>
 
-        {/*File open camera*/}
-        <Text className="text-1xl font-bold" style={styles.uploadLabel}>
-          {"Facility Certification"}
-          <Text style={styles.uploadLabelSub}>(Required)</Text>
+        {/* Upload */}
+        <Text style={styles.uploadLabel}>
+          Facility Certification
+          <Text style={styles.uploadLabelSub}> (Required)</Text>
         </Text>
 
         <Pressable onPress={openCamera} style={styles.uploadBox}>
           {image ? (
             <>
-              <Image
-                source={{ uri: image }}
-                style={styles.uploadedImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: image }} style={styles.uploadedImage} />
               <Text style={styles.uploadedImageLabel}>Tap to retake</Text>
             </>
           ) : (
@@ -404,33 +325,17 @@ export default function individual_signup() {
         </Pressable>
 
         <Text style={styles.uploadHelperText}>
-          This help us verify your facility is legitimate and compliant
+          This helps us verify your facility is legitimate and compliant.
         </Text>
 
-        {/*Sign up button*/}
+        {/* Sign Up */}
         <Pressable onPress={handleSignUp} style={styles.signUpButton}>
           <Text className="text-white font-bold text-lg">Sign Up</Text>
         </Pressable>
 
-        {/*Social sign up*/}
-        <View style={styles.socialRow}>
-          <Pressable
-            onPress={() => Linking.openURL("https://www.facebook.com")}
-          >
-            <Image
-              source={require("../assets/icons/fb.png")}
-              style={styles.socialIcon}
-            />
-          </Pressable>
+        <View style={styles.socialRow} />
 
-          <Pressable onPress={() => Linking.openURL("https://www.google.com")}>
-            <Image
-              source={require("../assets/icons/google.png")}
-              style={styles.socialIcon}
-            />
-          </Pressable>
-        </View>
-
+        {/* Sign In */}
         <Pressable
           onPress={() => router.push("/signin")}
           style={styles.signInLink}

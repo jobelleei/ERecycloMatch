@@ -184,34 +184,6 @@ export default function Signup() {
         style={signinStyles.signInButton}>
         <Text className="text-white font-bold text-lg">Sign In</Text>
       </Pressable>
-
-      <Text style={signinStyles.orContinueText}>or continue with</Text>
-
-      <View style={signinStyles.socialRow}>
-        <Pressable onPress={() => router.push("/")}>
-          <Image
-            source={require("../assets/icons/fb.png")}
-            style={signinStyles.socialIcon}
-          />
-        </Pressable>
-
-        <Pressable onPress={() => router.push("/")}>
-          <Image
-            source={require("../assets/icons/google.png")}
-            style={signinStyles.socialIcon}
-          />
-        </Pressable>
       </View>
-
-      {/*Sign Up Link*/}
-      <Pressable
-        onPress={() => router.push("/individual_signup")}
-        style={signinStyles.signUpLink}
-      >
-        <Text style={signinStyles.signUpLinkText}>
-          Dont have an account? Sign Up here!
-        </Text>
-      </Pressable>
-    </View>
   );
 }

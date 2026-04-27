@@ -318,16 +318,6 @@ export default function individual_signup() {
             </Text>
           </Pressable>
 
-          {/*Social sign up*/}
-          <View style={styles.socialRow}>
-            <Pressable onPress={() => router.push("/")}>
-              <Image source={require("../assets/icons/fb.png")} style={styles.socialIcon} />
-            </Pressable>
-            <Pressable onPress={() => Linking.openURL("https://www.google.com")}>
-              <Image source={require("../assets/icons/google.png")} style={styles.socialIcon} />
-            </Pressable>
-          </View>
-
           <Pressable onPress={() => router.push("/signin")} style={styles.signInLink}>
             <Text style={styles.signInLinkText}>Already have an account? Sign in here!</Text>
           </Pressable>
