@@ -6,14 +6,16 @@ if ($conn->connect_error) {
 }
 
 $currentPage = basename($_SERVER['PHP_SELF']);
+$type = isset($_GET['type']) ? $_GET['type'] : 'pending';
 
-$sort = isset($_GET['sort']) ? $_GET['sort'] : '';
-
-if ($sort == 'name') {
-    $sql = "SELECT * FROM individuals WHERE status='pending' ORDER BY name ASC";
+if ($type == 'approved') {
+    $sql = "SELECT * FROM approved_individuals";
+} elseif ($type == 'rejected') {
+    $sql = "SELECT * FROM rejected_individuals";
 } else {
-    $sql = "SELECT * FROM individuals WHERE status='pending'";
+    $sql = "SELECT * FROM pending_individuals";
 }
+
 $result = $conn->query($sql);
 ?>
 
@@ -23,7 +25,7 @@ $result = $conn->query($sql);
 <head>
     <meta charset="UTF-8">
     <title>ERECYCLOMATCH</title>
-    <link rel="stylesheet" href="../css/all.css?v=2">
+    <link rel="stylesheet" href="../css/all.css">
     <script src="../script/all.js" defer></script>
 </head>
 
@@ -31,7 +33,7 @@ $result = $conn->query($sql);
 
     <div class="container">
 
-        <!--Sidebar-->
+        <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="admin">
                 <div class="logo">
@@ -41,7 +43,8 @@ $result = $conn->query($sql);
             </div>
 
             <ul class="menu">
-                <li onclick="window.location.href='user_ver.php'" class="active">
+                <li onclick="window.location.href='user_ver.php'"
+                    class="<?= $currentPage === 'user_ver.php' ? 'active' : '' ?>">
                     <img src="../../assets/icons/group.png">
                     <span>Users</span>
                 </li>
@@ -58,33 +61,25 @@ $result = $conn->query($sql);
             </a>
         </div>
 
+        <!-- MAIN -->
         <div class="main">
+
+            <!-- HEADER WITH YOUR ORIGINAL DROPDOWN -->
             <div class="header">
                 <div class="dropdown-container">
                     <h1>Users</h1>
+
                     <button class="dropdown-btn">▼</button>
 
                     <div class="dropdown-menu">
-                        <p class="dropdown-item" onclick="window.location.href='registered_users.php'">
-                            Registered Users
-                        </p>
-                        <p class="dropdown-item" onclick="window.location.href='user_ver.php'">
-                            Pending Approval
-                        </p>
+                        <p onclick="window.location.href='user_ver.php?type=pending'">Pending</p>
+                        <p onclick="window.location.href='user_ver.php?type=approved'">Approved</p>
+                        <p onclick="window.location.href='user_ver.php?type=rejected'">Rejected</p>
                     </div>
                 </div>
             </div>
 
-            <div class="controls">
-                <div class="search-box">
-                    <input type="text" placeholder="Search">
-                </div>
-
-                <button class="sort-btn" onclick="window.location.href='?sort=name'">
-                    <img src="../../assets/icons/sort.png">
-                </button>
-            </div>
-
+            <!-- TABLE -->
             <div class="table-container">
                 <table class="custom-table">
                     <thead>
@@ -95,6 +90,11 @@ $result = $conn->query($sql);
                             <th>Email</th>
                             <th>Address</th>
                             <th>ID Image</th>
+
+                            <?php if ($type == 'rejected'): ?>
+                            <th>Reason</th>
+                            <?php endif; ?>
+
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -110,15 +110,20 @@ $result = $conn->query($sql);
                             <td><?= $row['address'] ?></td>
 
                             <td>
-                                <a href="http://192.168.1.14:3000/uploads/<?= $row['id_image'] ?>" target="_blank">
-                                    <img src="http://192.168.1.14:3000/uploads/<?= $row['id_image'] ?>"
-                                        class="id-image">
-                                </a>
+                                <img src="../../uploads/<?= $row['id_image'] ?>" width="80">
                             </td>
 
+                            <?php if ($type == 'rejected'): ?>
+                            <td><?= $row['rejection_reason'] ?></td>
+                            <?php endif; ?>
+
                             <td class="actions">
-                                <a href="approve.php?id=<?= $row['id'] ?>" class="approve-btn">✔</a>
-                                <a href="reject.php?id=<?= $row['id'] ?>" class="reject-btn">✖</a>
+                                <?php if ($type == 'pending'): ?>
+                                <a href="approve_users.php?id=<?= $row['id'] ?>" class="approve-btn">✔</a>
+                                <button onclick="openModal(<?= $row['id'] ?>)" class="reject-btn">✖</button>
+                                <?php else: ?>
+                                -
+                                <?php endif; ?>
                             </td>
                         </tr>
                         <?php endwhile; ?>
@@ -127,7 +132,39 @@ $result = $conn->query($sql);
             </div>
 
         </div>
+
     </div>
+
+    <!-- MODAL -->
+    <div id="rejectModal"
+        style="display:none; position:fixed; top:30%; left:40%; background:white; padding:20px; border-radius:10px;">
+        <form method="POST" action="reject_user.php">
+            <input type="hidden" name="id" id="rejectId">
+
+            <label>Reason:</label>
+            <select name="reason">
+                <option value="Incomplete details">Incomplete details</option>
+                <option value="Invalid ID">Invalid ID</option>
+                <option value="Fake information">Fake information</option>
+            </select>
+
+            <br><br>
+
+            <button type="submit">Submit</button>
+            <button type="button" onclick="closeModal()">Cancel</button>
+        </form>
+    </div>
+
+    <script>
+    function openModal(id) {
+        document.getElementById('rejectModal').style.display = 'block';
+        document.getElementById('rejectId').value = id;
+    }
+
+    function closeModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+    }
+    </script>
 
 </body>
 
