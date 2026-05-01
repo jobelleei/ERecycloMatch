@@ -1,14 +1,19 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./app/**/*.{js,jsx,ts,tsx}"],
-  presets: [require("nativewind/preset")],
+  content: [
+    "./app/**/*.{js,jsx,ts,tsx}",
+    "./components/**/*.{js,jsx,ts,tsx}",
+  ],
+
+  presets: [require("nativewind/preset")], // ✅ THIS LINE FIXES YOUR ERROR
+
   theme: {
     extend: {
       colors: {
-        primary: '#257901',
-        backg: '#DEFFCF'
-      }
+        backg: "#F5F5F5",
+      },
     },
   },
+
   plugins: [],
-}
+};

@@ -28,7 +28,10 @@ export default function Index() {
         resizeMode="contain"
       />
 
-      <Text className="text-5xl text-primary font-bold">ERECYCLOMATCH</Text>
+      {/* FIX: Ensure proper Text rendering */}
+      <Text className="text-5xl text-primary font-bold">
+        ERECYCLOMATCH
+      </Text>
 
       <Text className="text-1xl mt-3" style={styles.subtitle}>
         Recyle Smarter. Match Faster
@@ -38,7 +41,9 @@ export default function Index() {
         onPress={() => router.push("/individual_signup")}
         className="mt-20 w-64 h-14 bg-primary rounded-full justify-center items-center flex-row"
       >
-        <Text className="text-white font-bold">Get Started</Text>
+        <Text className="text-white font-bold">
+          Get Started
+        </Text>
         <Image
           source={require("../assets/icons/right-arrow.png")}
           style={styles.arrowIcon}
@@ -46,13 +51,18 @@ export default function Index() {
         />
       </Pressable>
 
-      <Text className="mt-10">OR</Text>
+      {/* FIX: Wrapped properly */}
+      <Text className="mt-10">
+        OR
+      </Text>
 
       <Pressable
         onPress={() => router.push("/signin")}
         className="mt-10 w-72 h-14 bg-white border border-black rounded-full justify-center items-center"
       >
-        <Text className="text-black">I already have an account </Text>
+        <Text className="text-black">
+          I already have an account
+        </Text>
       </Pressable>
     </View>
   );

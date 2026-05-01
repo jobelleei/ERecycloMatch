@@ -13,11 +13,11 @@ import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
 
-export default function Signup() {
+export default function Signin() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -30,55 +30,66 @@ export default function Signup() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/signin`, {
+      const response = await fetch(`${API_URL}/signin.php`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "true",
         },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
+      // ✅ SUCCESS LOGIN
+      if (data.status === "success") {
         Toast.show({
           type: "success",
           text1: "Welcome Back!",
           text2: "Login successful!",
         });
-        router.replace("/dashboard");
+
+        // optional: role-based navigation
+        if (data.role === "individual") {
+          router.replace("/dashboard");
+        } else if (data.role === "facility") {
+          router.replace("/dashboard");
+        }
 
       } else {
+        // ❌ ERROR CASES (pending, rejected, invalid)
         Toast.show({
           type: "error",
-          text1: "Error",
-          text2: data.message || "Something went wrong.",
+          text1: "Login Failed",
+          text2: data.message,
         });
       }
-    } catch (err) {
+
+    } catch (error) {
       Toast.show({
         type: "error",
         text1: "Connection Error",
-        text2: "Could not connect to server.",
+        text2: "Server not reachable.",
       });
     }
   };
 
   return (
-    <View className="flex-1 justify-center items-center bg-backg">
+    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      
+      {/* Background */}
       <ImageBackground
         source={require("../assets/images/firstbg.png")}
         style={signinStyles.backgroundImage}
       />
 
+      {/* Overlay */}
       <Image
         source={require("../assets/images/bglayer.png")}
         style={signinStyles.bgLayer}
         resizeMode="cover"
       />
 
-      {/*Back Button*/}
+      {/* Back Button */}
       <Pressable
         onPress={() => router.push("/")}
         style={signinStyles.backButton}
@@ -89,101 +100,69 @@ export default function Signup() {
         />
       </Pressable>
 
-      {/*Logo*/}
+      {/* Logo */}
       <Image
         source={require("../assets/icons/icon.png")}
         style={signinStyles.logo}
       />
 
-      <Text className="text-4xl font-bold" style={signinStyles.welcomeText}>
+      {/* Title */}
+      <Text style={signinStyles.welcomeText}>
         Welcome Back!
       </Text>
 
-      <Text className="text-1xl" style={signinStyles.subtitleText}>
+      <Text style={signinStyles.subtitleText}>
         Sign in to continue recycling.
       </Text>
 
-      {/*Email*/}
-      <Text className="text-1xl font-bold" style={signinStyles.emailLabel}>
+      {/* Email */}
+      <Text style={signinStyles.emailLabel}>
         Email
       </Text>
 
-      {/*Email Input*/}
       <View style={signinStyles.emailInputWrapper}>
         <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="Enter Email"
           placeholderTextColor="#D3D3D3"
-          style={[
-            signinStyles.textInput,
-            signinStyles.textInputWithLeftPadding,
-          ]}
-        />
-        <Image
-          source={require("../assets/icons/email.png")}
-          style={signinStyles.inputIconLeft}
+          style={signinStyles.textInput}
         />
       </View>
 
-      {/*Password*/}
-      <Text className="text-1xl font-bold" style={signinStyles.passwordLabel}>
+      {/* Password */}
+      <Text style={signinStyles.passwordLabel}>
         Password
       </Text>
 
-      {/*Password Input*/}
       <View style={signinStyles.passwordInputWrapper}>
         <TextInput
           value={password}
           onChangeText={setPassword}
           placeholder="Enter Password"
           placeholderTextColor="#999"
-          secureTextEntry={!isPasswordVisible}
-          style={[
-            signinStyles.textInput,
-            signinStyles.textInputWithRightPadding,
-          ]}
+          secureTextEntry={true}
+          style={signinStyles.textInput}
         />
-        <Image
-          source={require("../assets/icons/padlock.png")}
-          style={signinStyles.inputIconLeft}
-        />
-
-        {/*Show/Hide Password*/}
-        <Pressable
-          onPress={() => setIsPasswordVisible(!isPasswordVisible)}
-          style={signinStyles.inputIconRight}
-        >
-          <Image
-            source={
-              isPasswordVisible
-                ? require("../assets/icons/hide.png")
-                : require("../assets/icons/view.png")
-            }
-            style={signinStyles.inputIconRightImage}
-          />
-        </Pressable>
       </View>
 
-      {/*Forgot Password*/}
+      {/* Sign In */}
       <Pressable
-        onPress={() => router.push("/")}
-        style={signinStyles.forgotPassword}
+        onPress={handleSignIn}
+        style={signinStyles.signInButton}
       >
-        <Text className="text-sm">Forgot Password?</Text>
+        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>
+          Sign In
+        </Text>
       </Pressable>
 
-      {/* Sign In Button 
-      <Pressable onPress={handleSignIn} style={signinStyles.signInButton}>
-        <Text className="text-white font-bold text-lg">Sign In</Text>
-      </Pressable> */}
-
-      {/*Sign In Button*/}  
-      <Pressable
-        onPress={() => router.push("/dashboard")}
-        style={signinStyles.signInButton}>
-        <Text className="text-white font-bold text-lg">Sign In</Text>
+      {/* Forgot Password */}
+      <Pressable>
+        <Text style={{ marginTop: 10 }}>
+          Forgot Password?
+        </Text>
       </Pressable>
-      </View>
+
+    </View>
   );
 }
