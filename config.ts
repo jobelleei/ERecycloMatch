@@ -1,1 +1,1 @@
-export const API_URL = "http://192.168.1.13:5000"; // or your ngrok URL
+export const API_URL = "http://192.168.1.13/Admin_Side/Admin_UI";
