@@ -1,21 +1,66 @@
 import { StyleSheet } from "react-native";
 
-const indexStyles = StyleSheet.create({
+export default StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#CFE8C6",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+
   logo: {
-    width: 1000,
-    height: 200,
+    width: 180,
+    height: 180,
     marginBottom: 20,
   },
-  subtitle: {
-    textAlign: "center",
-    paddingHorizontal: 20,
-    width: "100%",
+
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
   },
-  arrowIcon: {
-    width: 20,
-    height: 25,
-    marginLeft: 10,
+
+  subtitle: {
+    marginTop: 10,
+    marginBottom: 30,
+    color: "#333",
+  },
+
+  primaryBtn: {
+    backgroundColor: "#4CAF50",
+    width: "80%",
+    height: 50,
+    borderRadius: 25,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  primaryText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  or: {
+    marginVertical: 20,
+  },
+
+  secondaryBtn: {
+    width: "80%",
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  secondaryText: {
+    color: "#000",
+  },
+
+  footer: {
+    marginTop: 30,
+    fontSize: 12,
+    color: "#555",
   },
 });
-
-export default indexStyles;

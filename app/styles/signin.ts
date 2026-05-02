@@ -1,204 +1,110 @@
 import { StyleSheet } from "react-native";
- 
-const signinStyles = StyleSheet.create({
+
+export default StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "center",
+    backgroundColor: "#CFE8C6",
     alignItems: "center",
-    backgroundColor: "#backg", // keep using bg-backg via className on View
+    justifyContent: "center",
   },
- 
-  // Background images
-  backgroundImage: {
+
+  background: {
     position: "absolute",
-    bottom: 0,
-    width: 450,
-    height: 530,
+    width: "100%",
+    height: "100%",
   },
-  bgLayer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 1000,
-    height: 1000,
-    opacity: 0.5,
-    zIndex: 1,
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(207,232,198,0.85)",
   },
- 
-  // Back button
+
   backButton: {
     position: "absolute",
     top: 50,
-    left: 10,
+    left: 20,
     zIndex: 10,
   },
-  backButtonIcon: {
-    width: 35,
-    height: 35,
-    marginStart: 5,
+
+  backIcon: {
+    width: 24,
+    height: 24,
   },
- 
-  // Logo
+
   logo: {
-    position: "absolute",
-    top: 110,
-    zIndex: 10,
     width: 110,
     height: 110,
+    marginBottom: 10,
   },
- 
-  // Welcome text
-  welcomeText: {
-    position: "absolute",
-    top: 215,
-    zIndex: 10,
+
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginTop: 10,
   },
- 
-  // Subtitle
-  subtitleText: {
-    position: "absolute",
-    top: 250,
-    zIndex: 10,
-    textAlign: "center",
-    paddingHorizontal: 20,
-    width: "100%",
+
+  subtitle: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 25,
   },
- 
-  // Email label
-  emailLabel: {
-    position: "absolute",
-    zIndex: 10,
-    top: 310,
-    left: 50,
+
+  label: {
+    alignSelf: "flex-start",
+    marginLeft: "10%",
+    marginTop: 10,
+    fontWeight: "600",
   },
- 
-  // Email input wrapper
-  emailInputWrapper: {
-    position: "absolute",
-    top: 335,
-    alignSelf: "center",
-    zIndex: 10,
-    width: 320,
+
+  inputBox: {
+    width: "85%",
     height: 50,
+    backgroundColor: "#E5E5E5",
+    borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    marginTop: 5,
   },
- 
-  // Password label
-  passwordLabel: {
-    position: "absolute",
-    zIndex: 10,
-    top: 400,
-    left: 50,
+
+  inputIcon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
+    tintColor: "#666",
   },
- 
-  // Password input wrapper
-  passwordInputWrapper: {
-    position: "absolute",
-    top: 425,
-    alignSelf: "center",
-    zIndex: 10,
-    width: 320,
+
+  eyeIcon: {
+    width: 20,
+    height: 20,
+    tintColor: "#666",
+  },
+
+  input: {
+    flex: 1,
+    fontSize: 14,
+  },
+
+  forgot: {
+    alignSelf: "flex-end",
+    marginRight: "10%",
+    marginTop: 8,
+    color: "#333",
+  },
+
+  button: {
+    marginTop: 25,
+    width: "70%",
     height: 50,
-  },
- 
-  // Shared TextInput style
-  textInput: {
-    width: "100%",
-    height: "100%",
-    backgroundColor: "white",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#7ED957",
-    paddingRight: 15,
-    fontSize: 13,
-  },
-  textInputWithRightPadding: {
-    paddingLeft: 45,
-    paddingRight: 45,
-  },
-  textInputWithLeftPadding: {
-    paddingLeft: 45,
-  },
- 
-  // Left icon inside input
-  inputIconLeft: {
-    position: "absolute",
-    left: 15,
-    top: 13,
-    width: 24,
-    height: 24,
-    zIndex: 11,
-    opacity: 0.3,
-  },
- 
-  // Right icon (show/hide password)
-  inputIconRight: {
-    position: "absolute",
-    right: 15,
-    top: 13,
-    zIndex: 11,
-  },
-  inputIconRightImage: {
-    width: 24,
-    height: 24,
-    opacity: 0.3,
-  },
- 
-  // Forgot password
-  forgotPassword: {
-    position: "absolute",
-    top: 485,
-    right: 50,
-    zIndex: 15,
-    width: 120,
-  },
- 
-  // Sign In button
-  signInButton: {
-    position: "absolute",
-    top: 525,
-    zIndex: 10,
-    width: 180,
-    height: 45,
-    backgroundColor: "#257901",
-    borderRadius: 20,
+    backgroundColor: "#1B5E20",
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
   },
- 
-  // "or continue with" text
-  orContinueText: {
-    position: "absolute",
-    zIndex: 10,
-    fontSize: 12,
-    marginTop: 345,
-    width: 120,
-    textAlign: "center",
-  },
- 
-  // Social buttons row
-  socialRow: {
-    position: "absolute",
-    top: 670,
-    zIndex: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  socialIcon: {
-    width: 45,
-    height: 45,
-  },
- 
-  // Sign up link
-  signUpLink: {
-    position: "absolute",
-    zIndex: 10,
-    bottom: 40,
-  },
-  signUpLinkText: {
-    zIndex: 10,
-    fontSize: 12,
+
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
- 
-export default signinStyles;

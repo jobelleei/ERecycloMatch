@@ -1,298 +1,157 @@
 import { StyleSheet } from "react-native";
 
-const facilitySignupStyles = StyleSheet.create({
+export default StyleSheet.create({
   backgroundImage: {
     position: "absolute",
-    bottom: 0,
-    width: 400,
-    height: 430,
-    marginStart: 43,
-    zIndex: 0,
+    width: "100%",
+    height: "100%",
   },
-  bgLayerWrapper: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    zIndex: 0,
-  },
-  bgLayerImage: {
-    width: 1000,
-    height: 1000,
-    opacity: 0.5,
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(207,232,198,0.85)",
   },
 
   backButton: {
     position: "absolute",
     top: 50,
-    left: 10,
+    left: 20,
     zIndex: 10,
   },
+
   backButtonIcon: {
-    width: 35,
-    height: 35,
-    marginStart: 5,
+    width: 24,
+    height: 24,
   },
 
-  scrollView: {
-    zIndex: 2,
-  },
   scrollContent: {
     alignItems: "center",
-    paddingTop: 70,
-    paddingBottom: 100,
+    paddingTop: 100,
+    paddingBottom: 40,
   },
 
   logo: {
-    marginTop: 20,
-    width: 100,
-    height: 100,
+    width: 90,
+    height: 90,
+    marginBottom: 10,
   },
 
   title: {
-    marginTop: 5,
+    fontSize: 22,
+    fontWeight: "bold",
     textAlign: "center",
-    paddingHorizontal: 20,
+    marginBottom: 20,
   },
 
-  userTypeToggle: {
-    marginTop: 25,
+  toggleContainer: {
     flexDirection: "row",
-    borderColor: "#7ED957",
-    width: 280,
-    height: 40,
+    width: "85%",
     borderRadius: 10,
     borderWidth: 1,
+    borderColor: "#2E7D32",
     overflow: "hidden",
+    marginBottom: 20,
   },
-  individualTabActive: {
+
+  activeTab: {
     flex: 1,
-    backgroundColor: "#257901",
-    justifyContent: "center",
+    backgroundColor: "#1B5E20",
+    padding: 10,
     alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
   },
-  individualTabInactive: {
+
+  inactiveTab: {
     flex: 1,
-    backgroundColor: "white",
-    justifyContent: "center",
+    backgroundColor: "#E5E5E5",
+    padding: 10,
     alignItems: "center",
+  },
+
+  activeText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
+
+  inactiveText: {
+    color: "#000",
+  },
+
+  label: {
+    alignSelf: "flex-start",
+    marginLeft: "8%",
+    marginBottom: 5,
+    fontWeight: "600",
+  },
+
+  inputBox: {
+    width: "85%",
+    height: 50,
+    backgroundColor: "#E5E5E5",
+    borderRadius: 12,
     flexDirection: "row",
-    gap: 12,
+    alignItems: "center",
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
-  individualTabIconActive: {
-    width: 18,
-    height: 18,
-    tintColor: "white",
-  },
-  individualTabIconInactive: {
-    width: 18,
-    height: 18,
+
+  icon: {
+    width: 20,
+    height: 20,
+    marginRight: 10,
     tintColor: "#666",
   },
-  facilityTabActive: {
-    flex: 1,
-    backgroundColor: "#257901",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  facilityTabInactive: {
-    flex: 1,
-    backgroundColor: "white",
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  facilityTabIconActive: {
-    width: 25,
-    height: 25,
-    tintColor: "white",
-  },
-  facilityTabIconInactive: {
-    width: 25,
-    height: 25,
+
+  eye: {
+    width: 20,
+    height: 20,
     tintColor: "#666",
   },
-  tabTextActive: {
-    color: "white",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-  tabTextInactive: {
-    color: "#666",
-    fontSize: 13,
-    fontWeight: "500",
+
+  input: {
+    flex: 1,
   },
 
-  firstInputLabel: {
-    marginTop: 30,
-    alignSelf: "flex-start",
-    marginLeft: 45,
-  },
-  inputLabel: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-    marginLeft: 45,
-  },
-  confirmPasswordLabel: {
-    marginTop: 15,
-    alignSelf: "flex-start",
-    marginLeft: 45,
-  },
-  uploadLabel: {
-    marginTop: 15,
-    alignSelf: "flex-start",
-    marginLeft: 45,
-  },
-  uploadLabelSub: {
-    color: "#666",
+ uploadBox: {
+  width: "85%",
+  minHeight: 120,
+  borderWidth: 1,
+  borderColor: "#2E7D32",
+  borderRadius: 10,
+  justifyContent: "center",
+  alignItems: "center",
+  marginBottom: 5,
+  overflow: "hidden", // 🔥 important
+},
+
+uploadedImage: {
+  width: "100%",
+  height: "100%",
+  resizeMode: "contain",
+},
+
+  helper: {
+    fontSize: 10,
+    color: "#2E7D32",
+    marginBottom: 15,
+    width: "85%",
   },
 
-  inputWrapper: {
-    marginTop: 5,
-    width: 320,
+  button: {
+    width: "70%",
     height: 50,
-  },
-  confirmPasswordWrapper: {
-    marginTop: 10,
-    width: 320,
-    height: 50,
-  },
-
-  textInputShort: {
-    width: "100%",
-    height: "85%",
-    backgroundColor: "white",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#7ED957",
-    paddingLeft: 45,
-    paddingRight: 15,
-    fontSize: 13,
-  },
-  textInputTall: {
-    width: "100%",
-    height: "90%",
-    backgroundColor: "white",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#7ED957",
-    paddingLeft: 45,
-    paddingRight: 15,
-    fontSize: 13,
-  },
-  textInputTallWithRightPadding: {
-    width: "100%",
-    height: "90%",
-    backgroundColor: "white",
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: "#7ED957",
-    paddingLeft: 45,
-    paddingRight: 45,
-    fontSize: 13,
-  },
-
-  inputIconLeft: {
-    position: "absolute",
-    left: 15,
-    top: 10,
-    width: 24,
-    height: 24,
-    zIndex: 11,
-    opacity: 0.3,
-  },
-
-  passwordToggle: {
-    position: "absolute",
-    right: 15,
-    top: 13,
-  },
-  passwordToggleIcon: {
-    width: 24,
-    height: 24,
-    opacity: 0.3,
-    top: -2,
-  },
-
-  uploadBox: {
-    marginTop: 15,
-    width: 320,
-    height: 300,
-    backgroundColor: "white",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#7ED957",
-    borderStyle: "dashed",
+    backgroundColor: "#1B5E20",
+    borderRadius: 25,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
-    overflow: "hidden",
-  },
-  uploadedImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 10,
-  },
-  uploadedImageLabel: {
-    position: "absolute",
-    bottom: 8,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    color: "white",
-    fontSize: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  uploadIcon: {
-    width: 50,
-    height: 50,
-    opacity: 0.4,
-  },
-  uploadPlaceholderText: {
-    color: "#999",
-    textAlign: "center",
-  },
-
-  uploadHelperText: {
     marginTop: 10,
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-    paddingHorizontal: 40,
-    width: "100%",
   },
 
-  signUpButton: {
-    marginTop: 30,
-    width: 180,
-    height: 45,
-    backgroundColor: "#257901",
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
   },
 
-  socialRow: {
-    marginTop: 30,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  socialIcon: {
-    width: 45,
-    height: 45,
-  },
-
-  signInLink: {
-    marginTop: 30,
-  },
-  signInLinkText: {
-    fontSize: 12,
+  link: {
+    marginTop: 15,
   },
 });
-
-export default facilitySignupStyles;

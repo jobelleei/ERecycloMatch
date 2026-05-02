@@ -4,6 +4,8 @@ import { useState } from "react";
 import {
   Image,
   ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -22,31 +24,36 @@ export default function IndividualSignup() {
   const [address, setAddress] = useState("");
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+
+  const [secure1, setSecure1] = useState(true);
+  const [secure2, setSecure2] = useState(true);
+
+  // 🔥 updated image state
+  const [image, setImage] = useState<any>(null);
 
   const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (status !== "granted") {
-      Toast.show({
-        type: "error",
-        text1: "Permission Denied",
-      });
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync();
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false, // ✅ prevents square crop
+      quality: 1,
+    });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri ?? null);
+      const asset = result.assets[0];
+
+      setImage({
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
     }
   };
 
   const handleSignUp = async () => {
-    if (!name || !email || !address || !password) {
+    if (!name || !email || !address || !password || !confirmpass) {
       Toast.show({
         type: "error",
         text1: "Missing Fields",
+        text2: "Please complete all fields",
       });
       return;
     }
@@ -54,7 +61,7 @@ export default function IndividualSignup() {
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
-        text1: "Password mismatch",
+        text1: "Password Mismatch",
       });
       return;
     }
@@ -66,73 +73,174 @@ export default function IndividualSignup() {
       formData.append("address", address);
       formData.append("password", password);
 
-      if (image) {
-        formData.append("id_image", {
-          uri: image,
-          name: "id.jpg",
-          type: "image/jpeg",
-        } as any);
-      }
-
       const response = await fetch(`${API_URL}/api/individual-signup`, {
         method: "POST",
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        Toast.show({
-          type: "success",
-          text1: "Success!",
-        });
         router.push("/signin");
-      } else {
-        Toast.show({
-          type: "error",
-          text1: data.message,
-        });
       }
     } catch {
       Toast.show({
         type: "error",
-        text1: "Connection Error",
+        text1: "Error",
+        text2: "Something went wrong",
       });
     }
   };
 
   return (
     <View style={{ flex: 1 }}>
-      
-      {/* BACKGROUND FIX */}
+      {/* Background */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
-        style={{ flex: 1 }}
-        resizeMode="cover"
+        style={styles.backgroundImage}
       >
+        <View style={styles.overlay} />
+      </ImageBackground>
 
-        <ScrollView contentContainerStyle={{ padding: 20 }}>
+      {/* Back */}
+      <Pressable onPress={() => router.push("/")} style={styles.backButton}>
+        <Image
+          source={require("../assets/icons/backbutton.png")}
+          style={styles.backButtonIcon}
+        />
+      </Pressable>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          
+          {/* Logo */}
+          <Image
+            source={require("../assets/icons/icon.png")}
+            style={styles.logo}
+          />
 
           <Text style={styles.title}>
-            Sign up and join the platform today!
+            Sign up and join the platform today.
           </Text>
 
-          <View style={{ flexDirection: "row" }}>
-            <Text style={styles.uploadLabel}>ID Verification</Text>
-            <Text style={styles.uploadLabelSub}> (Required)</Text>
+          {/* Toggle */}
+          <View style={styles.toggleContainer}>
+            <Pressable style={styles.activeTab}>
+              <Text style={styles.activeText}>Individual</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.inactiveTab}
+              onPress={() => router.push("/facility_signup")}
+            >
+              <Text style={styles.inactiveText}>Facility/Shop</Text>
+            </Pressable>
           </View>
 
-          <Pressable onPress={openCamera}>
-            <Text>Open Camera</Text>
+          {/* Name */}
+          <Text style={styles.label}>Name</Text>
+          <View style={styles.inputBox}>
+            <Image source={require("../assets/icons/individual.png")} style={styles.icon} />
+            <TextInput
+              placeholder="Enter your name"
+              value={name}
+              onChangeText={setName}
+              style={styles.input}
+            />
+          </View>
+
+          {/* Email */}
+          <Text style={styles.label}>Email</Text>
+          <View style={styles.inputBox}>
+            <Image source={require("../assets/icons/email.png")} style={styles.icon} />
+            <TextInput
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              style={styles.input}
+            />
+          </View>
+
+          {/* Address */}
+          <Text style={styles.label}>Address</Text>
+          <View style={styles.inputBox}>
+            <Image source={require("../assets/icons/location.png")} style={styles.icon} />
+            <TextInput
+              placeholder="Enter your address"
+              value={address}
+              onChangeText={setAddress}
+              style={styles.input}
+            />
+          </View>
+
+          {/* Upload */}
+          <Text style={styles.label}>ID Verification</Text>
+
+          <Pressable
+            onPress={openCamera}
+            style={[
+              styles.uploadBox,
+              image && {
+                height: (image.height / image.width) * 300, // 🔥 dynamic height
+              },
+            ]}
+          >
+            {image ? (
+              <Image
+                source={{ uri: image.uri }}
+                style={styles.uploadedImage}
+              />
+            ) : (
+              <Text>Tap to Open Camera</Text>
+            )}
           </Pressable>
 
-          <Pressable onPress={handleSignUp}>
-            <Text>Sign Up</Text>
+          {/* Password */}
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.inputBox}>
+            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <TextInput
+              placeholder="Create a password"
+              secureTextEntry={secure1}
+              value={password}
+              onChangeText={setPassword}
+              style={styles.input}
+            />
+            <Pressable onPress={() => setSecure1(!secure1)}>
+              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+            </Pressable>
+          </View>
+
+          {/* Confirm Password */}
+          <Text style={styles.label}>Confirm Password</Text>
+          <View style={styles.inputBox}>
+            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <TextInput
+              placeholder="Confirm your password"
+              secureTextEntry={secure2}
+              value={confirmpass}
+              onChangeText={setConfirmPass}
+              style={styles.input}
+            />
+            <Pressable onPress={() => setSecure2(!secure2)}>
+              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+            </Pressable>
+          </View>
+
+          {/* Button */}
+          <Pressable style={styles.button} onPress={handleSignUp}>
+            <Text style={styles.buttonText}>Sign Up</Text>
+          </Pressable>
+
+          <Pressable onPress={() => router.push("/signin")}>
+            <Text style={styles.link}>
+              Already have an account? Sign In
+            </Text>
           </Pressable>
 
         </ScrollView>
-
-      </ImageBackground>
+      </KeyboardAvoidingView>
     </View>
   );
 }

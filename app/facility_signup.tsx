@@ -17,65 +17,35 @@ import styles from "./styles/facility_signup";
 export default function FacilitySignup() {
   const router = useRouter();
 
-  const [user, setUser] = useState("facility");
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [email, setEmail] = useState("");
   const [contactNum, setContactNum] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmpass, setConfirmPass] = useState("");
-  const [image, setImage] = useState<string | null>(null);
+
+  const [secure, setSecure] = useState(true);
+
+  // 🔥 store full image object
+  const [image, setImage] = useState<any>(null);
 
   const openCamera = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (status !== "granted") {
-      Toast.show({
-        type: "error",
-        text1: "Permission Denied",
-        text2: "Camera access is required.",
-      });
-      return;
-    }
-
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      quality: 0.8,
+      allowsEditing: false, // ✅ IMPORTANT
+      quality: 1,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri ?? null);
+      const asset = result.assets[0];
+
+      setImage({
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
     }
   };
 
   const handleSignUp = async () => {
-    if (!name || !location || !email || !contactNum || !password) {
-      Toast.show({
-        type: "error",
-        text1: "Missing Fields",
-        text2: "Please fill in all fields.",
-      });
-      return;
-    }
-
-    if (password !== confirmpass) {
-      Toast.show({
-        type: "error",
-        text1: "Password Error",
-        text2: "Passwords do not match.",
-      });
-      return;
-    }
-
-    if (!image) {
-      Toast.show({
-        type: "error",
-        text1: "Missing File",
-        text2: "Upload certification.",
-      });
-      return;
-    }
-
     try {
       const formData = new FormData();
       formData.append("name", name);
@@ -84,82 +54,188 @@ export default function FacilitySignup() {
       formData.append("contactNum", contactNum);
       formData.append("password", password);
 
-      formData.append("certification", {
-        uri: image,
-        name: "certification.jpg",
-        type: "image/jpeg",
-      } as any);
-
       const response = await fetch(`${API_URL}/api/facility-signup`, {
         method: "POST",
         body: formData,
       });
 
-      const data = await response.json();
-
       if (response.ok) {
-        Toast.show({
-          type: "success",
-          text1: "Success!",
-          text2: "Facility registered successfully!",
-        });
         router.push("/signin");
-      } else {
-        Toast.show({
-          type: "error",
-          text1: "Error",
-          text2: data.message || "Something went wrong.",
-        });
       }
     } catch {
       Toast.show({
         type: "error",
-        text1: "Connection Error",
-        text2: "Server not reachable.",
+        text1: "Error",
+        text2: "Something went wrong",
       });
     }
   };
 
   return (
-    <View className="flex-1 bg-backg">
+    <View style={{ flex: 1 }}>
+      {/* Background */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
-      />
+      >
+        <View style={styles.overlay} />
+      </ImageBackground>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Back */}
+      <Pressable onPress={() => router.push("/")} style={styles.backButton}>
+        <Image
+          source={require("../assets/icons/backbutton.png")}
+          style={styles.backButtonIcon}
+        />
+      </Pressable>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Logo */}
         <Image
           source={require("../assets/icons/icon.png")}
           style={styles.logo}
         />
 
         <Text style={styles.title}>
-          Sign up and join the platform today!
+          Sign up and join the platform today.
         </Text>
 
-        {/* FIXED LABEL */}
-        <View style={{ flexDirection: "row" }}>
-          <Text style={styles.uploadLabel}>
-            Facility Certification
-          </Text>
-          <Text style={styles.uploadLabelSub}>
-            {" (Required)"}
-          </Text>
+        {/* Toggle */}
+        <View style={styles.toggleContainer}>
+          <Pressable
+            style={styles.inactiveTab}
+            onPress={() => router.push("/individual_signup")}
+          >
+            <Text style={styles.inactiveText}>Individual</Text>
+          </Pressable>
+
+          <Pressable style={styles.activeTab}>
+            <Text style={styles.activeText}>Facility/Shop</Text>
+          </Pressable>
         </View>
 
-        <Pressable onPress={openCamera} style={styles.uploadBox}>
+        {/* Facility Name */}
+        <Text style={styles.label}>Facility Name</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/individual.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Enter your name"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+          />
+        </View>
+
+        {/* Location */}
+        <Text style={styles.label}>Location</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/location.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Enter your location"
+            value={location}
+            onChangeText={setLocation}
+            style={styles.input}
+          />
+        </View>
+
+        {/* Email */}
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/email.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Enter your email"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+          />
+        </View>
+
+        {/* Contact */}
+        <Text style={styles.label}>Contact Number</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/telephone.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Enter contact number"
+            value={contactNum}
+            onChangeText={setContactNum}
+            style={styles.input}
+          />
+        </View>
+
+        {/* Password */}
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Create a password"
+            secureTextEntry={secure}
+            value={password}
+            onChangeText={setPassword}
+            style={styles.input}
+          />
+          <Pressable onPress={() => setSecure(!secure)}>
+            <Image
+              source={require("../assets/icons/view.png")}
+              style={styles.eye}
+            />
+          </Pressable>
+        </View>
+
+        {/* Upload */}
+        <Text style={styles.label}>
+          Facility Certification{" "}
+          <Text style={{ color: "#2E7D32" }}>(Required)</Text>
+        </Text>
+
+        <Pressable
+          onPress={openCamera}
+          style={[
+            styles.uploadBox,
+            image && {
+              height: (image.height / image.width) * 300, // 🔥 dynamic height
+            },
+          ]}
+        >
           {image ? (
-            <Image source={{ uri: image }} style={styles.uploadedImage} />
+            <Image
+              source={{ uri: image.uri }}
+              style={styles.uploadedImage}
+            />
           ) : (
-            <Text style={styles.uploadPlaceholderText}>
-              Tap to open camera
-            </Text>
+            <Text>Tap to Open Camera</Text>
           )}
         </Pressable>
 
-        <Pressable onPress={handleSignUp} style={styles.signUpButton}>
-          <Text style={{ color: "#fff", fontWeight: "bold" }}>
-            Sign Up
+        <Text style={styles.helper}>
+          This help us verify your facility is legitimate and compliant
+        </Text>
+
+        {/* Button */}
+        <Pressable style={styles.button} onPress={handleSignUp}>
+          <Text style={styles.buttonText}>Sign Up</Text>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/signin")}>
+          <Text style={styles.link}>
+            Already have an account? Sign In
           </Text>
         </Pressable>
       </ScrollView>
