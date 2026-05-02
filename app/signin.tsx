@@ -18,6 +18,7 @@ export default function Signin() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [secure, setSecure] = useState(true);
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -32,15 +33,12 @@ export default function Signin() {
     try {
       const response = await fetch(`${API_URL}/signin.php`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
       const data = await response.json();
 
-      // ✅ SUCCESS LOGIN
       if (data.status === "success") {
         Toast.show({
           type: "success",
@@ -48,23 +46,15 @@ export default function Signin() {
           text2: "Login successful!",
         });
 
-        // optional: role-based navigation
-        if (data.role === "individual") {
-          router.replace("/dashboard");
-        } else if (data.role === "facility") {
-          router.replace("/dashboard");
-        }
-
+        router.replace("/dashboard");
       } else {
-        // ❌ ERROR CASES (pending, rejected, invalid)
         Toast.show({
           type: "error",
           text1: "Login Failed",
           text2: data.message,
         });
       }
-
-    } catch (error) {
+    } catch {
       Toast.show({
         type: "error",
         text1: "Connection Error",
@@ -74,20 +64,14 @@ export default function Signin() {
   };
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      
+    <View style={signinStyles.container}>
       {/* Background */}
       <ImageBackground
         source={require("../assets/images/firstbg.png")}
-        style={signinStyles.backgroundImage}
-      />
-
-      {/* Overlay */}
-      <Image
-        source={require("../assets/images/bglayer.png")}
-        style={signinStyles.bgLayer}
-        resizeMode="cover"
-      />
+        style={signinStyles.background}
+      >
+        <View style={signinStyles.overlay} />
+      </ImageBackground>
 
       {/* Back Button */}
       <Pressable
@@ -96,7 +80,7 @@ export default function Signin() {
       >
         <Image
           source={require("../assets/icons/backbutton.png")}
-          style={signinStyles.backButtonIcon}
+          style={signinStyles.backIcon}
         />
       </Pressable>
 
@@ -106,63 +90,64 @@ export default function Signin() {
         style={signinStyles.logo}
       />
 
-      {/* Title */}
-      <Text style={signinStyles.welcomeText}>
-        Welcome Back!
-      </Text>
-
-      <Text style={signinStyles.subtitleText}>
-        Sign in to continue recycling.
+      {/* Texts */}
+      <Text style={signinStyles.title}>Welcome Back!</Text>
+      <Text style={signinStyles.subtitle}>
+        Sign in to continue recycling
       </Text>
 
       {/* Email */}
-      <Text style={signinStyles.emailLabel}>
-        Email
-      </Text>
-
-      <View style={signinStyles.emailInputWrapper}>
+      <Text style={signinStyles.label}>Email</Text>
+      <View style={signinStyles.inputBox}>
+        <Image
+          source={require("../assets/icons/email.png")}
+          style={signinStyles.inputIcon}
+        />
         <TextInput
           value={email}
           onChangeText={setEmail}
           placeholder="Enter Email"
-          placeholderTextColor="#D3D3D3"
-          style={signinStyles.textInput}
+          placeholderTextColor="#888"
+          style={signinStyles.input}
         />
       </View>
 
       {/* Password */}
-      <Text style={signinStyles.passwordLabel}>
-        Password
-      </Text>
-
-      <View style={signinStyles.passwordInputWrapper}>
+      <Text style={signinStyles.label}>Password</Text>
+      <View style={signinStyles.inputBox}>
+        <Image
+          source={require("../assets/icons/padlock.png")}
+          style={signinStyles.inputIcon}
+        />
         <TextInput
           value={password}
           onChangeText={setPassword}
           placeholder="Enter Password"
-          placeholderTextColor="#999"
-          secureTextEntry={true}
-          style={signinStyles.textInput}
+          placeholderTextColor="#888"
+          secureTextEntry={secure}
+          style={signinStyles.input}
         />
+
+        <Pressable
+          onPress={() => setSecure(!secure)}
+          style={{ padding: 5 }}
+        >
+          <Image
+            source={require("../assets/icons/view.png")}
+            style={signinStyles.eyeIcon}
+          />
+        </Pressable>
       </View>
 
-      {/* Sign In */}
-      <Pressable
-        onPress={handleSignIn}
-        style={signinStyles.signInButton}
-      >
-        <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 18 }}>
-          Sign In
-        </Text>
-      </Pressable>
-
-      {/* Forgot Password */}
+      {/* Forgot */}
       <Pressable>
-        <Text style={{ marginTop: 10 }}>
-          Forgot Password?
-        </Text>
+        <Text style={signinStyles.forgot}>Forgot your Password?</Text>
       </Pressable>
 
+      {/* Button */}
+      <Pressable onPress={handleSignIn} style={signinStyles.button}>
+        <Text style={signinStyles.buttonText}>Sign In</Text>
+      </Pressable>
     </View>
   );
 }
