@@ -1,6 +1,5 @@
 import { useRouter } from "expo-router";
 import { useState } from "react";
-
 import {
   Image,
   ImageBackground,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 
 import Toast from "react-native-toast-message";
+import AsyncStorage from "@react-native-async-storage/async-storage"; // ✅ ADD THIS
 import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
 
@@ -55,14 +55,20 @@ export default function Signin() {
 
       console.log("PARSED:", data);
 
-      if (data.status === "success") {
+      if (data.status === "success" && data.approved === true) {
         Toast.show({
           type: "success",
           text1: "Welcome Back!",
           text2: "Login successful!",
         });
 
-        router.replace("/dashboard");
+        await AsyncStorage.setItem("user", JSON.stringify(data));
+
+        if (data.role === "individual") {
+          router.replace("/user_dashboard" as any);
+        } else if (data.role === "facility") {
+          router.replace("/facility_dashboard" as any);
+        }
       } else {
         Toast.show({
           type: "error",
@@ -79,7 +85,7 @@ export default function Signin() {
         text2: "Server not reachable.",
       });
     }
-  };
+  }; // ✅ FUNCTION CLOSED HERE
 
   return (
     <View style={signinStyles.container}>
