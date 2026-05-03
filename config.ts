@@ -1,1 +1,1 @@
-export const API_URL = "http://192.168.1.13/Admin_Side/Admin_UI";
+export const API_URL = "http://192.168.1.13/Admin_Side";

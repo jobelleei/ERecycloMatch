@@ -22,15 +22,16 @@ export default function FacilitySignup() {
   const [email, setEmail] = useState("");
   const [contactNum, setContactNum] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
 
-  const [secure, setSecure] = useState(true);
+  const [secure1, setSecure1] = useState(true);
+  const [secure2, setSecure2] = useState(true);
 
-  // 🔥 store full image object
   const [image, setImage] = useState<any>(null);
 
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false, // ✅ IMPORTANT
+      allowsEditing: false,
       quality: 1,
     });
 
@@ -46,6 +47,22 @@ export default function FacilitySignup() {
   };
 
   const handleSignUp = async () => {
+    if (!name || !location || !email || !contactNum || !password || !confirmPass || !image) {
+      Toast.show({
+        type: "error",
+        text1: "Please complete all fields",
+      });
+      return;
+    }
+
+    if (password !== confirmPass) {
+      Toast.show({
+        type: "error",
+        text1: "Passwords do not match",
+      });
+      return;
+    }
+
     try {
       const formData = new FormData();
       formData.append("name", name);
@@ -54,19 +71,39 @@ export default function FacilitySignup() {
       formData.append("contactNum", contactNum);
       formData.append("password", password);
 
-      const response = await fetch(`${API_URL}/api/facility-signup`, {
+      formData.append("certification", {
+        uri: image.uri,
+        name: "upload.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      const response = await fetch(`${API_URL}/facility_signup.php`, {
         method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
         body: formData,
       });
 
-      if (response.ok) {
+      const data = await response.json();
+
+      if (data.message === "Submitted for approval") {
+        Toast.show({
+          type: "success",
+          text1: "Submitted for approval",
+        });
+
         router.push("/signin");
+      } else {
+        Toast.show({
+          type: "error",
+          text1: data.message || "Signup failed",
+        });
       }
-    } catch {
+    } catch (error) {
       Toast.show({
         type: "error",
-        text1: "Error",
-        text2: "Something went wrong",
+        text1: "Network error",
       });
     }
   };
@@ -103,7 +140,7 @@ export default function FacilitySignup() {
           Sign up and join the platform today.
         </Text>
 
-        {/* Toggle */}
+        {/* TOGGLE */}
         <View style={styles.toggleContainer}>
           <Pressable
             style={styles.inactiveTab}
@@ -177,7 +214,7 @@ export default function FacilitySignup() {
           />
         </View>
 
-        {/* Password */}
+        {/* PASSWORD */}
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputBox}>
           <Image
@@ -186,12 +223,34 @@ export default function FacilitySignup() {
           />
           <TextInput
             placeholder="Create a password"
-            secureTextEntry={secure}
+            secureTextEntry={secure1}
             value={password}
             onChangeText={setPassword}
             style={styles.input}
           />
-          <Pressable onPress={() => setSecure(!secure)}>
+          <Pressable onPress={() => setSecure1(!secure1)}>
+            <Image
+              source={require("../assets/icons/view.png")}
+              style={styles.eye}
+            />
+          </Pressable>
+        </View>
+
+        {/* CONFIRM PASSWORD */}
+        <Text style={styles.label}>Confirm Password</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
+          <TextInput
+            placeholder="Confirm your password"
+            secureTextEntry={secure2}
+            value={confirmPass}
+            onChangeText={setConfirmPass}
+            style={styles.input}
+          />
+          <Pressable onPress={() => setSecure2(!secure2)}>
             <Image
               source={require("../assets/icons/view.png")}
               style={styles.eye}
@@ -210,7 +269,7 @@ export default function FacilitySignup() {
           style={[
             styles.uploadBox,
             image && {
-              height: (image.height / image.width) * 300, // 🔥 dynamic height
+              height: (image.height / image.width) * 300,
             },
           ]}
         >

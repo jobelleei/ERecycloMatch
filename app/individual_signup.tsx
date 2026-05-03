@@ -29,7 +29,7 @@ export default function IndividualSignup() {
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
-  // 📸 open camera
+  // 📸 Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
@@ -38,7 +38,6 @@ export default function IndividualSignup() {
 
     if (!result.canceled) {
       const asset = result.assets[0];
-
       setImage({
         uri: asset.uri,
         width: asset.width,
@@ -47,8 +46,10 @@ export default function IndividualSignup() {
     }
   };
 
-  // 🔥 CONNECTED TO PHP
+  // 🔥 SIGNUP FUNCTION
   const handleSignUp = async () => {
+    console.log("SIGNUP CLICKED");
+
     if (!name || !email || !address || !password || !confirmpass || !image) {
       Toast.show({
         type: "error",
@@ -73,30 +74,27 @@ export default function IndividualSignup() {
       formData.append("address", address);
       formData.append("password", password);
 
-      // ✅ SEND IMAGE (VERY IMPORTANT)
       formData.append("id_image", {
         uri: image.uri,
         name: "upload.jpg",
         type: "image/jpeg",
       } as any);
 
-      const response = await fetch(
-        `${API_URL}/individual_signup.php`, // 🔥 THIS CONNECTS TO YOUR PHP
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          body: formData,
-        }
-      );
+      const response = await fetch(`${API_URL}/individual_signup.php`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        body: formData,
+      });
 
       const data = await response.json();
+      console.log("SERVER RESPONSE:", data);
 
-      if (response.ok) {
+      if (data.message === "Submitted for approval") {
         Toast.show({
           type: "success",
-          text1: data.message || "Submitted for approval",
+          text1: "Submitted for approval",
         });
 
         router.push("/signin");
@@ -106,8 +104,9 @@ export default function IndividualSignup() {
           text1: data.message || "Signup failed",
         });
       }
-
     } catch (error) {
+      console.log("FETCH ERROR:", error);
+
       Toast.show({
         type: "error",
         text1: "Network error",
@@ -117,33 +116,61 @@ export default function IndividualSignup() {
 
   return (
     <View style={{ flex: 1 }}>
+      {/* Background */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
       >
-        <View style={styles.overlay} />
+        <View style={styles.overlay} pointerEvents="none" />
       </ImageBackground>
 
+      {/* Back Button */}
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
-        <Image source={require("../assets/icons/backbutton.png")} style={styles.backButtonIcon} />
+        <Image
+          source={require("../assets/icons/backbutton.png")}
+          style={styles.backButtonIcon}
+        />
       </Pressable>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-
-          <Image source={require("../assets/icons/icon.png")} style={styles.logo} />
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Logo */}
+          <Image
+            source={require("../assets/icons/icon.png")}
+            style={styles.logo}
+          />
 
           <Text style={styles.title}>
             Sign up and join the platform today.
           </Text>
 
-          {/* Name */}
+          {/* 🔥 TOGGLE ADDED */}
+          <View style={styles.toggleContainer}>
+            <Pressable style={styles.activeTab}>
+              <Text style={styles.activeText}>Individual</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.inactiveTab}
+              onPress={() => router.push("/facility_signup")}
+            >
+              <Text style={styles.inactiveText}>Facility/Shop</Text>
+            </Pressable>
+          </View>
+
+          {/* NAME */}
           <Text style={styles.label}>Name</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/individual.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/individual.png")}
+              style={styles.icon}
+            />
             <TextInput
               placeholder="Enter your name"
               value={name}
@@ -152,10 +179,13 @@ export default function IndividualSignup() {
             />
           </View>
 
-          {/* Email */}
+          {/* EMAIL */}
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/email.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/email.png")}
+              style={styles.icon}
+            />
             <TextInput
               placeholder="Enter your email"
               value={email}
@@ -164,10 +194,13 @@ export default function IndividualSignup() {
             />
           </View>
 
-          {/* Address */}
+          {/* ADDRESS */}
           <Text style={styles.label}>Address</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/location.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/location.png")}
+              style={styles.icon}
+            />
             <TextInput
               placeholder="Enter your address"
               value={address}
@@ -176,9 +209,8 @@ export default function IndividualSignup() {
             />
           </View>
 
-          {/* Upload */}
+          {/* IMAGE */}
           <Text style={styles.label}>ID Verification</Text>
-
           <Pressable
             onPress={openCamera}
             style={[
@@ -189,16 +221,22 @@ export default function IndividualSignup() {
             ]}
           >
             {image ? (
-              <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
+              <Image
+                source={{ uri: image.uri }}
+                style={styles.uploadedImage}
+              />
             ) : (
               <Text>Tap to Open Camera</Text>
             )}
           </Pressable>
 
-          {/* Password */}
+          {/* PASSWORD */}
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/padlock.png")}
+              style={styles.icon}
+            />
             <TextInput
               secureTextEntry={secure1}
               value={password}
@@ -207,14 +245,20 @@ export default function IndividualSignup() {
               style={styles.input}
             />
             <Pressable onPress={() => setSecure1(!secure1)}>
-              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+              <Image
+                source={require("../assets/icons/view.png")}
+                style={styles.eye}
+              />
             </Pressable>
           </View>
 
-          {/* Confirm */}
+          {/* CONFIRM PASSWORD */}
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/padlock.png")}
+              style={styles.icon}
+            />
             <TextInput
               secureTextEntry={secure2}
               value={confirmpass}
@@ -223,15 +267,20 @@ export default function IndividualSignup() {
               style={styles.input}
             />
             <Pressable onPress={() => setSecure2(!secure2)}>
-              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+              <Image
+                source={require("../assets/icons/view.png")}
+                style={styles.eye}
+              />
             </Pressable>
           </View>
 
-          {/* Button */}
-          <Pressable style={styles.button} onPress={handleSignUp}>
+          {/* BUTTON */}
+          <Pressable
+            style={[styles.button, { zIndex: 10 }]}
+            onPress={handleSignUp}
+          >
             <Text style={styles.buttonText}>Sign Up</Text>
           </Pressable>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
