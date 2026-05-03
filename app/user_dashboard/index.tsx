@@ -6,16 +6,17 @@ import {
   Image,
   TextInput,
   ImageBackground,
-  SafeAreaView,
   TouchableOpacity,
 } from "react-native";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function UserDashboard() {
   const [userName, setUserName] = useState("");
   const router = useRouter();
+  const pathname = usePathname(); // ✅ NEW
 
   useEffect(() => {
     const loadUser = async () => {
@@ -31,16 +32,16 @@ export default function UserDashboard() {
   }, []);
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <ScrollView style={styles.container}>
-        
+
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.welcome}>
             Welcome Back{userName ? `, ${userName}` : ""}!
           </Text>
           <Image
-            source={require("../../assets/icons/icon.png")}
+            source={require("../../assets/icons/icon.png")} // ✅ FIXED
             style={styles.avatar}
           />
         </View>
@@ -74,6 +75,7 @@ export default function UserDashboard() {
           <Text style={styles.viewAll}>View All</Text>
         </View>
 
+        {/* ITEMS */}
         <View style={styles.itemCard}>
           <Image
             source={require("../../assets/images/ip6s.jpg")}
@@ -99,9 +101,12 @@ export default function UserDashboard() {
         </View>
 
         {/* FACILITIES */}
-        <Text style={styles.sectionTitle}>
-          Partnered Recycling Facilities
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>
+            Partnered Recycling Facilities
+          </Text>
+          <Text style={styles.viewAll}>View More</Text>
+        </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View style={styles.facilityCard}>
@@ -127,46 +132,77 @@ export default function UserDashboard() {
 
       </ScrollView>
 
-      {/* BOTTOM NAV */}
+      {/* NAVBAR */}
       <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
-          <Text style={[styles.navLabel, styles.navActive]}>Home</Text>
-        </TouchableOpacity>
 
+        {/* HOME ✅ ACTIVE */}
         <TouchableOpacity
-        style={styles.navItem}
-        onPress={() => {
-          console.log("SCAN CLICKED");
-          router.push("/scan");
-        }}
-      >
-        <Image
-          source={require("../../assets/icons/scan.png")}
-          style={styles.navImage}
-        />
-        <Text style={styles.navLabel}>Scan</Text>
-      </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require("../../assets/icons/upload_2.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Upload</Text>
+          style={styles.navItem}
+          onPress={() => router.push("/user_dashboard")}
+        >
+          <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
+          <Text style={[
+            styles.navLabel,
+            pathname === "/user_dashboard" && styles.navActive
+          ]}>
+            Home
+          </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
+        {/* SCAN */}
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/user_dashboard/user_scan")}
+        >
+          <Image source={require("../../assets/icons/scan.png")} style={styles.navImage} />
+          <Text style={[
+            styles.navLabel,
+            pathname === "/user_dashboard/user_scan" && styles.navActive
+          ]}>
+            Scan
+          </Text>
+        </TouchableOpacity>
+
+        {/* MAP */}
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/user_dashboard/user_map")}
+        >
           <Image source={require("../../assets/icons/map.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Map</Text>
+          <Text style={[
+            styles.navLabel,
+            pathname === "/user_dashboard/user_map" && styles.navActive
+          ]}>
+            Map
+          </Text>
         </TouchableOpacity>
 
+        {/* MESSAGES */}
         <TouchableOpacity style={styles.navItem}>
           <Image source={require("../../assets/icons/chatting.png")} style={styles.navImage} />
           <Text style={styles.navLabel}>Messages</Text>
         </TouchableOpacity>
 
+        {/* PROFILE */}
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/profile")}
+        >
+          <Image source={require("../../assets/icons/user.png")} style={styles.navImage} />
+          <Text style={[
+            styles.navLabel,
+            pathname === "/profile" && styles.navActive
+          ]}>
+            Profile
+          </Text>
+        </TouchableOpacity>
+
+        {/* SETTINGS */}
         <TouchableOpacity style={styles.navItem}>
           <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
           <Text style={styles.navLabel}>Settings</Text>
         </TouchableOpacity>
+
       </View>
 
     </SafeAreaView>
@@ -177,7 +213,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    paddingBottom: 90, // prevents overlap with nav
+    paddingBottom: 100,
     backgroundColor: "#f5f5f5",
   },
 
@@ -218,21 +254,17 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.5)",
-    justifyContent: "center",
-    alignItems: "center",
   },
 
   bannerTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#000",
     textAlign: "center",
   },
 
   bannerSub: {
     marginTop: 8,
     fontSize: 12,
-    color: "#333",
     textAlign: "center",
   },
 
@@ -245,7 +277,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginTop: 20,
   },
 
   viewAll: {
@@ -290,28 +321,30 @@ const styles = StyleSheet.create({
   },
 
   facilityImage: {
-    width: 150,
-    height: 120,
+    width: 160,
+    height: 140,
     borderRadius: 15,
   },
 
   facilityName: {
     marginTop: 5,
     fontWeight: "600",
+    width: 160,
   },
 
   bottomNav: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderColor: "#ddd",
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
+    height: 70,
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderColor: "#ddd",
+    paddingBottom: 10,
   },
 
   navItem: {
@@ -321,6 +354,7 @@ const styles = StyleSheet.create({
   navImage: {
     width: 24,
     height: 24,
+    marginBottom: 2,
   },
 
   navLabel: {

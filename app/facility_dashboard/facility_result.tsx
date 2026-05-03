@@ -21,13 +21,9 @@ export default function ScanResult() {
   const [issue, setIssue] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
 
-  const issues = [
-    "Broken Screen",
-    "Battery Issue",
-    "Water Damage",
-  ];
+  const issues = ["Broken Screen", "Battery Issue", "Water Damage"];
 
-  // 🔥 Dynamic suggestions
+  // 🔥 Suggestions
   const getSuggestions = (item: string) => {
     if (!item) return [];
 
@@ -60,8 +56,14 @@ export default function ScanResult() {
           </Text>
         </View>
 
-        {/* IMAGE */}
-        <Image source={{ uri: image as string }} style={styles.image} />
+        {/* IMAGE (SAFE) */}
+        {image ? (
+          <Image source={{ uri: image as string }} style={styles.image} />
+        ) : (
+          <View style={[styles.image, { justifyContent: "center", alignItems: "center" }]}>
+            <Text>No Image</Text>
+          </View>
+        )}
 
         <Text style={styles.identified}>Item identified</Text>
 
@@ -78,7 +80,7 @@ export default function ScanResult() {
             style={styles.input}
           />
 
-          {/* ISSUE DROPDOWN */}
+          {/* ISSUE */}
           <Text style={styles.label}>Issue:</Text>
 
           <TouchableOpacity
@@ -91,11 +93,7 @@ export default function ScanResult() {
           </TouchableOpacity>
 
           {/* MODAL */}
-          <Modal
-            visible={modalVisible}
-            transparent
-            animationType="fade"
-          >
+          <Modal visible={modalVisible} transparent animationType="fade">
             <Pressable
               style={styles.overlay}
               onPress={() => setModalVisible(false)}
@@ -172,6 +170,7 @@ const styles = StyleSheet.create({
     height: 250,
     borderRadius: 20,
     marginTop: 20,
+    backgroundColor: "#ddd",
   },
 
   identified: {
@@ -206,7 +205,6 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 
-  // 🔥 CUSTOM DROPDOWN
   dropdown: {
     backgroundColor: "#fff",
     padding: 14,
@@ -223,7 +221,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  // 🔥 MODAL
   overlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
