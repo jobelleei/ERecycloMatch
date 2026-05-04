@@ -255,19 +255,6 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/facility_scan")}
-          >
-            <Image source={require("../../assets/icons/scan.png")} style={styles.navImage} />
-            <Text style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/facility_scan" && styles.navActive
-            ]}>
-              Scan
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
             onPress={() => router.push("/facility_dashboard/facility_map")}
           >
             <Image source={require("../../assets/icons/map.png")} style={styles.navImage} />
@@ -292,9 +279,17 @@ export default function MapScreen() {
             <Text style={styles.navLabel}>Profile</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem}>
+          {/* SETTINGS */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/facility_dashboard/settings")}
+            >
             <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
-            <Text style={styles.navLabel}>Settings</Text>
+            <Text style={[
+              styles.navLabel,
+              pathname === "/facility_dashboard/settings" && styles.navActive]}>
+              Settings
+            </Text>
           </TouchableOpacity>
 
         </View>
