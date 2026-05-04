@@ -5,8 +5,8 @@ import io
 
 app = FastAPI()
 
-# Load YOLO model (downloads automatically first time)
-model = YOLO("yolo11n.pt")
+model = YOLO("yolo11m.pt")
+print("MODEL LOADED:", model.ckpt_path)
 
 @app.get("/")
 def home():

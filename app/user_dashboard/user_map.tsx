@@ -286,21 +286,28 @@ export default function MapScreen() {
 
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push("/profile")}
+            onPress={() => router.push("/user_dashboard/profile")}
           >
             <Image source={require("../../assets/icons/user.png")} style={styles.navImage} />
             <Text style={[
               styles.navLabel,
-              pathname === "/profile" && styles.navActive
+              pathname === "/user_dashboard/profile" && styles.navActive
             ]}>
               Profile
             </Text>
           </TouchableOpacity>
 
           {/* SETTINGS */}
-          <TouchableOpacity style={styles.navItem}>
-            <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
-            <Text style={styles.navLabel}>Settings</Text>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/user_dashboard/settings")}
+            >
+              <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
+              <Text style={[
+                styles.navLabel,
+                pathname === "/user_dashboard/settings" && styles.navActive
+                ]}>Settings
+              </Text>
           </TouchableOpacity>
 
         </View>

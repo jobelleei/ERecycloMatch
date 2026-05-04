@@ -8,11 +8,12 @@ import {
   ImageBackground,
   TouchableOpacity,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter, usePathname } from "expo-router";
 
 export default function FacilityDashboard() {
   const router = useRouter();
+  const pathname = usePathname();
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
@@ -68,34 +69,6 @@ export default function FacilityDashboard() {
           <Text style={styles.statusGreen}>Viewed</Text>
         </View>
 
-        {/* RECENT USER MATCHES */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent User Matches</Text>
-          <Text style={styles.viewAll}>View More</Text>
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.facilityCard}>
-            <Image
-              source={require("../../assets/images/dyma.webp")}
-              style={styles.facilityImage}
-            />
-            <Text style={styles.facilityName}>
-              Dyma Trading & Junk Shop
-            </Text>
-          </View>
-
-          <View style={styles.facilityCard}>
-            <Image
-              source={require("../../assets/images/villa.webp")}
-              style={styles.facilityImage}
-            />
-            <Text style={styles.facilityName}>
-              Villa Fe Junk Shop
-            </Text>
-          </View>
-        </ScrollView>
-
       </ScrollView>
 
       {/* NAVBAR */}
@@ -105,15 +78,6 @@ export default function FacilityDashboard() {
         <TouchableOpacity style={styles.navItem}>
           <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
           <Text style={[styles.navLabel, styles.navActive]}>Home</Text>
-        </TouchableOpacity>
-
-        {/* SCAN */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/facility_dashboard/facility_scan")}
-        >
-          <Image source={require("../../assets/icons/scan.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Scan</Text>
         </TouchableOpacity>
 
         {/* MAP */}
@@ -141,9 +105,15 @@ export default function FacilityDashboard() {
         </TouchableOpacity>
 
         {/* SETTINGS */}
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/facility_dashboard/settings")}>
           <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Settings</Text>
+          <Text style={[
+            styles.navLabel,
+            pathname === "/facility_dashboard/settings" && styles.navActive]}>
+            Settings
+          </Text>
         </TouchableOpacity>
 
       </View>
