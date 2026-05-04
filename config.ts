@@ -1,3 +1,3 @@
-export const API_URL = "http://192.168.1.13/Admin_Side"; // PHP backend
+export const API_URL = "http://172.20.10.3/Admin_Side"; // PHP backend
 
-export const YOLO_URL = "http://192.168.1.13:8000";
+export const YOLO_URL = "http://172.20.10.3:8000";
