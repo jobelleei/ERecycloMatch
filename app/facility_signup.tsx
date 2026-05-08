@@ -37,7 +37,6 @@ export default function FacilitySignup() {
 
     if (!result.canceled) {
       const asset = result.assets[0];
-
       setImage({
         uri: asset.uri,
         width: asset.width,
@@ -47,7 +46,16 @@ export default function FacilitySignup() {
   };
 
   const handleSignUp = async () => {
-    if (!name || !location || !email || !contactNum || !password || !confirmPass || !image) {
+    // 1. Check all fields filled
+    if (
+      !name ||
+      !location ||
+      !email ||
+      !contactNum ||
+      !password ||
+      !confirmPass ||
+      !image
+    ) {
       Toast.show({
         type: "error",
         text1: "Please complete all fields",
@@ -55,6 +63,29 @@ export default function FacilitySignup() {
       return;
     }
 
+    // 2. ✅ Gmail only check
+    const isValidEmail = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    if (!isValidEmail) {
+      Toast.show({
+        type: "error",
+        text1: "Only Gmail addresses are accepted",
+        text2: "Please use a @gmail.com email address",
+      });
+      return;
+    }
+
+    // 3. ✅ PH phone number check (must start with 09, exactly 11 digits)
+    const isValidPhone = /^09\d{9}$/.test(contactNum);
+    if (!isValidPhone) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid contact number",
+        text2: "Must start with 09 and be 11 digits (e.g. 09123456789)",
+      });
+      return;
+    }
+
+    // 4. Check passwords match
     if (password !== confirmPass) {
       Toast.show({
         type: "error",
@@ -63,6 +94,25 @@ export default function FacilitySignup() {
       return;
     }
 
+    // 5. ✅ Password policy check
+    const passwordRules = [
+      password.length >= 8,
+      /[A-Z]/.test(password),
+      /[a-z]/.test(password),
+      /[0-9]/.test(password),
+      /[!@#$%^&*]/.test(password),
+      !/\s/.test(password),
+      password.length <= 64,
+    ];
+    if (!passwordRules.every(Boolean)) {
+      Toast.show({
+        type: "error",
+        text1: "Password does not meet requirements",
+      });
+      return;
+    }
+
+    // 6. Everything passed — proceed with signup
     try {
       const formData = new FormData();
       formData.append("name", name);
@@ -92,7 +142,6 @@ export default function FacilitySignup() {
           type: "success",
           text1: "Submitted for approval",
         });
-
         router.push("/signin");
       } else {
         Toast.show({
@@ -136,9 +185,7 @@ export default function FacilitySignup() {
           style={styles.logo}
         />
 
-        <Text style={styles.title}>
-          Sign up and join the platform today.
-        </Text>
+        <Text style={styles.title}>Sign up and join the platform today.</Text>
 
         {/* TOGGLE */}
         <View style={styles.toggleContainer}>
@@ -162,7 +209,7 @@ export default function FacilitySignup() {
             style={styles.icon}
           />
           <TextInput
-            placeholder="Enter your name"
+            placeholder="Enter facility name"
             value={name}
             onChangeText={setName}
             style={styles.input}
@@ -192,10 +239,13 @@ export default function FacilitySignup() {
             style={styles.icon}
           />
           <TextInput
-            placeholder="Enter your email"
+            placeholder="Enter your Gmail address"
             value={email}
             onChangeText={setEmail}
             style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
 
@@ -207,10 +257,16 @@ export default function FacilitySignup() {
             style={styles.icon}
           />
           <TextInput
-            placeholder="Enter contact number"
+            placeholder="09XXXXXXXXX"
             value={contactNum}
-            onChangeText={setContactNum}
+            onChangeText={(text) => {
+              // ✅ Only allow digits, max 11 characters
+              const cleaned = text.replace(/[^0-9]/g, "").slice(0, 11);
+              setContactNum(cleaned);
+            }}
             style={styles.input}
+            keyboardType="number-pad"
+            maxLength={11}
           />
         </View>
 
@@ -274,17 +330,14 @@ export default function FacilitySignup() {
           ]}
         >
           {image ? (
-            <Image
-              source={{ uri: image.uri }}
-              style={styles.uploadedImage}
-            />
+            <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
           ) : (
             <Text>Tap to Open Camera</Text>
           )}
         </Pressable>
 
         <Text style={styles.helper}>
-          This help us verify your facility is legitimate and compliant
+          This helps us verify your facility is legitimate and compliant
         </Text>
 
         {/* Button */}
@@ -293,9 +346,7 @@ export default function FacilitySignup() {
         </Pressable>
 
         <Pressable onPress={() => router.push("/signin")}>
-          <Text style={styles.link}>
-            Already have an account? Sign In
-          </Text>
+          <Text style={styles.link}>Already have an account? Sign In</Text>
         </Pressable>
       </ScrollView>
     </View>

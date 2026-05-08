@@ -9,8 +9,8 @@ import {
   View,
 } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // ✅ ADD THIS
 import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
 
@@ -21,14 +21,58 @@ export default function Signin() {
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
 
+  // ✅ Show hint when user finishes typing email
+  const handleEmailBlur = () => {
+    if (email && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please use a @gmail.com email address",
+      });
+    }
+  };
+
+  // ✅ Show hint when user finishes typing password
+  const handlePasswordBlur = () => {
+    if (password && password.length < 8) {
+      Toast.show({
+        type: "info",
+        text1: "Password too short",
+        text2: "Your password must be at least 8 characters",
+      });
+    }
+  };
+
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
+    // 1. Check all fields filled
     if (!email || !password) {
       Toast.show({
         type: "error",
         text1: "Missing Fields",
         text2: "Please fill in all fields.",
+      });
+      return;
+    }
+
+    // 2. Gmail check
+    const isValidEmail = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    if (!isValidEmail) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please use a @gmail.com email address",
+      });
+      return;
+    }
+
+    // 3. Password length check
+    if (password.length < 8) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Password",
+        text2: "Password must be at least 8 characters",
       });
       return;
     }
@@ -49,7 +93,7 @@ export default function Signin() {
       try {
         data = JSON.parse(text);
       } catch {
-        console.log("❌ NOT JSON → wrong API URL or PHP error");
+        console.log("NOT JSON → wrong API URL or PHP error");
         return;
       }
 
@@ -78,14 +122,13 @@ export default function Signin() {
       }
     } catch (error) {
       console.log("ERROR:", error);
-
       Toast.show({
         type: "error",
         text1: "Connection Error",
         text2: "Server not reachable.",
       });
     }
-  }; // ✅ FUNCTION CLOSED HERE
+  };
 
   return (
     <View style={signinStyles.container}>
@@ -112,9 +155,7 @@ export default function Signin() {
       />
 
       <Text style={signinStyles.title}>Welcome Back!</Text>
-      <Text style={signinStyles.subtitle}>
-        Sign in to continue recycling
-      </Text>
+      <Text style={signinStyles.subtitle}>Sign in to continue recycling</Text>
 
       <Text style={signinStyles.label}>Email</Text>
       <View style={signinStyles.inputBox}>
@@ -125,9 +166,13 @@ export default function Signin() {
         <TextInput
           value={email}
           onChangeText={setEmail}
-          placeholder="Enter Email"
+          onBlur={handleEmailBlur}
+          placeholder="Enter your Gmail address"
           placeholderTextColor="#888"
           style={signinStyles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
 
@@ -140,12 +185,12 @@ export default function Signin() {
         <TextInput
           value={password}
           onChangeText={setPassword}
+          onBlur={handlePasswordBlur}
           placeholder="Enter Password"
           placeholderTextColor="#888"
           secureTextEntry={secure}
           style={signinStyles.input}
         />
-
         <Pressable onPress={() => setSecure(!secure)}>
           <Image
             source={require("../assets/icons/view.png")}
