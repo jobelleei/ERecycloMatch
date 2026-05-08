@@ -4,6 +4,7 @@ import {
   Image,
   ImageBackground,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
@@ -21,32 +22,27 @@ export default function Signin() {
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
 
-  // ✅ Show hint when user finishes typing email
-  const handleEmailBlur = () => {
-    if (email && !/^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Email",
-        text2: "Please use a @gmail.com email address",
-      });
-    }
-  };
+  //  Email rules — always visible
+  const emailRules = [
+    {
+      label: "Must be a @gmail.com address",
+      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
+    },
+    {
+      label: "No spaces allowed",
+      met: email.length > 0 && !/\s/.test(email),
+    },
+  ];
 
-  // ✅ Show hint when user finishes typing password
-  const handlePasswordBlur = () => {
-    if (password && password.length < 8) {
-      Toast.show({
-        type: "info",
-        text1: "Password too short",
-        text2: "Your password must be at least 8 characters",
-      });
-    }
-  };
+  //  Password rules — always visible
+  const passwordRules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
+  ];
 
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
-    // 1. Check all fields filled
     if (!email || !password) {
       Toast.show({
         type: "error",
@@ -56,23 +52,20 @@ export default function Signin() {
       return;
     }
 
-    // 2. Gmail check
-    const isValidEmail = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
-    if (!isValidEmail) {
+    if (!emailRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
         text1: "Invalid Email",
-        text2: "Please use a @gmail.com email address",
+        text2: "Please use a valid @gmail.com address",
       });
       return;
     }
 
-    // 3. Password length check
-    if (password.length < 8) {
+    if (!passwordRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
         text1: "Invalid Password",
-        text2: "Password must be at least 8 characters",
+        text2: "Password must be at least 8 characters with no spaces",
       });
       return;
     }
@@ -80,9 +73,7 @@ export default function Signin() {
     try {
       const response = await fetch(`${API_URL}/signin.php`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
@@ -130,6 +121,46 @@ export default function Signin() {
     }
   };
 
+  //  Reusable bullet rule row
+  const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
+      <View style={{
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: met ? "#3B6D11" : "transparent",
+        borderWidth: 1.5,
+        borderColor: met ? "#3B6D11" : "#aaa",
+      }} />
+      <Text style={{
+        fontSize: 12,
+        color: met ? "#27500A" : "#888",
+        fontWeight: met ? "600" : "400",
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  //  Reusable rules box
+  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
+    <View style={{
+      width: "85%",
+      backgroundColor: "#fff",
+      borderRadius: 8,
+      padding: 10,
+      marginTop: -6,
+      marginBottom: 12,
+      borderWidth: 0.5,
+      borderColor: "#c8e6c9",
+      alignSelf: "center",
+    }}>
+      {rules.map((rule, i) => (
+        <RuleItem key={i} label={rule.label} met={rule.met} />
+      ))}
+    </View>
+  );
+
   return (
     <View style={signinStyles.container}>
       <ImageBackground
@@ -157,6 +188,7 @@ export default function Signin() {
       <Text style={signinStyles.title}>Welcome Back!</Text>
       <Text style={signinStyles.subtitle}>Sign in to continue recycling</Text>
 
+      {/* EMAIL */}
       <Text style={signinStyles.label}>Email</Text>
       <View style={signinStyles.inputBox}>
         <Image
@@ -166,7 +198,6 @@ export default function Signin() {
         <TextInput
           value={email}
           onChangeText={setEmail}
-          onBlur={handleEmailBlur}
           placeholder="Enter your Gmail address"
           placeholderTextColor="#888"
           style={signinStyles.input}
@@ -176,6 +207,10 @@ export default function Signin() {
         />
       </View>
 
+      {/*  Email rules — always visible */}
+      <RulesBox rules={emailRules} />
+
+      {/* PASSWORD */}
       <Text style={signinStyles.label}>Password</Text>
       <View style={signinStyles.inputBox}>
         <Image
@@ -185,7 +220,6 @@ export default function Signin() {
         <TextInput
           value={password}
           onChangeText={setPassword}
-          onBlur={handlePasswordBlur}
           placeholder="Enter Password"
           placeholderTextColor="#888"
           secureTextEntry={secure}
@@ -198,6 +232,9 @@ export default function Signin() {
           />
         </Pressable>
       </View>
+
+      {/*  Password rules — always visible */}
+      <RulesBox rules={passwordRules} />
 
       <Pressable>
         <Text style={signinStyles.forgot}>Forgot your Password?</Text>
