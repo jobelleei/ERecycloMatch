@@ -29,7 +29,7 @@ export default function IndividualSignup() {
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
-  // 📸 Open Camera
+  //  Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
@@ -46,7 +46,7 @@ export default function IndividualSignup() {
     }
   };
 
-  // 🔥 SIGNUP FUNCTION
+  //  SIGNUP FUNCTION
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
@@ -146,11 +146,9 @@ export default function IndividualSignup() {
             style={styles.logo}
           />
 
-          <Text style={styles.title}>
-            Sign up and join the platform today.
-          </Text>
+          <Text style={styles.title}>Sign up and join the platform today.</Text>
 
-          {/* 🔥 TOGGLE ADDED */}
+          {/*  TOGGLE ADDED */}
           <View style={styles.toggleContainer}>
             <Pressable style={styles.activeTab}>
               <Text style={styles.activeText}>Individual</Text>
@@ -221,10 +219,7 @@ export default function IndividualSignup() {
             ]}
           >
             {image ? (
-              <Image
-                source={{ uri: image.uri }}
-                style={styles.uploadedImage}
-              />
+              <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
             ) : (
               <Text>Tap to Open Camera</Text>
             )}
