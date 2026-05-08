@@ -29,7 +29,7 @@ export default function IndividualSignup() {
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
-  //  Open Camera
+  // 📸 Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
@@ -46,10 +46,11 @@ export default function IndividualSignup() {
     }
   };
 
-  //  SIGNUP FUNCTION
+  // 🔥 SIGNUP FUNCTION
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
+    // 1. Check all fields filled
     if (!name || !email || !address || !password || !confirmpass || !image) {
       Toast.show({
         type: "error",
@@ -58,6 +59,18 @@ export default function IndividualSignup() {
       return;
     }
 
+    // 2. Gmail only check
+    const isValidEmail = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
+    if (!isValidEmail) {
+      Toast.show({
+        type: "error",
+        text1: "Only Gmail addresses are accepted",
+        text2: "Please use a @gmail.com email address",
+      });
+      return;
+    }
+
+    // 3. Check passwords match
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
@@ -66,6 +79,25 @@ export default function IndividualSignup() {
       return;
     }
 
+    // 4. Password policy check
+    const passwordRules = [
+      password.length >= 8,
+      /[A-Z]/.test(password),
+      /[a-z]/.test(password),
+      /[0-9]/.test(password),
+      /[!@#$%^&*]/.test(password),
+      !/\s/.test(password),
+      password.length <= 64,
+    ];
+    if (!passwordRules.every(Boolean)) {
+      Toast.show({
+        type: "error",
+        text1: "Password does not meet requirements",
+      });
+      return;
+    }
+
+    // 5. Everything passed — proceed with signup
     try {
       const formData = new FormData();
 
@@ -96,7 +128,6 @@ export default function IndividualSignup() {
           type: "success",
           text1: "Submitted for approval",
         });
-
         router.push("/signin");
       } else {
         Toast.show({
@@ -106,7 +137,6 @@ export default function IndividualSignup() {
       }
     } catch (error) {
       console.log("FETCH ERROR:", error);
-
       Toast.show({
         type: "error",
         text1: "Network error",
@@ -148,7 +178,7 @@ export default function IndividualSignup() {
 
           <Text style={styles.title}>Sign up and join the platform today.</Text>
 
-          {/*  TOGGLE ADDED */}
+          {/* TOGGLE */}
           <View style={styles.toggleContainer}>
             <Pressable style={styles.activeTab}>
               <Text style={styles.activeText}>Individual</Text>
@@ -185,10 +215,13 @@ export default function IndividualSignup() {
               style={styles.icon}
             />
             <TextInput
-              placeholder="Enter your email"
+              placeholder="Enter your Gmail address"
               value={email}
               onChangeText={setEmail}
               style={styles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
 
