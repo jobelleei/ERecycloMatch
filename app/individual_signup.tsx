@@ -29,7 +29,78 @@ export default function IndividualSignup() {
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
-  // 📸 Open Camera
+  //  Email rules
+  const emailRules = [
+    {
+      label: "Must be a @gmail.com address",
+      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
+    },
+    {
+      label: "No spaces allowed",
+      met: email.length > 0 && !/\s/.test(email),
+    },
+  ];
+
+  //  Password rules
+  const passwordRules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "At least one uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
+    { label: "At least one lowercase letter (a–z)", met: /[a-z]/.test(password) },
+    { label: "At least one number (0–9)", met: /[0-9]/.test(password) },
+    { label: "At least one special character (!@#$%^&*)", met: /[!@#$%^&*]/.test(password) },
+    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
+    { label: "Maximum 64 characters", met: password.length > 0 && password.length <= 64 },
+  ];
+
+  //  Confirm password rules
+  const confirmRules = [
+    {
+      label: "Passwords match",
+      met: confirmpass.length > 0 && password === confirmpass,
+    },
+  ];
+
+  //  Reusable bullet rule row
+  const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
+      <View style={{
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: met ? "#3B6D11" : "transparent",
+        borderWidth: 1.5,
+        borderColor: met ? "#3B6D11" : "#aaa",
+      }} />
+      <Text style={{
+        fontSize: 12,
+        color: met ? "#27500A" : "#888",
+        fontWeight: met ? "600" : "400",
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  //  Reusable rules box
+  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
+    <View style={{
+      width: "85%",
+      backgroundColor: "#fff",
+      borderRadius: 8,
+      padding: 10,
+      marginTop: -6,
+      marginBottom: 12,
+      borderWidth: 0.5,
+      borderColor: "#c8e6c9",
+      alignSelf: "center",
+    }}>
+      {rules.map((rule, i) => (
+        <RuleItem key={i} label={rule.label} met={rule.met} />
+      ))}
+    </View>
+  );
+
+  //  Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
@@ -46,7 +117,7 @@ export default function IndividualSignup() {
     }
   };
 
-  // 🔥 SIGNUP FUNCTION
+  //  SIGNUP FUNCTION
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
@@ -59,18 +130,17 @@ export default function IndividualSignup() {
       return;
     }
 
-    // 2. Gmail only check
-    const isValidEmail = /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email);
-    if (!isValidEmail) {
+    // 2. Gmail check
+    if (!emailRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
-        text1: "Only Gmail addresses are accepted",
-        text2: "Please use a @gmail.com email address",
+        text1: "Invalid Email",
+        text2: "Please use a valid @gmail.com address",
       });
       return;
     }
 
-    // 3. Check passwords match
+    // 3. Passwords match
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
@@ -79,17 +149,8 @@ export default function IndividualSignup() {
       return;
     }
 
-    // 4. Password policy check
-    const passwordRules = [
-      password.length >= 8,
-      /[A-Z]/.test(password),
-      /[a-z]/.test(password),
-      /[0-9]/.test(password),
-      /[!@#$%^&*]/.test(password),
-      !/\s/.test(password),
-      password.length <= 64,
-    ];
-    if (!passwordRules.every(Boolean)) {
+    // 4. Password policy
+    if (!passwordRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
         text1: "Password does not meet requirements",
@@ -100,12 +161,10 @@ export default function IndividualSignup() {
     // 5. Everything passed — proceed with signup
     try {
       const formData = new FormData();
-
       formData.append("name", name);
       formData.append("email", email);
       formData.append("address", address);
       formData.append("password", password);
-
       formData.append("id_image", {
         uri: image.uri,
         name: "upload.jpg",
@@ -176,14 +235,15 @@ export default function IndividualSignup() {
             style={styles.logo}
           />
 
-          <Text style={styles.title}>Sign up and join the platform today.</Text>
+          <Text style={styles.title}>
+            Sign up and join the platform today.
+          </Text>
 
           {/* TOGGLE */}
           <View style={styles.toggleContainer}>
             <Pressable style={styles.activeTab}>
               <Text style={styles.activeText}>Individual</Text>
             </Pressable>
-
             <Pressable
               style={styles.inactiveTab}
               onPress={() => router.push("/facility_signup")}
@@ -225,6 +285,9 @@ export default function IndividualSignup() {
             />
           </View>
 
+          {/* Email rules — always visible */}
+          <RulesBox rules={emailRules} />
+
           {/* ADDRESS */}
           <Text style={styles.label}>Address</Text>
           <View style={styles.inputBox}>
@@ -252,7 +315,10 @@ export default function IndividualSignup() {
             ]}
           >
             {image ? (
-              <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
+              <Image
+                source={{ uri: image.uri }}
+                style={styles.uploadedImage}
+              />
             ) : (
               <Text>Tap to Open Camera</Text>
             )}
@@ -280,6 +346,9 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
+          {/*  Password rules — always visible */}
+          <RulesBox rules={passwordRules} />
+
           {/* CONFIRM PASSWORD */}
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputBox}>
@@ -301,6 +370,9 @@ export default function IndividualSignup() {
               />
             </Pressable>
           </View>
+
+          {/* Confirm password rules — always visible */}
+          <RulesBox rules={confirmRules} />
 
           {/* BUTTON */}
           <Pressable
