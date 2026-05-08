@@ -111,23 +111,23 @@ export default StyleSheet.create({
     flex: 1,
   },
 
-  // 🔥 UPDATED (dynamic image friendly)
+  //  UPDATED (dynamic image friendly)
   uploadBox: {
     width: "85%",
-    minHeight: 120, // ✅ instead of fixed height
+    minHeight: 120, //  instead of fixed height
     borderWidth: 1,
     borderColor: "#2E7D32",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    overflow: "hidden", // ✅ prevents overflow
+    overflow: "hidden", //  prevents overflow
   },
 
   uploadedImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "contain", // 🔥 keeps full image ratio
+    resizeMode: "contain", //  keeps full image ratio
   },
 
   button: {
