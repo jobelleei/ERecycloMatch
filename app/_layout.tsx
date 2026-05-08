@@ -6,7 +6,7 @@ export default function RootLayout() {
     <>
       <Stack screenOptions={{ headerShown: false }} />
 
-      {/* ✅ THIS IS WHAT ENABLES TOAST */}
+      {/* THIS IS WHAT ENABLES TOAST */}
       <Toast />
     </>
   );
