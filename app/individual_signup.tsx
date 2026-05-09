@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +17,15 @@ import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import styles from "./styles/individual_signup";
 
+const ID_TYPES = [
+  "National ID",
+  "Driver's License",
+  "PhilHealth",
+  "Senior Citizen ID",
+  "UMID",
+  "PWD Card",
+];
+
 export default function IndividualSignup() {
   const router = useRouter();
 
@@ -25,11 +35,13 @@ export default function IndividualSignup() {
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [image, setImage] = useState<any>(null);
+  const [idType, setIdType] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
-  //  Email rules
+  // ✅ Email rules
   const emailRules = [
     {
       label: "Must be a @gmail.com address",
@@ -41,7 +53,7 @@ export default function IndividualSignup() {
     },
   ];
 
-  //  Password rules
+  // ✅ Password rules
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
     { label: "At least one uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
@@ -52,7 +64,7 @@ export default function IndividualSignup() {
     { label: "Maximum 64 characters", met: password.length > 0 && password.length <= 64 },
   ];
 
-  //  Confirm password rules
+  // ✅ Confirm password rules
   const confirmRules = [
     {
       label: "Passwords match",
@@ -60,7 +72,7 @@ export default function IndividualSignup() {
     },
   ];
 
-  //  Reusable bullet rule row
+  // ✅ Reusable bullet rule row
   const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
       <View style={{
@@ -81,17 +93,17 @@ export default function IndividualSignup() {
     </View>
   );
 
-  //  Reusable rules box
+  // ✅ Rules box with lighter opacity
   const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
     <View style={{
       width: "85%",
-      backgroundColor: "#fff",
+      backgroundColor: "rgba(255, 255, 255, 0.45)",
       borderRadius: 8,
       padding: 10,
       marginTop: -6,
       marginBottom: 12,
       borderWidth: 0.5,
-      borderColor: "#c8e6c9",
+      borderColor: "rgba(200, 230, 201, 0.6)",
       alignSelf: "center",
     }}>
       {rules.map((rule, i) => (
@@ -100,7 +112,7 @@ export default function IndividualSignup() {
     </View>
   );
 
-  //  Open Camera
+  // 📸 Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
@@ -117,12 +129,12 @@ export default function IndividualSignup() {
     }
   };
 
-  //  SIGNUP FUNCTION
+  // 🔥 SIGNUP FUNCTION
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
     // 1. Check all fields filled
-    if (!name || !email || !address || !password || !confirmpass || !image) {
+    if (!name || !email || !address || !password || !confirmpass || !image || !idType) {
       Toast.show({
         type: "error",
         text1: "Please complete all fields",
@@ -165,6 +177,7 @@ export default function IndividualSignup() {
       formData.append("email", email);
       formData.append("address", address);
       formData.append("password", password);
+      formData.append("id_type", idType);
       formData.append("id_image", {
         uri: image.uri,
         name: "upload.jpg",
@@ -285,7 +298,7 @@ export default function IndividualSignup() {
             />
           </View>
 
-          {/* Email rules — always visible */}
+          {/* ✅ Email rules */}
           <RulesBox rules={emailRules} />
 
           {/* ADDRESS */}
@@ -302,6 +315,60 @@ export default function IndividualSignup() {
               style={styles.input}
             />
           </View>
+
+          {/* ✅ ID TYPE DROPDOWN */}
+          <Text style={styles.label}>Type of ID</Text>
+          <Pressable
+            onPress={() => setDropdownOpen(!dropdownOpen)}
+            style={[styles.inputBox, { justifyContent: "space-between" }]}
+          >
+            <Text style={{ color: idType ? "#000" : "#aaa", flex: 1, fontSize: 14 }}>
+              {idType || "Select ID type"}
+            </Text>
+            <Text style={{ color: "#666", fontSize: 12 }}>
+              {dropdownOpen ? "▲" : "▼"}
+            </Text>
+          </Pressable>
+
+          {/* ✅ Dropdown options */}
+          {dropdownOpen && (
+            <View style={{
+              width: "85%",
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              borderWidth: 0.5,
+              borderColor: "#c8e6c9",
+              marginTop: -8,
+              marginBottom: 12,
+              alignSelf: "center",
+              overflow: "hidden",
+              zIndex: 99,
+            }}>
+              {ID_TYPES.map((type, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => {
+                    setIdType(type);
+                    setDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: 12,
+                    borderBottomWidth: i < ID_TYPES.length - 1 ? 0.5 : 0,
+                    borderBottomColor: "#e0e0e0",
+                    backgroundColor: idType === type ? "rgba(27,94,32,0.08)" : "#fff",
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 14,
+                    color: idType === type ? "#1B5E20" : "#333",
+                    fontWeight: idType === type ? "600" : "400",
+                  }}>
+                    {type}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {/* IMAGE */}
           <Text style={styles.label}>ID Verification</Text>
@@ -346,7 +413,7 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
-          {/*  Password rules — always visible */}
+          {/* ✅ Password rules */}
           <RulesBox rules={passwordRules} />
 
           {/* CONFIRM PASSWORD */}
@@ -371,7 +438,7 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
-          {/* Confirm password rules — always visible */}
+          {/* ✅ Confirm password rules */}
           <RulesBox rules={confirmRules} />
 
           {/* BUTTON */}
