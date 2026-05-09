@@ -2,10 +2,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  FlatList,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -26,6 +26,83 @@ const ID_TYPES = [
   "PWD Card",
 ];
 
+// ✅ Bacolod City barangays only
+const BACOLOD_LOCATIONS = [
+  { street: "", barangay: "Barangay 1", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 3", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 4", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 6", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 7", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 8", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 9", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 10", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 11", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 12", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 13", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 14", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 15", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 16", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 17", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 18", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 19", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 20", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 21", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 22", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 23", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Barangay 24", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Alijis", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Banago", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Bata", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Cabug", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Felisa", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Granada", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Handumanan", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Mandalagan", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Mansilingan", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Montevista", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Pahanocoy", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Punta Taytay", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Singcang-Airport", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Sum-ag", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Tangub", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Tanza", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Vista Alegre", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Shopping", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Circumferential", city: "Bacolod City", province: "Negros Occidental" },
+
+  // ✅ Common streets in Bacolod
+  { street: "Lacson Street", barangay: "Barangay 1", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Lacson Street", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Lacson Street", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Galo Street", barangay: "Barangay 3", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Gatuslao Street", barangay: "Barangay 4", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Rizal Street", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Burgos Street", barangay: "Barangay 6", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Luzuriaga Street", barangay: "Barangay 7", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Lopez Jaena Street", barangay: "Barangay 8", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Hernaez Street", barangay: "Barangay 9", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Araneta Street", barangay: "Barangay 10", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Hilado Street", barangay: "Mandalagan", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Montevista Avenue", barangay: "Montevista", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Circumferential Road", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Circumferential Road", barangay: "Felisa", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Magsaysay Avenue", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Gonzaga Street", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "San Sebastian Street", barangay: "Barangay 3", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Rosario Street", barangay: "Barangay 4", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "Quezon Street", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "B.S. Aquino Drive", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "North Capitol Road", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "South Capitol Road", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
+];
+
+type Location = typeof BACOLOD_LOCATIONS[0];
+
 export default function IndividualSignup() {
   const router = useRouter();
 
@@ -37,6 +114,8 @@ export default function IndividualSignup() {
   const [image, setImage] = useState<any>(null);
   const [idType, setIdType] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [suggestions, setSuggestions] = useState<Location[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
@@ -112,6 +191,33 @@ export default function IndividualSignup() {
     </View>
   );
 
+  // ✅ Address search handler
+  const handleAddressChange = (text: string) => {
+    setAddress(text);
+    if (text.length < 2) {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    const lower = text.toLowerCase();
+    const filtered = BACOLOD_LOCATIONS.filter((loc) =>
+      loc.barangay.toLowerCase().includes(lower) ||
+      loc.street.toLowerCase().includes(lower)
+    ).slice(0, 6);
+    setSuggestions(filtered);
+    setShowSuggestions(filtered.length > 0);
+  };
+
+  // ✅ When user taps a suggestion
+  const handleSelectAddress = (loc: Location) => {
+    const full = loc.street
+      ? `${loc.street}, ${loc.barangay}, ${loc.city}, ${loc.province}`
+      : `${loc.barangay}, ${loc.city}, ${loc.province}`;
+    setAddress(full);
+    setShowSuggestions(false);
+    setSuggestions([]);
+  };
+
   // 📸 Open Camera
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
@@ -133,16 +239,11 @@ export default function IndividualSignup() {
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
-    // 1. Check all fields filled
     if (!name || !email || !address || !password || !confirmpass || !image || !idType) {
-      Toast.show({
-        type: "error",
-        text1: "Please complete all fields",
-      });
+      Toast.show({ type: "error", text1: "Please complete all fields" });
       return;
     }
 
-    // 2. Gmail check
     if (!emailRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
@@ -152,25 +253,16 @@ export default function IndividualSignup() {
       return;
     }
 
-    // 3. Passwords match
     if (password !== confirmpass) {
-      Toast.show({
-        type: "error",
-        text1: "Passwords do not match",
-      });
+      Toast.show({ type: "error", text1: "Passwords do not match" });
       return;
     }
 
-    // 4. Password policy
     if (!passwordRules.every((r) => r.met)) {
-      Toast.show({
-        type: "error",
-        text1: "Password does not meet requirements",
-      });
+      Toast.show({ type: "error", text1: "Password does not meet requirements" });
       return;
     }
 
-    // 5. Everything passed — proceed with signup
     try {
       const formData = new FormData();
       formData.append("name", name);
@@ -186,9 +278,7 @@ export default function IndividualSignup() {
 
       const response = await fetch(`${API_URL}/individual_signup.php`, {
         method: "POST",
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
         body: formData,
       });
 
@@ -196,23 +286,14 @@ export default function IndividualSignup() {
       console.log("SERVER RESPONSE:", data);
 
       if (data.message === "Submitted for approval") {
-        Toast.show({
-          type: "success",
-          text1: "Submitted for approval",
-        });
+        Toast.show({ type: "success", text1: "Submitted for approval" });
         router.push("/signin");
       } else {
-        Toast.show({
-          type: "error",
-          text1: data.message || "Signup failed",
-        });
+        Toast.show({ type: "error", text1: data.message || "Signup failed" });
       }
     } catch (error) {
       console.log("FETCH ERROR:", error);
-      Toast.show({
-        type: "error",
-        text1: "Network error",
-      });
+      Toast.show({ type: "error", text1: "Network error" });
     }
   };
 
@@ -297,8 +378,6 @@ export default function IndividualSignup() {
               autoCorrect={false}
             />
           </View>
-
-          {/* ✅ Email rules */}
           <RulesBox rules={emailRules} />
 
           {/* ADDRESS */}
@@ -309,14 +388,52 @@ export default function IndividualSignup() {
               style={styles.icon}
             />
             <TextInput
-              placeholder="Enter your address"
+              placeholder="Type barangay or street in Bacolod..."
               value={address}
-              onChangeText={setAddress}
+              onChangeText={handleAddressChange}
               style={styles.input}
+              autoCorrect={false}
             />
           </View>
 
-          {/* ✅ ID TYPE DROPDOWN */}
+          {/* ✅ Address suggestions dropdown */}
+          {showSuggestions && (
+            <View style={{
+              width: "85%",
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              borderWidth: 0.5,
+              borderColor: "#c8e6c9",
+              marginTop: -8,
+              marginBottom: 12,
+              alignSelf: "center",
+              overflow: "hidden",
+              zIndex: 99,
+            }}>
+              {suggestions.map((loc, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => handleSelectAddress(loc)}
+                  style={{
+                    padding: 12,
+                    borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0,
+                    borderBottomColor: "#e0e0e0",
+                  }}
+                >
+                  {/* ✅ Main text: street + barangay */}
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#1B5E20" }}>
+                    {loc.street ? `${loc.street}, ${loc.barangay}` : loc.barangay}
+                  </Text>
+                  {/* ✅ Sub text: city + province */}
+                  <Text style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
+                    {loc.city}, {loc.province}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* ID TYPE DROPDOWN */}
           <Text style={styles.label}>Type of ID</Text>
           <Pressable
             onPress={() => setDropdownOpen(!dropdownOpen)}
@@ -330,7 +447,6 @@ export default function IndividualSignup() {
             </Text>
           </Pressable>
 
-          {/* ✅ Dropdown options */}
           {dropdownOpen && (
             <View style={{
               width: "85%",
@@ -412,8 +528,6 @@ export default function IndividualSignup() {
               />
             </Pressable>
           </View>
-
-          {/* ✅ Password rules */}
           <RulesBox rules={passwordRules} />
 
           {/* CONFIRM PASSWORD */}
@@ -437,8 +551,6 @@ export default function IndividualSignup() {
               />
             </Pressable>
           </View>
-
-          {/* ✅ Confirm password rules */}
           <RulesBox rules={confirmRules} />
 
           {/* BUTTON */}
