@@ -5,6 +5,7 @@ import {
   Image,
   ImageBackground,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -16,6 +17,15 @@ import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import styles from "./styles/individual_signup";
 
+const ID_TYPES = [
+  "National ID",
+  "Driver's License",
+  "PhilHealth",
+  "Senior Citizen ID",
+  "UMID",
+  "PWD Card",
+];
+
 export default function IndividualSignup() {
   const router = useRouter();
 
@@ -25,9 +35,82 @@ export default function IndividualSignup() {
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [image, setImage] = useState<any>(null);
+  const [idType, setIdType] = useState("");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
+
+  // ✅ Email rules
+  const emailRules = [
+    {
+      label: "Must be a @gmail.com address",
+      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
+    },
+    {
+      label: "No spaces allowed",
+      met: email.length > 0 && !/\s/.test(email),
+    },
+  ];
+
+  // ✅ Password rules
+  const passwordRules = [
+    { label: "At least 8 characters", met: password.length >= 8 },
+    { label: "At least one uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
+    { label: "At least one lowercase letter (a–z)", met: /[a-z]/.test(password) },
+    { label: "At least one number (0–9)", met: /[0-9]/.test(password) },
+    { label: "At least one special character (!@#$%^&*)", met: /[!@#$%^&*]/.test(password) },
+    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
+    { label: "Maximum 64 characters", met: password.length > 0 && password.length <= 64 },
+  ];
+
+  // ✅ Confirm password rules
+  const confirmRules = [
+    {
+      label: "Passwords match",
+      met: confirmpass.length > 0 && password === confirmpass,
+    },
+  ];
+
+  // ✅ Reusable bullet rule row
+  const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
+      <View style={{
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: met ? "#3B6D11" : "transparent",
+        borderWidth: 1.5,
+        borderColor: met ? "#3B6D11" : "#aaa",
+      }} />
+      <Text style={{
+        fontSize: 12,
+        color: met ? "#27500A" : "#888",
+        fontWeight: met ? "600" : "400",
+      }}>
+        {label}
+      </Text>
+    </View>
+  );
+
+  // ✅ Rules box with lighter opacity
+  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
+    <View style={{
+      width: "85%",
+      backgroundColor: "rgba(255, 255, 255, 0.45)",
+      borderRadius: 8,
+      padding: 10,
+      marginTop: -6,
+      marginBottom: 12,
+      borderWidth: 0.5,
+      borderColor: "rgba(200, 230, 201, 0.6)",
+      alignSelf: "center",
+    }}>
+      {rules.map((rule, i) => (
+        <RuleItem key={i} label={rule.label} met={rule.met} />
+      ))}
+    </View>
+  );
 
   // 📸 Open Camera
   const openCamera = async () => {
@@ -50,7 +133,8 @@ export default function IndividualSignup() {
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
-    if (!name || !email || !address || !password || !confirmpass || !image) {
+    // 1. Check all fields filled
+    if (!name || !email || !address || !password || !confirmpass || !image || !idType) {
       Toast.show({
         type: "error",
         text1: "Please complete all fields",
@@ -58,6 +142,17 @@ export default function IndividualSignup() {
       return;
     }
 
+    // 2. Gmail check
+    if (!emailRules.every((r) => r.met)) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please use a valid @gmail.com address",
+      });
+      return;
+    }
+
+    // 3. Passwords match
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
@@ -66,14 +161,23 @@ export default function IndividualSignup() {
       return;
     }
 
+    // 4. Password policy
+    if (!passwordRules.every((r) => r.met)) {
+      Toast.show({
+        type: "error",
+        text1: "Password does not meet requirements",
+      });
+      return;
+    }
+
+    // 5. Everything passed — proceed with signup
     try {
       const formData = new FormData();
-
       formData.append("name", name);
       formData.append("email", email);
       formData.append("address", address);
       formData.append("password", password);
-
+      formData.append("id_type", idType);
       formData.append("id_image", {
         uri: image.uri,
         name: "upload.jpg",
@@ -96,7 +200,6 @@ export default function IndividualSignup() {
           type: "success",
           text1: "Submitted for approval",
         });
-
         router.push("/signin");
       } else {
         Toast.show({
@@ -106,7 +209,6 @@ export default function IndividualSignup() {
       }
     } catch (error) {
       console.log("FETCH ERROR:", error);
-
       Toast.show({
         type: "error",
         text1: "Network error",
@@ -150,12 +252,11 @@ export default function IndividualSignup() {
             Sign up and join the platform today.
           </Text>
 
-          {/* 🔥 TOGGLE ADDED */}
+          {/* TOGGLE */}
           <View style={styles.toggleContainer}>
             <Pressable style={styles.activeTab}>
               <Text style={styles.activeText}>Individual</Text>
             </Pressable>
-
             <Pressable
               style={styles.inactiveTab}
               onPress={() => router.push("/facility_signup")}
@@ -187,12 +288,18 @@ export default function IndividualSignup() {
               style={styles.icon}
             />
             <TextInput
-              placeholder="Enter your email"
+              placeholder="Enter your Gmail address"
               value={email}
               onChangeText={setEmail}
               style={styles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
           </View>
+
+          {/* ✅ Email rules */}
+          <RulesBox rules={emailRules} />
 
           {/* ADDRESS */}
           <Text style={styles.label}>Address</Text>
@@ -208,6 +315,60 @@ export default function IndividualSignup() {
               style={styles.input}
             />
           </View>
+
+          {/* ✅ ID TYPE DROPDOWN */}
+          <Text style={styles.label}>Type of ID</Text>
+          <Pressable
+            onPress={() => setDropdownOpen(!dropdownOpen)}
+            style={[styles.inputBox, { justifyContent: "space-between" }]}
+          >
+            <Text style={{ color: idType ? "#000" : "#aaa", flex: 1, fontSize: 14 }}>
+              {idType || "Select ID type"}
+            </Text>
+            <Text style={{ color: "#666", fontSize: 12 }}>
+              {dropdownOpen ? "▲" : "▼"}
+            </Text>
+          </Pressable>
+
+          {/* ✅ Dropdown options */}
+          {dropdownOpen && (
+            <View style={{
+              width: "85%",
+              backgroundColor: "#fff",
+              borderRadius: 10,
+              borderWidth: 0.5,
+              borderColor: "#c8e6c9",
+              marginTop: -8,
+              marginBottom: 12,
+              alignSelf: "center",
+              overflow: "hidden",
+              zIndex: 99,
+            }}>
+              {ID_TYPES.map((type, i) => (
+                <Pressable
+                  key={i}
+                  onPress={() => {
+                    setIdType(type);
+                    setDropdownOpen(false);
+                  }}
+                  style={{
+                    padding: 12,
+                    borderBottomWidth: i < ID_TYPES.length - 1 ? 0.5 : 0,
+                    borderBottomColor: "#e0e0e0",
+                    backgroundColor: idType === type ? "rgba(27,94,32,0.08)" : "#fff",
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 14,
+                    color: idType === type ? "#1B5E20" : "#333",
+                    fontWeight: idType === type ? "600" : "400",
+                  }}>
+                    {type}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
 
           {/* IMAGE */}
           <Text style={styles.label}>ID Verification</Text>
@@ -252,6 +413,9 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
+          {/* ✅ Password rules */}
+          <RulesBox rules={passwordRules} />
+
           {/* CONFIRM PASSWORD */}
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputBox}>
@@ -273,6 +437,9 @@ export default function IndividualSignup() {
               />
             </Pressable>
           </View>
+
+          {/* ✅ Confirm password rules */}
+          <RulesBox rules={confirmRules} />
 
           {/* BUTTON */}
           <Pressable
