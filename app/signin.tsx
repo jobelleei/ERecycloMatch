@@ -4,7 +4,6 @@ import {
   Image,
   ImageBackground,
   Pressable,
-  ScrollView,
   Text,
   TextInput,
   View,
@@ -22,24 +21,6 @@ export default function Signin() {
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
 
-  //  Email rules — always visible
-  const emailRules = [
-    {
-      label: "Must be a @gmail.com address",
-      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
-    },
-    {
-      label: "No spaces allowed",
-      met: email.length > 0 && !/\s/.test(email),
-    },
-  ];
-
-  //  Password rules — always visible
-  const passwordRules = [
-    { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
-  ];
-
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
@@ -48,24 +29,6 @@ export default function Signin() {
         type: "error",
         text1: "Missing Fields",
         text2: "Please fill in all fields.",
-      });
-      return;
-    }
-
-    if (!emailRules.every((r) => r.met)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Email",
-        text2: "Please use a valid @gmail.com address",
-      });
-      return;
-    }
-
-    if (!passwordRules.every((r) => r.met)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid Password",
-        text2: "Password must be at least 8 characters with no spaces",
       });
       return;
     }
@@ -121,46 +84,6 @@ export default function Signin() {
     }
   };
 
-  //  Reusable bullet rule row
-  const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
-      <View style={{
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: met ? "#3B6D11" : "transparent",
-        borderWidth: 1.5,
-        borderColor: met ? "#3B6D11" : "#aaa",
-      }} />
-      <Text style={{
-        fontSize: 12,
-        color: met ? "#27500A" : "#888",
-        fontWeight: met ? "600" : "400",
-      }}>
-        {label}
-      </Text>
-    </View>
-  );
-
-  //  Reusable rules box
-  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
-    <View style={{
-      width: "85%",
-      backgroundColor: "#fff",
-      borderRadius: 8,
-      padding: 10,
-      marginTop: -6,
-      marginBottom: 12,
-      borderWidth: 0.5,
-      borderColor: "#c8e6c9",
-      alignSelf: "center",
-    }}>
-      {rules.map((rule, i) => (
-        <RuleItem key={i} label={rule.label} met={rule.met} />
-      ))}
-    </View>
-  );
-
   return (
     <View style={signinStyles.container}>
       <ImageBackground
@@ -188,7 +111,6 @@ export default function Signin() {
       <Text style={signinStyles.title}>Welcome Back!</Text>
       <Text style={signinStyles.subtitle}>Sign in to continue recycling</Text>
 
-      {/* EMAIL */}
       <Text style={signinStyles.label}>Email</Text>
       <View style={signinStyles.inputBox}>
         <Image
@@ -207,10 +129,6 @@ export default function Signin() {
         />
       </View>
 
-      {/*  Email rules — always visible */}
-      <RulesBox rules={emailRules} />
-
-      {/* PASSWORD */}
       <Text style={signinStyles.label}>Password</Text>
       <View style={signinStyles.inputBox}>
         <Image
@@ -232,9 +150,6 @@ export default function Signin() {
           />
         </Pressable>
       </View>
-
-      {/*  Password rules — always visible */}
-      <RulesBox rules={passwordRules} />
 
       <Pressable>
         <Text style={signinStyles.forgot}>Forgot your Password?</Text>
