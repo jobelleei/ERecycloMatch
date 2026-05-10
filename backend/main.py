@@ -2,6 +2,16 @@ from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
 from PIL import Image
 import io
+import mysql.connector
+
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="capstone_db"
+)
+
+cursor = conn.cursor()
 
 app = FastAPI()
 
