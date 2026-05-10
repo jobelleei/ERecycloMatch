@@ -9,8 +9,8 @@ import {
   View,
 } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
-import AsyncStorage from "@react-native-async-storage/async-storage"; // ✅ ADD THIS
 import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
 
@@ -36,9 +36,7 @@ export default function Signin() {
     try {
       const response = await fetch(`${API_URL}/signin.php`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
@@ -49,7 +47,7 @@ export default function Signin() {
       try {
         data = JSON.parse(text);
       } catch {
-        console.log("❌ NOT JSON → wrong API URL or PHP error");
+        console.log("NOT JSON → wrong API URL or PHP error");
         return;
       }
 
@@ -78,14 +76,13 @@ export default function Signin() {
       }
     } catch (error) {
       console.log("ERROR:", error);
-
       Toast.show({
         type: "error",
         text1: "Connection Error",
         text2: "Server not reachable.",
       });
     }
-  }; // ✅ FUNCTION CLOSED HERE
+  };
 
   return (
     <View style={signinStyles.container}>
@@ -112,9 +109,7 @@ export default function Signin() {
       />
 
       <Text style={signinStyles.title}>Welcome Back!</Text>
-      <Text style={signinStyles.subtitle}>
-        Sign in to continue recycling
-      </Text>
+      <Text style={signinStyles.subtitle}>Sign in to continue recycling</Text>
 
       <Text style={signinStyles.label}>Email</Text>
       <View style={signinStyles.inputBox}>
@@ -125,9 +120,12 @@ export default function Signin() {
         <TextInput
           value={email}
           onChangeText={setEmail}
-          placeholder="Enter Email"
+          placeholder="Enter your Gmail address"
           placeholderTextColor="#888"
           style={signinStyles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
         />
       </View>
 
@@ -145,7 +143,6 @@ export default function Signin() {
           secureTextEntry={secure}
           style={signinStyles.input}
         />
-
         <Pressable onPress={() => setSecure(!secure)}>
           <Image
             source={require("../assets/icons/view.png")}
