@@ -42,3 +42,6 @@ app-example
 /ios
 /android
 
+backend/runs/
+backend/E-Waste Dataset/
+backend/*.pt
