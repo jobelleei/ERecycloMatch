@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../config";
 
 type IssueOption = {
@@ -28,7 +29,7 @@ export default function ScanResult() {
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const hazardStatus = 100;
+  const hazardStatus = 0;
 
   const issues: IssueOption[] = [
     { name: "Broken Screen", deduction: 10 },
@@ -92,11 +93,21 @@ export default function ScanResult() {
 
       setUploading(true);
 
+      const storedUser = await AsyncStorage.getItem("user");
+      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+
+      const submitterName =
+        parsedUser?.name ||
+        parsedUser?.user?.name ||
+        parsedUser?.data?.name ||
+        "Unknown User";
+
       const imageUri = image as string;
       const imageName = imageUri.split("/").pop() || "scanned_item.jpg";
 
       const formData = new FormData();
 
+      formData.append("submitter_name", submitterName);
       formData.append("item_name", label as string);
       formData.append("description", description.trim());
       formData.append(
@@ -113,6 +124,7 @@ export default function ScanResult() {
       } as any);
 
       console.log("UPLOAD URL:", `${API_URL}/item_listing_user.php`);
+      console.log("SUBMITTER:", submitterName);
 
       const response = await fetch(`${API_URL}/item_listing_user.php`, {
         method: "POST",
@@ -126,7 +138,7 @@ export default function ScanResult() {
 
       try {
         data = JSON.parse(rawText);
-      } catch (error) {
+      } catch {
         alert("Server did not return JSON. Check item_listing_user.php.");
         return;
       }
@@ -177,6 +189,7 @@ export default function ScanResult() {
           </Text>
 
           <Text style={styles.label}>Description:</Text>
+
           <TextInput
             placeholder="Enter description..."
             value={description}
