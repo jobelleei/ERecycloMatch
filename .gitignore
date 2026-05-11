@@ -45,3 +45,6 @@ app-example
 backend/runs/
 backend/E-Waste Dataset/
 backend/*.pt
+backend/E-Waste Dataset/
+backend/runs/
+backend/*.pt
