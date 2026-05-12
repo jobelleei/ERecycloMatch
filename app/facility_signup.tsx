@@ -429,7 +429,7 @@ export default function FacilitySignup() {
           <Text style={{ color: "#2E7D32" }}>(Required)</Text>
         </Text>
 
-        {/*  Upload instructions */}
+        {/* ✅ Upload instructions */}
         <View style={{
           width: "85%",
           backgroundColor: "rgba(255, 255, 255, 0.45)",
