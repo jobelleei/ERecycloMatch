@@ -57,9 +57,48 @@ export default function MapScreen() {
   ).current;
 
   const facilities = [
-    { id: "1", name: "Dyma Trading", latitude: 10.317, longitude: 123.884 },
-    { id: "2", name: "Villa Fe Junk Shop", latitude: 10.318, longitude: 123.886 },
-  ];
+  {
+    id: "1",
+    name: "Dyma Trading",
+    latitude: 10.3009,
+    longitude: 123.9072,
+  },
+
+  {
+    id: "2",
+    name: "Villa Fe Junk Shop",
+    latitude: 10.3024,
+    longitude: 123.9091,
+  },
+
+  {
+    id: "3",
+    name: "Jalandon Junk Shop",
+    latitude: 10.679942,
+    longitude: 122.9458734,
+  },
+
+  {
+    id: "4",
+    name: "RAMVIL JUNKSHOP",
+    latitude: 10.6806711,
+    longitude: 122.9493741,
+  },
+
+  {
+    id: "5",
+    name: "THERESE JUNK SHOP",
+    latitude: 10.6639074,
+    longitude: 122.9364048,
+  },
+
+  {
+    id: "6",
+    name: "Albao Junk Shop",
+    latitude: 10.6668827,
+    longitude: 122.9507507,
+  },
+];
 
   useEffect(() => {
     (async () => {

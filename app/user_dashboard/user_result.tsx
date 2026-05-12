@@ -8,6 +8,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -18,37 +19,389 @@ import { API_URL } from "../../config";
 type IssueOption = {
   name: string;
   deduction: number;
+  hazard: number;
+};
+
+type ItemData = {
+  issues: IssueOption[];
+  suggestions: string[];
+};
+
+const NONE_ISSUE = { name: "None", deduction: 0, hazard: 0 };
+
+const ITEM_DATA: Record<string, ItemData> = {
+  laptop: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Battery glued", deduction: 20, hazard: 10 },
+      { name: "Screen cracked", deduction: 10, hazard: 5 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastic case", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove battery if detachable",
+      "Check PCB for corrosion",
+      "Separate plastics and metals",
+    ],
+  },
+
+  smartphone: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Battery glued", deduction: 20, hazard: 10 },
+      { name: "Screen cracked", deduction: 10, hazard: 5 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastic case", deduction: 15, hazard: 5 },
+      { name: "Rare earth magnets unrecoverable", deduction: 10, hazard: 5 },
+      { name: "Hazardous substances", deduction: 20, hazard: 20 },
+    ],
+    suggestions: [
+      "Take out SIM/battery if removable",
+      "Inspect screen for cracks",
+      "Isolate hazardous PCB parts",
+    ],
+  },
+
+  printer: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Toner residue", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove toner/ink cartridges",
+      "Separate plastic casing",
+      "Send PCB to e-waste facility",
+    ],
+  },
+
+  camera: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Lens cracked", deduction: 10, hazard: 5 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Battery glued", deduction: 20, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Detach battery pack",
+      "Inspect lens for cracks",
+      "Separate plastics from metals",
+    ],
+  },
+
+  battery: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Non-removable", deduction: 30, hazard: 15 },
+      { name: "Damaged", deduction: 40, hazard: 30 },
+      { name: "Hazardous chemicals", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Check for swelling or leaks",
+      "Store in fireproof container",
+      "Send to accredited recycler",
+    ],
+  },
+
+  speaker: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Magnet unrecoverable", deduction: 10, hazard: 5 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove magnets if possible",
+      "Separate plastic casing",
+      "Inspect PCB for damage",
+    ],
+  },
+
+  microwave: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Magnetron damaged", deduction: 25, hazard: 15 },
+      { name: "Mixed plastic casing", deduction: 15, hazard: 5 },
+      { name: "PCB corroded", deduction: 20, hazard: 10 },
+      { name: "Glass plate broken", deduction: 10, hazard: 5 },
+      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Discharge capacitors safely",
+      "Remove glass plate",
+      "Handle magnetron with care",
+    ],
+  },
+
+  oven: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Heating element damaged", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Detach heating element",
+      "Separate metal housing",
+      "Inspect PCB for corrosion",
+    ],
+  },
+
+  toaster: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Heating coil damaged", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove heating coils",
+      "Separate plastics and metals",
+      "Check wiring for burns",
+    ],
+  },
+
+  refrigerator: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Compressor damaged", deduction: 30, hazard: 15 },
+      { name: "Insulation foam", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Hazardous refrigerants", deduction: 25, hazard: 30 },
+    ],
+    suggestions: [
+      "Remove compressor unit",
+      "Handle refrigerants properly",
+      "Separate insulation foam",
+    ],
+  },
+
+  "air conditioner": {
+    issues: [
+      NONE_ISSUE,
+      { name: "Compressor damaged", deduction: 30, hazard: 15 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous refrigerants", deduction: 30, hazard: 30 },
+    ],
+    suggestions: [
+      "Remove compressor safely",
+      "Check PCB for damage",
+      "Handle refrigerant gases carefully",
+    ],
+  },
+
+  monitor: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Screen cracked", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous flame retardants", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Handle cracked screen carefully",
+      "Separate plastics and metals",
+      "Send PCB to recycler",
+    ],
+  },
+
+  tablet: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Battery glued", deduction: 30, hazard: 15 },
+      { name: "Screen cracked", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove battery if detachable",
+      "Handle cracked screen carefully",
+      "Separate plastics and metals",
+    ],
+  },
+
+  "power bank": {
+    issues: [
+      NONE_ISSUE,
+      { name: "Battery glued", deduction: 30, hazard: 15 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Check battery for swelling/leaks",
+      "Store in fireproof container",
+      "Send to accredited recycler",
+    ],
+  },
+
+  router: {
+    issues: [
+      NONE_ISSUE,
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove detachable antennas",
+      "Separate casing and PCB",
+      "Send PCB to accredited recycler",
+    ],
+  },
+
+  "wifi router": {
+    issues: [
+      NONE_ISSUE,
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove detachable antennas",
+      "Separate casing and PCB",
+      "Send PCB to accredited recycler",
+    ],
+  },
+
+  keyboard: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Mixed plastics", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Keys damaged", deduction: 10, hazard: 5 },
+      { name: "Hazardous coatings", deduction: 20, hazard: 15 },
+    ],
+    suggestions: [
+      "Remove keycaps",
+      "Separate plastic casing",
+      "Inspect PCB for corrosion",
+    ],
+  },
+
+  mouse: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Mixed plastics", deduction: 20, hazard: 10 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Hazardous substances", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove battery if wireless",
+      "Separate plastics",
+      "Inspect PCB for damage",
+    ],
+  },
+
+  "phone charger": {
+    issues: [
+      NONE_ISSUE,
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Wires damaged", deduction: 15, hazard: 5 },
+      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove damaged wires",
+      "Separate casing and PCB",
+      "Send capacitors to accredited recycler",
+    ],
+  },
+
+  "laptop charger": {
+    issues: [
+      NONE_ISSUE,
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Wires damaged", deduction: 15, hazard: 5 },
+      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Remove damaged wires",
+      "Separate casing and PCB",
+      "Send capacitors to accredited recycler",
+    ],
+  },
+
+  television: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Screen cracked", deduction: 25, hazard: 15 },
+      { name: "PCB corroded", deduction: 25, hazard: 10 },
+      { name: "Mixed plastics", deduction: 15, hazard: 5 },
+      { name: "Hazardous flame retardants", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Handle cracked screen carefully",
+      "Separate casing and PCB",
+      "Send hazardous components to recycler",
+    ],
+  },
+
+  unknown: {
+    issues: [
+      NONE_ISSUE,
+      { name: "Unknown material composition", deduction: 30, hazard: 15 },
+      { name: "Non-removable battery if present", deduction: 20, hazard: 15 },
+      { name: "Mixed plastics/metals", deduction: 15, hazard: 5 },
+      { name: "Hazardous substances potential", deduction: 30, hazard: 20 },
+    ],
+    suggestions: [
+      "Inspect for removable battery or power source",
+      "Check for burned surfaces, corrosion, or leaks",
+      "Separate plastics, metals, and electronics if possible",
+    ],
+  },
+};
+
+const normalizeText = (value: string) => {
+  return value.toLowerCase().trim();
+};
+
+const getItemData = (item: string): ItemData => {
+  const normalizedLabel = normalizeText(item || "");
+
+  if (ITEM_DATA[normalizedLabel]) {
+    return ITEM_DATA[normalizedLabel];
+  }
+
+  const matchedKey = Object.keys(ITEM_DATA).find((key) =>
+    normalizedLabel.includes(key)
+  );
+
+  return matchedKey ? ITEM_DATA[matchedKey] : ITEM_DATA.unknown;
 };
 
 export default function ScanResult() {
   const { image, label } = useLocalSearchParams();
   const router = useRouter();
 
+  const itemName = typeof label === "string" ? label : "Unknown";
+  const itemData = getItemData(itemName);
+
   const [description, setDescription] = useState("");
   const [selectedIssues, setSelectedIssues] = useState<IssueOption[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
-
-  const hazardStatus = 0;
-
-  const issues: IssueOption[] = [
-    { name: "Broken Screen", deduction: 10 },
-    { name: "Burned Battery", deduction: 15 },
-    { name: "Water Damage", deduction: 20 },
-    { name: "Missing Parts", deduction: 10 },
-    { name: "Damaged Charging Port", deduction: 8 },
-    { name: "Not Turning On", deduction: 18 },
-    { name: "Cracked Body", deduction: 7 },
-    { name: "Overheating", deduction: 12 },
-    { name: "Corrosion/Rust", deduction: 15 },
-  ];
 
   const totalDeduction = selectedIssues.reduce(
     (sum, issue) => sum + issue.deduction,
     0
   );
 
+  const totalHazard = selectedIssues.reduce(
+    (sum, issue) => sum + issue.hazard,
+    0
+  );
+
   const recyclability = Math.max(100 - totalDeduction, 0);
+  const hazardStatus = Math.min(totalHazard, 100);
 
   const toggleIssue = (issue: IssueOption) => {
     const alreadySelected = selectedIssues.some(
@@ -59,37 +412,48 @@ export default function ScanResult() {
       setSelectedIssues(
         selectedIssues.filter((selected) => selected.name !== issue.name)
       );
-    } else {
-      setSelectedIssues([...selectedIssues, issue]);
+      return;
     }
+
+    if (issue.name === "None") {
+      setSelectedIssues([issue]);
+      return;
+    }
+
+    const filteredIssues = selectedIssues.filter(
+      (selected) => selected.name !== "None"
+    );
+
+    setSelectedIssues([...filteredIssues, issue]);
   };
 
-  const getSuggestions = (item: string) => {
-    if (!item) return [];
-
-    if (item.toLowerCase().includes("phone")) {
-      return [
-        "Delete all personal data before recycling/trading",
-        "Remove SIM card",
-        "Backup important files",
-      ];
+  const validateForm = () => {
+    if (!image) {
+      Alert.alert("Missing Image", "Please scan an item first.");
+      return false;
     }
 
-    if (item.toLowerCase().includes("laptop")) {
-      return ["Wipe hard drive", "Remove battery", "Backup files"];
+    if (!itemName || itemName === "Unknown") {
+      Alert.alert("Missing Item", "No identified item found.");
+      return false;
     }
 
-    return ["Check item condition before recycling"];
+    if (!description.trim()) {
+      Alert.alert("Missing Description", "Please enter a description.");
+      return false;
+    }
+
+    if (selectedIssues.length === 0) {
+      Alert.alert("Missing Issues", "Please select at least one issue.");
+      return false;
+    }
+
+    return true;
   };
-
-  const suggestions = getSuggestions(label as string);
 
   const handleUploadForVerification = async () => {
     try {
-      if (!image || !label) {
-        alert("No scanned item found.");
-        return;
-      }
+      if (!validateForm()) return;
 
       setUploading(true);
 
@@ -108,12 +472,14 @@ export default function ScanResult() {
       const formData = new FormData();
 
       formData.append("submitter_name", submitterName);
-      formData.append("item_name", label as string);
+      formData.append("item_name", itemName);
       formData.append("description", description.trim());
+
       formData.append(
         "issues",
         selectedIssues.map((issue) => issue.name).join(", ")
       );
+
       formData.append("hazard_status", String(hazardStatus));
       formData.append("recyclability", String(recyclability));
 
@@ -122,9 +488,6 @@ export default function ScanResult() {
         name: imageName,
         type: "image/jpeg",
       } as any);
-
-      console.log("UPLOAD URL:", `${API_URL}/item_listing_user.php`);
-      console.log("SUBMITTER:", submitterName);
 
       const response = await fetch(`${API_URL}/item_listing_user.php`, {
         method: "POST",
@@ -139,18 +502,21 @@ export default function ScanResult() {
       try {
         data = JSON.parse(rawText);
       } catch {
-        alert("Server did not return JSON. Check item_listing_user.php.");
+        Alert.alert(
+          "Server Error",
+          "Server did not return JSON. Check item_listing_user.php."
+        );
         return;
       }
 
-      alert(data.message);
+      Alert.alert("Upload Status", data.message);
 
       if (data.message === "Item submitted for verification") {
         router.back();
       }
     } catch (error) {
       console.log("UPLOAD ERROR:", error);
-      alert("Upload failed. Check your API URL or PHP file.");
+      Alert.alert("Upload Failed", "Check your API URL or PHP file.");
     } finally {
       setUploading(false);
     }
@@ -178,7 +544,7 @@ export default function ScanResult() {
         <Text style={styles.identified}>Item identified</Text>
 
         <View style={styles.card}>
-          <Text style={styles.item}>{label || "Unknown Item"}</Text>
+          <Text style={styles.item}>{itemName}</Text>
 
           <Text style={styles.statusText}>
             Hazard Status: <Text style={styles.bold}>{hazardStatus}%</Text>
@@ -222,7 +588,7 @@ export default function ScanResult() {
               <View style={styles.modalBox}>
                 <Text style={styles.modalTitle}>Select Issues</Text>
 
-                {issues.map((issue, index) => {
+                {itemData.issues.map((issue, index) => {
                   const isSelected = selectedIssues.some(
                     (selected) => selected.name === issue.name
                   );
@@ -238,7 +604,8 @@ export default function ScanResult() {
                     >
                       <Text style={styles.optionText}>
                         {isSelected ? "✓ " : ""}
-                        {issue.name} (-{issue.deduction}%)
+                        {issue.name} (-{issue.deduction}%, +{issue.hazard}%
+                        hazard)
                       </Text>
                     </TouchableOpacity>
                   );
@@ -256,9 +623,9 @@ export default function ScanResult() {
 
           <Text style={styles.label}>Suggestions:</Text>
 
-          {suggestions.map((s, i) => (
-            <Text key={i} style={styles.suggestion}>
-              • {s}
+          {itemData.suggestions.map((suggestion, index) => (
+            <Text key={index} style={styles.suggestion}>
+              • {suggestion}
             </Text>
           ))}
         </View>
@@ -367,6 +734,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 6,
     minHeight: 45,
+    textAlignVertical: "top",
   },
 
   dropdown: {
@@ -397,6 +765,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
+    maxHeight: "80%",
   },
 
   modalTitle: {
