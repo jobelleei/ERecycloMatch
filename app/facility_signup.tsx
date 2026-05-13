@@ -15,30 +15,31 @@ import { API_URL } from "../config";
 import styles from "./styles/facility_signup";
 
 const BACOLOD_LOCATIONS = [
-  { street: "", barangay: "Barangay 1", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 3", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 4", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 6", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 7", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 8", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 9", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 10", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 11", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 12", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 13", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 14", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 15", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 16", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 17", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 18", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 19", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 20", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 21", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 22", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 23", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Barangay 24", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 1", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 2", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 3", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 4", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 5", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 6", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 7", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 8", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 9", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 10", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 11", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 12", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 13", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 14", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 15", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 16", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 17", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 18", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 19", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 20", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 21", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 22", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 23", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Brgy. 24", city: "Bacolod City", province: "Negros Occidental" },
+
   { street: "", barangay: "Alijis", city: "Bacolod City", province: "Negros Occidental" },
   { street: "", barangay: "Banago", city: "Bacolod City", province: "Negros Occidental" },
   { street: "", barangay: "Bata", city: "Bacolod City", province: "Negros Occidental" },
@@ -59,24 +60,9 @@ const BACOLOD_LOCATIONS = [
   { street: "", barangay: "Tanza", city: "Bacolod City", province: "Negros Occidental" },
   { street: "", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
   { street: "", barangay: "Vista Alegre", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Lacson Street", barangay: "Barangay 1", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Lacson Street", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Lacson Street", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Galo Street", barangay: "Barangay 3", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Gatuslao Street", barangay: "Barangay 4", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Rizal Street", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Burgos Street", barangay: "Barangay 6", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Luzuriaga Street", barangay: "Barangay 7", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Lopez Jaena Street", barangay: "Barangay 8", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Hernaez Street", barangay: "Barangay 9", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Araneta Street", barangay: "Barangay 10", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Hilado Street", barangay: "Mandalagan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Circumferential Road", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Magsaysay Avenue", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "B.S. Aquino Drive", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "North Capitol Road", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Gonzaga Street", barangay: "Barangay 2", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "Quezon Street", barangay: "Barangay 5", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Shopping", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Circumferential", city: "Bacolod City", province: "Negros Occidental" },
+  { street: "", barangay: "Libertad", city: "Bacolod City", province: "Negros Occidental" },
 ];
 
 type BacolodLocation = typeof BACOLOD_LOCATIONS[0];
@@ -175,21 +161,43 @@ export default function FacilitySignup() {
   );
 
   // ✅ Local location search — no API needed
-  const handleLocationChange = (text: string) => {
-    setLocation(text);
-    if (text.length < 2) {
-      setLocationSuggestions([]);
-      setShowLocationSuggestions(false);
-      return;
-    }
-    const lower = text.toLowerCase();
-    const filtered = BACOLOD_LOCATIONS.filter((loc) =>
-      loc.barangay.toLowerCase().includes(lower) ||
-      loc.street.toLowerCase().includes(lower)
-    ).slice(0, 6);
-    setLocationSuggestions(filtered);
-    setShowLocationSuggestions(filtered.length > 0);
-  };
+const handleLocationChange = (text: string) => {
+  setLocation(text);
+
+  const normalizeLocation = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/\./g, "")
+      .replace(/\bbarangay\b/g, "brgy")
+      .replace(/\bbrgy\b/g, "brgy")
+      .replace(/\s+/g, " ");
+
+  const searchText = normalizeLocation(text);
+
+  if (searchText.length < 2) {
+    setLocationSuggestions([]);
+    setShowLocationSuggestions(false);
+    return;
+  }
+
+  const filtered = BACOLOD_LOCATIONS.filter((loc) => {
+    const barangay = normalizeLocation(loc.barangay);
+    const street = normalizeLocation(loc.street);
+    const fullAddress = normalizeLocation(
+      `${loc.street} ${loc.barangay} ${loc.city} ${loc.province}`
+    );
+
+    return (
+      barangay.includes(searchText) ||
+      street.includes(searchText) ||
+      fullAddress.includes(searchText)
+    );
+  }).slice(0, 6);
+
+  setLocationSuggestions(filtered);
+  setShowLocationSuggestions(filtered.length > 0);
+};
 
   const handleSelectLocation = (loc: BacolodLocation) => {
     const full = loc.street
@@ -312,7 +320,7 @@ export default function FacilitySignup() {
         <View style={styles.inputBox}>
           <Image source={require("../assets/icons/location.png")} style={styles.icon} />
           <TextInput
-            placeholder="Type barangay or street in Bacolod..."
+            placeholder="Type Brgy. or Street in Bacolod..."
             value={location}
             onChangeText={handleLocationChange}
             style={styles.input}
