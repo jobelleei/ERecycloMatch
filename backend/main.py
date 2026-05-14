@@ -2,6 +2,17 @@ from fastapi import FastAPI, UploadFile, File
 from ultralytics import YOLO
 from PIL import Image
 import io
+import mysql.connector
+
+# MYSQL CONNECTION
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="capstone_db"
+)
+
+cursor = conn.cursor(dictionary=True)
 
 app = FastAPI()
 
@@ -33,3 +44,32 @@ async def detect(file: UploadFile = File(...)):
             })
 
     return {"detections": detections}
+
+# APPROVED ITEMS API
+@app.get("/approved-items/{user_id}")
+def get_approved_items(user_id: int):
+
+    query = """
+    SELECT *
+    FROM approved_items
+    WHERE user_id = %s
+    """
+
+    cursor.execute(query, (user_id,))
+    items = cursor.fetchall()
+
+    return items
+
+@app.get("/rejected-items/{user_id}")
+def get_rejected_items(user_id: int):
+
+    query = """
+    SELECT *
+    FROM rejected_items
+    WHERE user_id = %s
+    """
+
+    cursor.execute(query, (user_id,))
+    items = cursor.fetchall()
+
+    return items
