@@ -62,11 +62,15 @@ export default function Profile() {
 
       {/* MENU */}
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.item}>
+        <TouchableOpacity
+          style={styles.item}
+          onPress={() => router.push("/user_dashboard/user_myItems")}
+        >
           <Image
             source={require("../../assets/icons/box.png")}
             style={styles.icon}
           />
+
           <Text style={styles.text}>My Items</Text>
         </TouchableOpacity>
 

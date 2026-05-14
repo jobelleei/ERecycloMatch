@@ -45,31 +45,51 @@ async def detect(file: UploadFile = File(...)):
 
     return {"detections": detections}
 
-# APPROVED ITEMS API
-@app.get("/approved-items/{user_id}")
-def get_approved_items(user_id: int):
+# APPROVED ITEMS API newly added block of codes
+
+# PENDING ITEMS API
+@app.get("/pending-items/{submitter_name}")
+def get_pending_items(submitter_name: str):
 
     query = """
     SELECT *
-    FROM approved_items
-    WHERE user_id = %s
+    FROM pending_items
+    WHERE submitter_name = %s
     """
 
-    cursor.execute(query, (user_id,))
+    cursor.execute(query, (submitter_name,))
     items = cursor.fetchall()
 
     return items
 
-@app.get("/rejected-items/{user_id}")
-def get_rejected_items(user_id: int):
+
+# APPROVED ITEMS API
+@app.get("/approved-items/{submitter_name}")
+def get_approved_items(submitter_name: str):
+
+    query = """
+    SELECT *
+    FROM approved_items
+    WHERE submitter_name = %s
+    """
+
+    cursor.execute(query, (submitter_name,))
+    items = cursor.fetchall()
+
+    return items
+
+
+# REJECTED ITEMS API
+@app.get("/rejected-items/{submitter_name}")
+def get_rejected_items(submitter_name: str):
 
     query = """
     SELECT *
     FROM rejected_items
-    WHERE user_id = %s
+    WHERE submitter_name = %s
     """
 
-    cursor.execute(query, (user_id,))
+    cursor.execute(query, (submitter_name,))
     items = cursor.fetchall()
 
     return items
