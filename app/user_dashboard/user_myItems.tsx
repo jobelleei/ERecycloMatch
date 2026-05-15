@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -35,30 +36,27 @@ export default function MyItems() {
     return () => clearInterval(interval);
   }, [submitterName]);
 
- const loadUser = async () => {
-  try {
+  const loadUser = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("user");
 
-    const stored = await AsyncStorage.getItem("user");
+      console.log("STORED USER:", stored);
 
-    console.log("STORED USER:", stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
 
-    if (stored) {
+        console.log("PARSED USER:", parsed);
 
-      const parsed = JSON.parse(stored);
+        const userName = parsed.name?.trim();
 
-      console.log("PARSED USER:", parsed);
+        console.log("USERNAME:", userName);
 
-      const userName = parsed.name?.trim();
-
-      console.log("USERNAME:", userName);
-
-      setSubmitterName(userName || "");
+        setSubmitterName(userName || "");
+      }
+    } catch (error) {
+      console.log("LOAD USER ERROR:", error);
     }
-
-  } catch (error) {
-    console.log("LOAD USER ERROR:", error);
-  }
-};
+  };
 
   const fetchItems = async () => {
     try {
@@ -156,9 +154,47 @@ export default function MyItems() {
               <Text style={styles.actionText}>Edit</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.deleteButton}>
-              <Text style={styles.deleteText}>Delete</Text>
-            </TouchableOpacity>
+            <TouchableOpacity
+  style={styles.deleteButton}
+  onPress={() => {
+
+    Alert.alert(
+      "Delete Item",
+      "Are you sure you want to delete this item?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+
+            try {
+
+              await fetch(
+                `http://192.168.1.10:8000/delete-item/${item.id}`,
+                {
+                  method: "DELETE",
+                }
+              );
+
+              setItems(items.filter((i) => i.id !== item.id));
+
+            } catch (error) {
+              console.log(error);
+            }
+
+          },
+        },
+      ]
+    );
+
+  }}
+>
+  <Text style={styles.deleteText}>Delete</Text>
+</TouchableOpacity>
           </View>
         )}
       </View>

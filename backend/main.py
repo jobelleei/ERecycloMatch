@@ -100,3 +100,14 @@ def get_rejected_items(submitter_name: str):
     items = cursor.fetchall()
 
     return items
+
+# DELETE ITEM API
+@app.delete("/delete-item/{item_id}")
+def delete_item(item_id: int):
+
+    query = "DELETE FROM pending_items WHERE id = %s"
+
+    cursor.execute(query, (item_id,))
+    conn.commit()
+
+    return {"message": "Item deleted successfully"}

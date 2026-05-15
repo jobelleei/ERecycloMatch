@@ -558,6 +558,7 @@ export default function ScanResult() {
 
           <TextInput
             placeholder="Enter description..."
+            placeholderTextColor="#777"
             value={description}
             onChangeText={setDescription}
             style={styles.input}
@@ -729,13 +730,14 @@ const styles = StyleSheet.create({
   },
 
   input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
-    marginTop: 6,
-    minHeight: 45,
-    textAlignVertical: "top",
-  },
+  backgroundColor: "#fff",
+  padding: 12,
+  borderRadius: 10,
+  marginTop: 6,
+  minHeight: 45,
+  textAlignVertical: "top",
+  color: "#000",
+},
 
   dropdown: {
     backgroundColor: "#fff",
