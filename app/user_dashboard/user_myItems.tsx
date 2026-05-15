@@ -17,55 +17,92 @@ export default function MyItems() {
 
   const [items, setItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<number | null>(null);
-const [submitterName, setSubmitterName] = useState("");
+  const [submitterName, setSubmitterName] = useState("");
+
   useEffect(() => {
     loadUser();
   }, []);
 
- useEffect(() => {
-  if (submitterName) {
+  useEffect(() => {
+    if (!submitterName) return;
+
     fetchItems();
-  }
-}, [submitterName]);
 
-  const loadUser = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("user");
+    const interval = setInterval(() => {
+      fetchItems();
+    }, 5000);
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
+    return () => clearInterval(interval);
+  }, [submitterName]);
 
-setSubmitterName(parsed.name);      }
-    } catch (error) {
-      console.log(error);
+ const loadUser = async () => {
+  try {
+
+    const stored = await AsyncStorage.getItem("user");
+
+    console.log("STORED USER:", stored);
+
+    if (stored) {
+
+      const parsed = JSON.parse(stored);
+
+      console.log("PARSED USER:", parsed);
+
+      const userName = parsed.name?.trim();
+
+      console.log("USERNAME:", userName);
+
+      setSubmitterName(userName || "");
     }
-  };
+
+  } catch (error) {
+    console.log("LOAD USER ERROR:", error);
+  }
+};
 
   const fetchItems = async () => {
     try {
+      console.log("FETCHING FOR:", submitterName);
       const response = await fetch(
-        `http://192.168.1.5:8000/pending-items/${submitterName}`,
+        `http://192.168.1.10:8000/pending-items/${submitterName}`,
       );
 
-      const data = await response.json();
+      const text = await response.text();
 
+      console.log("RAW RESPONSE:", text);
+
+      const data = text ? JSON.parse(text) : [];
       const pendingItems = data.map((item: any) => ({
         ...item,
         status: "Pending",
       }));
 
       const approvedResponse = await fetch(
-        `http://192.168.1.5:8000/approved-items/${submitterName}`,
+        `http://192.168.1.10:8000/approved-items/${submitterName}`,
       );
 
-      const approvedData = await approvedResponse.json();
+      const approvedText = await approvedResponse.text();
 
+      console.log("APPROVED:", approvedText);
+
+      const approvedData = approvedText ? JSON.parse(approvedText) : [];
       const approvedItems = approvedData.map((item: any) => ({
         ...item,
         status: "Listed",
       }));
 
-      const combined = [...pendingItems, ...approvedItems];
+      const rejectedResponse = await fetch(
+        `http://192.168.1.10:8000/rejected-items/${submitterName}`,
+      );
+
+      const rejectedData = await rejectedResponse.json();
+
+      const rejectedItems = rejectedData.map((item: any) => ({
+        ...item,
+        status: "Rejected",
+      }));
+
+      const combined = [...pendingItems, ...approvedItems, ...rejectedItems];
 
       setItems(combined);
     } catch (error) {
@@ -84,7 +121,9 @@ setSubmitterName(parsed.name);      }
         >
           <Image
             source={{
-              uri: item.item_image || "https://via.placeholder.com/100",
+              uri: item.item_image
+                ? `http://192.168.1.10:8000/uploads/${item.item_image}`
+                : "https://via.placeholder.com/100",
             }}
             style={styles.itemImage}
           />

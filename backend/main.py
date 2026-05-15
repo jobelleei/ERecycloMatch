@@ -1,8 +1,15 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 from PIL import Image
 import io
 import mysql.connector
+import os
+import shutil
+
+app = FastAPI()
+
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # MYSQL CONNECTION
 conn = mysql.connector.connect(
@@ -14,8 +21,6 @@ conn = mysql.connector.connect(
 
 cursor = conn.cursor(dictionary=True)
 
-app = FastAPI()
-
 model = YOLO("runs/detect/train-4/weights/best.pt")
 print("MODEL LOADED:", model.ckpt_path)
 
@@ -25,6 +30,7 @@ def home():
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
+    
     contents = await file.read()
     image = Image.open(io.BytesIO(contents)).convert("RGB")
 
@@ -48,13 +54,14 @@ async def detect(file: UploadFile = File(...)):
 # APPROVED ITEMS API newly added block of codes
 
 # PENDING ITEMS API
+# PENDING ITEMS API
 @app.get("/pending-items/{submitter_name}")
 def get_pending_items(submitter_name: str):
 
     query = """
     SELECT *
     FROM pending_items
-    WHERE submitter_name = %s
+    WHERE LOWER(submitter_name) = LOWER(%s)
     """
 
     cursor.execute(query, (submitter_name,))
@@ -70,7 +77,7 @@ def get_approved_items(submitter_name: str):
     query = """
     SELECT *
     FROM approved_items
-    WHERE submitter_name = %s
+    WHERE LOWER(submitter_name) = LOWER(%s)
     """
 
     cursor.execute(query, (submitter_name,))
@@ -86,7 +93,7 @@ def get_rejected_items(submitter_name: str):
     query = """
     SELECT *
     FROM rejected_items
-    WHERE submitter_name = %s
+    WHERE LOWER(submitter_name) = LOWER(%s)
     """
 
     cursor.execute(query, (submitter_name,))
