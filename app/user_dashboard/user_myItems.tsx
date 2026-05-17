@@ -62,7 +62,7 @@ export default function MyItems() {
     try {
       console.log("FETCHING FOR:", submitterName);
       const response = await fetch(
-        `http://192.168.1.10:8000/pending-items/${submitterName}`,
+        `http://172.20.10.2:8000/pending-items/${submitterName}`,
       );
 
       const text = await response.text();
@@ -76,7 +76,7 @@ export default function MyItems() {
       }));
 
       const approvedResponse = await fetch(
-        `http://192.168.1.10:8000/approved-items/${submitterName}`,
+        `http://172.20.10.2:8000/approved-items/${submitterName}`,
       );
 
       const approvedText = await approvedResponse.text();
@@ -90,7 +90,7 @@ export default function MyItems() {
       }));
 
       const rejectedResponse = await fetch(
-        `http://192.168.1.10:8000/rejected-items/${submitterName}`,
+        `http://172.20.10.2:8000/rejected-items/${submitterName}`,
       );
 
       const rejectedData = await rejectedResponse.json();
@@ -120,7 +120,7 @@ export default function MyItems() {
           <Image
             source={{
               uri: item.item_image
-                ? `http://192.168.1.10:8000/uploads/${item.item_image}`
+                ? `http://172.20.10.2:8000/uploads/${item.item_image}`
                 : "https://via.placeholder.com/100",
             }}
             style={styles.itemImage}
@@ -174,7 +174,7 @@ export default function MyItems() {
             try {
 
               await fetch(
-                `http://192.168.1.10:8000/delete-item/${item.id}`,
+                `http://172.20.10.2:8000/delete-item/${item.id}`,
                 {
                   method: "DELETE",
                 }

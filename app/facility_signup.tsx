@@ -13,65 +13,26 @@ import {
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import styles from "./styles/facility_signup";
+import { Picker } from "@react-native-picker/picker";
+import axios from "axios";
+import { useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
 
-const BACOLOD_LOCATIONS = [
-  { street: "", barangay: "Brgy. 1", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 2", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 3", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 4", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 5", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 6", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 7", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 8", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 9", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 10", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 11", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 12", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 13", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 14", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 15", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 16", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 17", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 18", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 19", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 20", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 21", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 22", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 23", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 24", city: "Bacolod City", province: "Negros Occidental" },
-
-  { street: "", barangay: "Alijis", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Banago", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Bata", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Cabug", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Felisa", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Granada", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Handumanan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Mandalagan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Mansilingan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Montevista", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Pahanocoy", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Punta Taytay", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Singcang-Airport", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Sum-ag", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Tangub", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Tanza", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Vista Alegre", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Shopping", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Circumferential", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Libertad", city: "Bacolod City", province: "Negros Occidental" },
-];
-
-type BacolodLocation = typeof BACOLOD_LOCATIONS[0];
+const PSGC_API = "https://psgc.gitlab.io/api";
 
 export default function FacilitySignup() {
   const router = useRouter();
 
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
+  const [country, setCountry] = useState("Philippines");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [street, setStreet] = useState("");
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [barangays, setBarangays] = useState<string[]>([]);
   const [email, setEmail] = useState("");
   const [contactNum, setContactNum] = useState("");
   const [password, setPassword] = useState("");
@@ -79,14 +40,74 @@ export default function FacilitySignup() {
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
   const [image, setImage] = useState<any>(null);
-  const [locationSuggestions, setLocationSuggestions] = useState<BacolodLocation[]>([]);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
 
-  // ✅ Email rules
+  useEffect(() => {
+    fetchProvinces();
+  }, []);
+
+  const fetchProvinces = async () => {
+    try {
+      const response = await axios.get(`${PSGC_API}/provinces`);
+
+      const provinceNames = response.data.map((item: any) => item.name).sort();
+
+      setProvinces(provinceNames);
+    } catch (error) {
+      console.log("PROVINCES ERROR:", error);
+    }
+  };
+
+  const fetchCities = async (selectedProvince: string) => {
+    try {
+      const provincesResponse = await axios.get(`${PSGC_API}/provinces`);
+
+      const province = provincesResponse.data.find(
+        (p: any) => p.name.toLowerCase() === selectedProvince.toLowerCase(),
+      );
+
+      if (!province) return;
+
+      const response = await axios.get(
+        `${PSGC_API}/provinces/${province.code}/cities-municipalities`,
+      );
+
+      const cityNames = response.data.map((item: any) => item.name).sort();
+
+      setCities(cityNames);
+    } catch (error) {
+      console.log("CITY ERROR:", error);
+    }
+  };
+
+  const fetchBarangays = async (selectedCity: string) => {
+    try {
+      const response = await axios.get(`${PSGC_API}/cities-municipalities`);
+
+      const cityFound = response.data.find(
+        (c: any) => c.name.toLowerCase() === selectedCity.toLowerCase(),
+      );
+
+      if (!cityFound) return;
+
+      const barangayResponse = await axios.get(
+        `${PSGC_API}/cities-municipalities/${cityFound.code}/barangays`,
+      );
+
+      const barangayNames = barangayResponse.data
+        .map((item: any) => item.name)
+        .sort();
+
+      setBarangays(barangayNames);
+    } catch (error) {
+      console.log("BARANGAY ERROR:", error);
+    }
+  };
+
+  //  Email rules
   const emailRules = [
     {
-      label: "Must be a @gmail.com address",
-      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
+      label: "Must be a valid email address",
+      met: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
     },
     {
       label: "No spaces allowed",
@@ -98,18 +119,36 @@ export default function FacilitySignup() {
   const contactRules = [
     { label: "Must start with 09", met: contactNum.startsWith("09") },
     { label: "Must be exactly 11 digits", met: contactNum.length === 11 },
-    { label: "Numbers only", met: contactNum.length > 0 && /^[0-9]+$/.test(contactNum) },
+    {
+      label: "Numbers only",
+      met: contactNum.length > 0 && /^[0-9]+$/.test(contactNum),
+    },
   ];
 
   // ✅ Password rules
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "At least one uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
-    { label: "At least one lowercase letter (a–z)", met: /[a-z]/.test(password) },
+    {
+      label: "At least one uppercase letter (A–Z)",
+      met: /[A-Z]/.test(password),
+    },
+    {
+      label: "At least one lowercase letter (a–z)",
+      met: /[a-z]/.test(password),
+    },
     { label: "At least one number (0–9)", met: /[0-9]/.test(password) },
-    { label: "At least one special character (!@#$%^&*)", met: /[!@#$%^&*]/.test(password) },
-    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
-    { label: "Maximum 64 characters", met: password.length > 0 && password.length <= 64 },
+    {
+      label: "At least one special character (!@#$%^&*)",
+      met: /[!@#$%^&*]/.test(password),
+    },
+    {
+      label: "No spaces allowed",
+      met: password.length > 0 && !/\s/.test(password),
+    },
+    {
+      label: "Maximum 64 characters",
+      met: password.length > 0 && password.length <= 64,
+    },
   ];
 
   // ✅ Confirm password rules
@@ -122,91 +161,60 @@ export default function FacilitySignup() {
 
   // ✅ Reusable bullet rule row
   const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
-      <View style={{
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: met ? "#3B6D11" : "transparent",
-        borderWidth: 1.5,
-        borderColor: met ? "#3B6D11" : "#aaa",
-      }} />
-      <Text style={{
-        fontSize: 12,
-        color: met ? "#27500A" : "#888",
-        fontWeight: met ? "600" : "400",
-      }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginVertical: 3,
+      }}
+    >
+      <View
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 5,
+          backgroundColor: met ? "#3B6D11" : "transparent",
+          borderWidth: 1.5,
+          borderColor: met ? "#3B6D11" : "#aaa",
+        }}
+      />
+      <Text
+        style={{
+          fontSize: 12,
+          color: met ? "#27500A" : "#888",
+          fontWeight: met ? "600" : "400",
+        }}
+      >
         {label}
       </Text>
     </View>
   );
 
   // ✅ Rules box
-  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
-    <View style={{
-      width: "85%",
-      backgroundColor: "rgba(255, 255, 255, 0.45)",
-      borderRadius: 8,
-      padding: 10,
-      marginTop: -6,
-      marginBottom: 12,
-      borderWidth: 0.5,
-      borderColor: "rgba(200, 230, 201, 0.6)",
-      alignSelf: "center",
-    }}>
+  const RulesBox = ({
+    rules,
+  }: {
+    rules: { label: string; met: boolean }[];
+  }) => (
+    <View
+      style={{
+        width: "85%",
+        backgroundColor: "rgba(255, 255, 255, 0.45)",
+        borderRadius: 8,
+        padding: 10,
+        marginTop: -6,
+        marginBottom: 12,
+        borderWidth: 0.5,
+        borderColor: "rgba(200, 230, 201, 0.6)",
+        alignSelf: "center",
+      }}
+    >
       {rules.map((rule, i) => (
         <RuleItem key={i} label={rule.label} met={rule.met} />
       ))}
     </View>
   );
-
-  // ✅ Local location search — no API needed
-const handleLocationChange = (text: string) => {
-  setLocation(text);
-
-  const normalizeLocation = (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/\./g, "")
-      .replace(/\bbarangay\b/g, "brgy")
-      .replace(/\bbrgy\b/g, "brgy")
-      .replace(/\s+/g, " ");
-
-  const searchText = normalizeLocation(text);
-
-  if (searchText.length < 2) {
-    setLocationSuggestions([]);
-    setShowLocationSuggestions(false);
-    return;
-  }
-
-  const filtered = BACOLOD_LOCATIONS.filter((loc) => {
-    const barangay = normalizeLocation(loc.barangay);
-    const street = normalizeLocation(loc.street);
-    const fullAddress = normalizeLocation(
-      `${loc.street} ${loc.barangay} ${loc.city} ${loc.province}`
-    );
-
-    return (
-      barangay.includes(searchText) ||
-      street.includes(searchText) ||
-      fullAddress.includes(searchText)
-    );
-  }).slice(0, 6);
-
-  setLocationSuggestions(filtered);
-  setShowLocationSuggestions(filtered.length > 0);
-};
-
-  const handleSelectLocation = (loc: BacolodLocation) => {
-    const full = loc.street
-      ? `${loc.street}, ${loc.barangay}, ${loc.city}, ${loc.province}`
-      : `${loc.barangay}, ${loc.city}, ${loc.province}`;
-    setLocation(full);
-    setLocationSuggestions([]);
-    setShowLocationSuggestions(false);
-  };
 
   const openCamera = async () => {
     const result = await ImagePicker.launchCameraAsync({
@@ -220,16 +228,32 @@ const handleLocationChange = (text: string) => {
   };
 
   const handleSignUp = async () => {
-    if (!name || !location || !email || !contactNum || !password || !confirmPass || !image) {
+    if (
+      !name ||
+      !location ||
+      !email ||
+      !contactNum ||
+      !password ||
+      !confirmPass ||
+      !image
+    ) {
       Toast.show({ type: "error", text1: "Please complete all fields" });
       return;
     }
     if (!emailRules.every((r) => r.met)) {
-      Toast.show({ type: "error", text1: "Only Gmail addresses are accepted", text2: "Please use a @gmail.com email address" });
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please enter a valid email address",
+      });
       return;
     }
     if (!contactRules.every((r) => r.met)) {
-      Toast.show({ type: "error", text1: "Invalid contact number", text2: "Must start with 09 and be exactly 11 digits" });
+      Toast.show({
+        type: "error",
+        text1: "Invalid contact number",
+        text2: "Must start with 09 and be exactly 11 digits",
+      });
       return;
     }
     if (password !== confirmPass) {
@@ -237,7 +261,10 @@ const handleLocationChange = (text: string) => {
       return;
     }
     if (!passwordRules.every((r) => r.met)) {
-      Toast.show({ type: "error", text1: "Password does not meet requirements" });
+      Toast.show({
+        type: "error",
+        text1: "Password does not meet requirements",
+      });
       return;
     }
 
@@ -282,7 +309,10 @@ const handleLocationChange = (text: string) => {
       </ImageBackground>
 
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
-        <Image source={require("../assets/icons/backbutton.png")} style={styles.backButtonIcon} />
+        <Image
+          source={require("../assets/icons/backbutton.png")}
+          style={styles.backButtonIcon}
+        />
       </Pressable>
 
       <ScrollView
@@ -290,12 +320,18 @@ const handleLocationChange = (text: string) => {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Image source={require("../assets/icons/icon.png")} style={styles.logo} />
+        <Image
+          source={require("../assets/icons/icon.png")}
+          style={styles.logo}
+        />
         <Text style={styles.title}>Sign up and join the platform today.</Text>
 
         {/* TOGGLE */}
         <View style={styles.toggleContainer}>
-          <Pressable style={styles.inactiveTab} onPress={() => router.push("/individual_signup")}>
+          <Pressable
+            style={styles.inactiveTab}
+            onPress={() => router.push("/individual_signup")}
+          >
             <Text style={styles.inactiveText}>Individual</Text>
           </Pressable>
           <Pressable style={styles.activeTab}>
@@ -306,7 +342,10 @@ const handleLocationChange = (text: string) => {
         {/* FACILITY NAME */}
         <Text style={styles.label}>Facility Name</Text>
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/individual.png")} style={styles.icon} />
+          <Image
+            source={require("../assets/icons/individual.png")}
+            style={styles.icon}
+          />
           <TextInput
             placeholder="Enter facility name"
             value={name}
@@ -315,60 +354,106 @@ const handleLocationChange = (text: string) => {
           />
         </View>
 
-        {/* LOCATION */}
-        <Text style={styles.label}>Location</Text>
+        <Text style={styles.label}>Facility Address</Text>
+
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/location.png")} style={styles.icon} />
-          <TextInput
-            placeholder="Type Brgy. or Street in Bacolod..."
-            value={location}
-            onChangeText={handleLocationChange}
-            style={styles.input}
-            autoCorrect={false}
-          />
+          <Picker
+            selectedValue={country}
+            onValueChange={(value) => setCountry(value)}
+            style={{ flex: 1 }}
+          >
+            <Picker.Item label="Philippines" value="Philippines" />
+          </Picker>
         </View>
 
-        {/* ✅ Location suggestions dropdown */}
-        {showLocationSuggestions && (
-          <View style={{
-            width: "85%",
-            backgroundColor: "#fff",
-            borderRadius: 10,
-            borderWidth: 0.5,
-            borderColor: "#c8e6c9",
-            marginTop: -8,
-            marginBottom: 12,
-            alignSelf: "center",
-            overflow: "hidden",
-            zIndex: 99,
-          }}>
-            {locationSuggestions.map((loc, i) => (
-              <Pressable
-                key={i}
-                onPress={() => handleSelectLocation(loc)}
-                style={{
-                  padding: 12,
-                  borderBottomWidth: i < locationSuggestions.length - 1 ? 0.5 : 0,
-                  borderBottomColor: "#e0e0e0",
-                }}
-              >
-                <Text style={{ fontSize: 13, fontWeight: "600", color: "#1B5E20" }}>
-                  {loc.street ? `${loc.street}, ${loc.barangay}` : loc.barangay}
-                </Text>
-                <Text style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                  {loc.city}, {loc.province}
-                </Text>
-              </Pressable>
+        <View style={styles.inputBox}>
+          <Picker
+            selectedValue={province}
+            onValueChange={(value) => {
+              setProvince(value);
+              setCity("");
+              setBarangay("");
+              fetchCities(value);
+            }}
+            style={{ flex: 1 }}
+          >
+            <Picker.Item label="Select Province" value="" />
+
+            {provinces.map((item, index) => (
+              <Picker.Item key={index} label={item} value={item} />
             ))}
-          </View>
-        )}
+          </Picker>
+        </View>
+
+        <View style={styles.inputBox}>
+          <Picker
+            selectedValue={city}
+            onValueChange={(value) => {
+              setCity(value);
+              setBarangay("");
+              fetchBarangays(value);
+            }}
+            style={{ flex: 1 }}
+          >
+            <Picker.Item label="Select City" value="" />
+
+            {cities.map((item, index) => (
+              <Picker.Item key={index} label={item} value={item} />
+            ))}
+          </Picker>
+        </View>
+
+        <View style={styles.inputBox}>
+          <Picker
+            selectedValue={barangay}
+            onValueChange={(value) => {
+              setBarangay(value);
+
+              const fullAddress = `${street}, ${value}, ${city}, ${province}, ${country}`;
+
+              setLocation(fullAddress);
+            }}
+            style={{ flex: 1 }}
+          >
+            <Picker.Item label="Select Barangay" value="" />
+
+            {barangays.map((item, index) => (
+              <Picker.Item key={index} label={item} value={item} />
+            ))}
+          </Picker>
+        </View>
+
+        <Text style={styles.label}>Street / Village / Block / Lot</Text>
+
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/location.png")}
+            style={styles.icon}
+          />
+
+          <TextInput
+            placeholder="Enter street or village"
+            value={street}
+            onChangeText={(text) => {
+              setStreet(text);
+
+              const fullAddress = `${text}, ${barangay}, ${city}, ${province}, ${country}`;
+
+              setLocation(fullAddress);
+            }}
+            style={styles.input}
+          />
+        </View>
 
         {/* EMAIL */}
         <Text style={styles.label}>Email</Text>
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/email.png")} style={styles.icon} />
+          <Image
+            source={require("../assets/icons/email.png")}
+            style={styles.icon}
+          />
           <TextInput
-            placeholder="Enter your Gmail address"
+            placeholder="Enter your email address"
             value={email}
             onChangeText={setEmail}
             style={styles.input}
@@ -382,7 +467,10 @@ const handleLocationChange = (text: string) => {
         {/* CONTACT */}
         <Text style={styles.label}>Contact Number</Text>
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/telephone.png")} style={styles.icon} />
+          <Image
+            source={require("../assets/icons/telephone.png")}
+            style={styles.icon}
+          />
           <TextInput
             placeholder="09XXXXXXXXX"
             value={contactNum}
@@ -400,16 +488,23 @@ const handleLocationChange = (text: string) => {
         {/* PASSWORD */}
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
           <TextInput
             placeholder="Create a password"
             secureTextEntry={secure1}
             value={password}
             onChangeText={setPassword}
-            style={styles.input}
+            style={[styles.input, { flex: 1 }]}
           />
           <Pressable onPress={() => setSecure1(!secure1)}>
-            <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+            <Ionicons
+              name={secure1 ? "eye-off" : "eye"}
+              size={22}
+              color="#666"
+            />
           </Pressable>
         </View>
         <RulesBox rules={passwordRules} />
@@ -417,16 +512,23 @@ const handleLocationChange = (text: string) => {
         {/* CONFIRM PASSWORD */}
         <Text style={styles.label}>Confirm Password</Text>
         <View style={styles.inputBox}>
-          <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
           <TextInput
             placeholder="Confirm your password"
             secureTextEntry={secure2}
             value={confirmPass}
             onChangeText={setConfirmPass}
-            style={styles.input}
+            style={[styles.input, { flex: 1 }]}
           />
           <Pressable onPress={() => setSecure2(!secure2)}>
-            <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+            <Ionicons
+              name={secure2 ? "eye-off" : "eye"}
+              size={22}
+              color="#666"
+            />
           </Pressable>
         </View>
         <RulesBox rules={confirmRules} />
@@ -438,17 +540,26 @@ const handleLocationChange = (text: string) => {
         </Text>
 
         {/* ✅ Upload instructions */}
-        <View style={{
-          width: "85%",
-          backgroundColor: "rgba(255, 255, 255, 0.45)",
-          borderRadius: 8,
-          padding: 12,
-          marginBottom: 10,
-          borderWidth: 0.5,
-          borderColor: "rgba(200, 230, 201, 0.6)",
-          alignSelf: "center",
-        }}>
-          <Text style={{ fontSize: 12, fontWeight: "600", color: "#1B5E20", marginBottom: 6 }}>
+        <View
+          style={{
+            width: "85%",
+            backgroundColor: "rgba(255, 255, 255, 0.45)",
+            borderRadius: 8,
+            padding: 12,
+            marginBottom: 10,
+            borderWidth: 0.5,
+            borderColor: "rgba(200, 230, 201, 0.6)",
+            alignSelf: "center",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "600",
+              color: "#1B5E20",
+              marginBottom: 6,
+            }}
+          >
             Accepted Documents
           </Text>
           {[
@@ -458,19 +569,38 @@ const handleLocationChange = (text: string) => {
             "SEC Registration (for corporations)",
             "Barangay Business Clearance",
           ].map((doc, i) => (
-            <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 2 }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#3B6D11" }} />
+            <View
+              key={i}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+                marginVertical: 2,
+              }}
+            >
+              <View
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: "#3B6D11",
+                }}
+              />
               <Text style={{ fontSize: 12, color: "#444" }}>{doc}</Text>
             </View>
           ))}
           <Text style={{ fontSize: 11, color: "#888", marginTop: 8 }}>
-            Take a clear photo of the document. Make sure all text is readable and the document is not expired.
+            Take a clear photo of the document. Make sure all text is readable
+            and the document is not expired.
           </Text>
         </View>
 
         <Pressable
           onPress={openCamera}
-          style={[styles.uploadBox, image && { height: (image.height / image.width) * 300 }]}
+          style={[
+            styles.uploadBox,
+            image && { height: (image.height / image.width) * 300 },
+          ]}
         >
           {image ? (
             <Image source={{ uri: image.uri }} style={styles.uploadedImage} />

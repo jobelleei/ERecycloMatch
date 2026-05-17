@@ -15,6 +15,11 @@ import {
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import styles from "./styles/individual_signup";
+import { Picker } from "@react-native-picker/picker";
+import axios from "axios";
+import { useEffect } from "react";
+
+const PSGC_API = "https://psgc.gitlab.io/api";
 
 const ID_TYPES = [
   "Student ID",
@@ -26,80 +31,93 @@ const ID_TYPES = [
   "PWD Card",
 ];
 
-const BACOLOD_LOCATIONS = [
-  { street: "", barangay: "Brgy. 1", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 2", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 3", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 4", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 5", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 6", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 7", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 8", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 9", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 10", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 11", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 12", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 13", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 14", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 15", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 16", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 17", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 18", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 19", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 20", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 21", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 22", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 23", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Brgy. 24", city: "Bacolod City", province: "Negros Occidental" },
-
-  { street: "", barangay: "Alijis", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Banago", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Bata", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Cabug", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Estefania", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Felisa", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Granada", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Handumanan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Mandalagan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Mansilingan", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Montevista", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Pahanocoy", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Punta Taytay", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Singcang-Airport", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Sum-ag", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Taculing", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Tangub", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Tanza", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Villamonte", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Vista Alegre", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Shopping", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Circumferential", city: "Bacolod City", province: "Negros Occidental" },
-  { street: "", barangay: "Libertad", city: "Bacolod City", province: "Negros Occidental" },
-];
-
-type Location = typeof BACOLOD_LOCATIONS[0];
-
 export default function IndividualSignup() {
   const router = useRouter();
-
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState("");
+  const [country, setCountry] = useState("Philippines");
+  const [province, setProvince] = useState("");
+  const [city, setCity] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [provinces, setProvinces] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [barangays, setBarangays] = useState<string[]>([]);
+  const [street, setStreet] = useState("");
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
   const [image, setImage] = useState<any>(null);
   const [idType, setIdType] = useState("");
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [suggestions, setSuggestions] = useState<Location[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
 
+  useEffect(() => {
+    fetchProvinces();
+  }, []);
+
+  const fetchProvinces = async () => {
+    try {
+      const response = await axios.get(`${PSGC_API}/provinces`);
+
+      const provinceNames = response.data.map((item: any) => item.name).sort();
+
+      setProvinces(provinceNames);
+    } catch (error) {
+      console.log("PROVINCES ERROR:", error);
+    }
+  };
+
+  const fetchCities = async (selectedProvince: string) => {
+    try {
+      const provincesResponse = await axios.get(`${PSGC_API}/provinces`);
+
+      const province = provincesResponse.data.find(
+        (p: any) => p.name.toLowerCase() === selectedProvince.toLowerCase(),
+      );
+
+      if (!province) return;
+
+      const response = await axios.get(
+        `${PSGC_API}/provinces/${province.code}/cities-municipalities`,
+      );
+
+      const cityNames = response.data.map((item: any) => item.name).sort();
+
+      setCities(cityNames);
+    } catch (error) {
+      console.log("CITY ERROR:", error);
+    }
+  };
+
+  const fetchBarangays = async (selectedCity: string) => {
+    try {
+      const response = await axios.get(`${PSGC_API}/cities-municipalities`);
+
+      const cityFound = response.data.find(
+        (c: any) => c.name.toLowerCase() === selectedCity.toLowerCase(),
+      );
+
+      if (!cityFound) return;
+
+      const barangayResponse = await axios.get(
+        `${PSGC_API}/cities-municipalities/${cityFound.code}/barangays`,
+      );
+
+      const barangayNames = barangayResponse.data
+        .map((item: any) => item.name)
+        .sort();
+
+      setBarangays(barangayNames);
+    } catch (error) {
+      console.log("BARANGAY ERROR:", error);
+    }
+  };
+
   const emailRules = [
     {
-      label: "Must be a @gmail.com address",
-      met: /^[a-zA-Z0-9._%+-]+@gmail\.com$/.test(email),
+      label: "Must be a valid email address",
+      met: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
     },
     {
       label: "No spaces allowed",
@@ -109,12 +127,27 @@ export default function IndividualSignup() {
 
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
-    { label: "At least one uppercase letter (A–Z)", met: /[A-Z]/.test(password) },
-    { label: "At least one lowercase letter (a–z)", met: /[a-z]/.test(password) },
+    {
+      label: "At least one uppercase letter (A–Z)",
+      met: /[A-Z]/.test(password),
+    },
+    {
+      label: "At least one lowercase letter (a–z)",
+      met: /[a-z]/.test(password),
+    },
     { label: "At least one number (0–9)", met: /[0-9]/.test(password) },
-    { label: "At least one special character (!@#$%^&*)", met: /[!@#$%^&*]/.test(password) },
-    { label: "No spaces allowed", met: password.length > 0 && !/\s/.test(password) },
-    { label: "Maximum 64 characters", met: password.length > 0 && password.length <= 64 },
+    {
+      label: "At least one special character (!@#$%^&*)",
+      met: /[!@#$%^&*]/.test(password),
+    },
+    {
+      label: "No spaces allowed",
+      met: password.length > 0 && !/\s/.test(password),
+    },
+    {
+      label: "Maximum 64 characters",
+      met: password.length > 0 && password.length <= 64,
+    },
   ];
 
   const confirmRules = [
@@ -125,7 +158,14 @@ export default function IndividualSignup() {
   ];
 
   const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginVertical: 3 }}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        marginVertical: 3,
+      }}
+    >
       <View
         style={{
           width: 10,
@@ -148,7 +188,11 @@ export default function IndividualSignup() {
     </View>
   );
 
-  const RulesBox = ({ rules }: { rules: { label: string; met: boolean }[] }) => (
+  const RulesBox = ({
+    rules,
+  }: {
+    rules: { label: string; met: boolean }[];
+  }) => (
     <View
       style={{
         width: "85%",
@@ -167,55 +211,6 @@ export default function IndividualSignup() {
       ))}
     </View>
   );
-
-  const normalizeLocation = (value: string) =>
-    value
-      .toLowerCase()
-      .trim()
-      .replace(/\./g, "")
-      .replace(/\bbarangay\b/g, "brgy")
-      .replace(/\bbrgy\b/g, "brgy")
-      .replace(/\s+/g, " ");
-
-  const handleAddressChange = (text: string) => {
-    setAddress(text);
-
-    const searchText = normalizeLocation(text);
-
-    if (searchText.length < 2) {
-      setSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    const filtered = BACOLOD_LOCATIONS.filter((loc) => {
-      const barangay = normalizeLocation(loc.barangay);
-      const street = normalizeLocation(loc.street);
-
-      const fullAddress = normalizeLocation(
-        `${loc.street} ${loc.barangay} ${loc.city} ${loc.province}`
-      );
-
-      return (
-        barangay.includes(searchText) ||
-        street.includes(searchText) ||
-        fullAddress.includes(searchText)
-      );
-    }).slice(0, 6);
-
-    setSuggestions(filtered);
-    setShowSuggestions(filtered.length > 0);
-  };
-
-  const handleSelectAddress = (loc: Location) => {
-    const full = loc.street
-      ? `${loc.street}, ${loc.barangay}, ${loc.city}, ${loc.province}`
-      : `${loc.barangay}, ${loc.city}, ${loc.province}`;
-
-    setAddress(full);
-    setShowSuggestions(false);
-    setSuggestions([]);
-  };
 
   const openCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -247,7 +242,15 @@ export default function IndividualSignup() {
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
-    if (!name || !email || !address || !password || !confirmpass || !image || !idType) {
+    if (
+      !name ||
+      !email ||
+      !address ||
+      !password ||
+      !confirmpass ||
+      !image ||
+      !idType
+    ) {
       Toast.show({
         type: "error",
         text1: "Please complete all fields",
@@ -259,7 +262,7 @@ export default function IndividualSignup() {
       Toast.show({
         type: "error",
         text1: "Invalid Email",
-        text2: "Please use a valid @gmail.com address",
+        text2: "Please enter a valid email address",
       });
       return;
     }
@@ -292,7 +295,8 @@ export default function IndividualSignup() {
       formData.append("id_type", idType);
 
       formData.append("id_image", {
-        uri: Platform.OS === "ios" ? image.uri.replace("file://", "") : image.uri,
+        uri:
+          Platform.OS === "ios" ? image.uri.replace("file://", "") : image.uri,
         name: imageName,
         type: "image/jpeg",
       } as any);
@@ -322,7 +326,10 @@ export default function IndividualSignup() {
 
       console.log("SERVER RESPONSE:", data);
 
-      if (data.status === "success" || data.message === "Submitted for approval") {
+      if (
+        data.status === "success" ||
+        data.message === "Submitted for approval"
+      ) {
         Toast.show({
           type: "success",
           text1: "Submitted for approval",
@@ -369,7 +376,10 @@ export default function IndividualSignup() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          <Image source={require("../assets/icons/icon.png")} style={styles.logo} />
+          <Image
+            source={require("../assets/icons/icon.png")}
+            style={styles.logo}
+          />
 
           <Text style={styles.title}>Sign up and join the platform today.</Text>
 
@@ -388,7 +398,10 @@ export default function IndividualSignup() {
 
           <Text style={styles.label}>Name</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/individual.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/individual.png")}
+              style={styles.icon}
+            />
             <TextInput
               placeholder="Enter your name"
               value={name}
@@ -399,9 +412,12 @@ export default function IndividualSignup() {
 
           <Text style={styles.label}>Email</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/email.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/email.png")}
+              style={styles.icon}
+            />
             <TextInput
-              placeholder="Enter your Gmail address"
+              placeholder="Enter your email address"
               value={email}
               onChangeText={setEmail}
               style={styles.input}
@@ -413,60 +429,106 @@ export default function IndividualSignup() {
           <RulesBox rules={emailRules} />
 
           <Text style={styles.label}>Address</Text>
+
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/location.png")} style={styles.icon} />
-            <TextInput
-              placeholder="Type Brgy., Barangay, or street in Bacolod..."
-              value={address}
-              onChangeText={handleAddressChange}
-              style={styles.input}
-              autoCorrect={false}
-            />
+            <Picker
+              selectedValue={country}
+              onValueChange={(value) => {
+                setCountry(value);
+              }}
+              style={{ flex: 1 }}
+            >
+              <Picker.Item label="Philippines" value="Philippines" />
+            </Picker>
           </View>
 
-          {showSuggestions && (
-            <View
-              style={{
-                width: "85%",
-                backgroundColor: "#fff",
-                borderRadius: 10,
-                borderWidth: 0.5,
-                borderColor: "#c8e6c9",
-                marginTop: -8,
-                marginBottom: 12,
-                alignSelf: "center",
-                overflow: "hidden",
-                zIndex: 99,
+          <View style={styles.inputBox}>
+            <Picker
+              selectedValue={province}
+              onValueChange={(value) => {
+                setProvince(value);
+                setCity("");
+                setBarangay("");
+                fetchCities(value);
               }}
+              style={{ flex: 1 }}
             >
-              {suggestions.map((loc, i) => (
-                <Pressable
-                  key={i}
-                  onPress={() => handleSelectAddress(loc)}
-                  style={{
-                    padding: 12,
-                    borderBottomWidth: i < suggestions.length - 1 ? 0.5 : 0,
-                    borderBottomColor: "#e0e0e0",
-                  }}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#1B5E20" }}>
-                    {loc.street ? `${loc.street}, ${loc.barangay}` : loc.barangay}
-                  </Text>
+              <Picker.Item label="Select Province" value="" />
 
-                  <Text style={{ fontSize: 11, color: "#888", marginTop: 2 }}>
-                    {loc.city}, {loc.province}
-                  </Text>
-                </Pressable>
+              {provinces.map((item, index) => (
+                <Picker.Item key={index} label={item} value={item} />
               ))}
-            </View>
-          )}
+            </Picker>
+          </View>
+
+          <View style={styles.inputBox}>
+            <Picker
+              selectedValue={city}
+              onValueChange={(value) => {
+                setCity(value);
+                setBarangay("");
+                fetchBarangays(value);
+              }}
+              style={{ flex: 1 }}
+            >
+              <Picker.Item label="Select City / Municipality" value="" />
+
+              {cities.map((item, index) => (
+                <Picker.Item key={index} label={item} value={item} />
+              ))}
+            </Picker>
+          </View>
+
+          <View style={styles.inputBox}>
+            <Picker
+              selectedValue={barangay}
+              onValueChange={(value) => {
+                setBarangay(value);
+
+                const fullAddress = `${value}, ${city}, ${province}, ${country}`;
+
+                setAddress(fullAddress);
+              }}
+              style={{ flex: 1 }}
+            >
+              <Picker.Item label="Select Barangay" value="" />
+
+              {barangays.map((item, index) => (
+                <Picker.Item key={index} label={item} value={item} />
+              ))}
+            </Picker>
+          </View>
+
+          <Text style={styles.label}>Street / Village / Block / Lot</Text>
+
+          <View style={styles.inputBox}>
+            <Image
+              source={require("../assets/icons/location.png")}
+              style={styles.icon}
+            />
+
+            <TextInput
+              placeholder="Enter street or village name"
+              value={street}
+              onChangeText={(text) => {
+                setStreet(text);
+
+                const fullAddress = `${text}, ${barangay}, ${city}, ${province}, ${country}`;
+
+                setAddress(fullAddress);
+              }}
+              style={styles.input}
+            />
+          </View>
 
           <Text style={styles.label}>Type of ID</Text>
           <Pressable
             onPress={() => setDropdownOpen(!dropdownOpen)}
             style={[styles.inputBox, { justifyContent: "space-between" }]}
           >
-            <Text style={{ color: idType ? "#000" : "#aaa", flex: 1, fontSize: 14 }}>
+            <Text
+              style={{ color: idType ? "#000" : "#aaa", flex: 1, fontSize: 14 }}
+            >
               {idType || "Select ID type"}
             </Text>
 
@@ -501,7 +563,8 @@ export default function IndividualSignup() {
                     padding: 12,
                     borderBottomWidth: i < ID_TYPES.length - 1 ? 0.5 : 0,
                     borderBottomColor: "#e0e0e0",
-                    backgroundColor: idType === type ? "rgba(27,94,32,0.08)" : "#fff",
+                    backgroundColor:
+                      idType === type ? "rgba(27,94,32,0.08)" : "#fff",
                   }}
                 >
                   <Text
@@ -537,7 +600,10 @@ export default function IndividualSignup() {
 
           <Text style={styles.label}>Password</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/padlock.png")}
+              style={styles.icon}
+            />
 
             <TextInput
               secureTextEntry={secure1}
@@ -548,14 +614,20 @@ export default function IndividualSignup() {
             />
 
             <Pressable onPress={() => setSecure1(!secure1)}>
-              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+              <Image
+                source={require("../assets/icons/view.png")}
+                style={styles.eye}
+              />
             </Pressable>
           </View>
           <RulesBox rules={passwordRules} />
 
           <Text style={styles.label}>Confirm Password</Text>
           <View style={styles.inputBox}>
-            <Image source={require("../assets/icons/padlock.png")} style={styles.icon} />
+            <Image
+              source={require("../assets/icons/padlock.png")}
+              style={styles.icon}
+            />
 
             <TextInput
               secureTextEntry={secure2}
@@ -566,12 +638,18 @@ export default function IndividualSignup() {
             />
 
             <Pressable onPress={() => setSecure2(!secure2)}>
-              <Image source={require("../assets/icons/view.png")} style={styles.eye} />
+              <Image
+                source={require("../assets/icons/view.png")}
+                style={styles.eye}
+              />
             </Pressable>
           </View>
           <RulesBox rules={confirmRules} />
 
-          <Pressable style={[styles.button, { zIndex: 10 }]} onPress={handleSignUp}>
+          <Pressable
+            style={[styles.button, { zIndex: 10 }]}
+            onPress={handleSignUp}
+          >
             <Text style={styles.buttonText}>Sign Up</Text>
           </Pressable>
         </ScrollView>

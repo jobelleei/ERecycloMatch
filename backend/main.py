@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from ultralytics import YOLO
 from PIL import Image
@@ -6,8 +6,12 @@ import io
 import mysql.connector
 import os
 import shutil
+import easyocr
+import re
 
 app = FastAPI()
+
+reader = easyocr.Reader(['en'])
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -111,3 +115,100 @@ def delete_item(item_id: int):
     conn.commit()
 
     return {"message": "Item deleted successfully"}
+
+@app.post("/verify-id")
+async def verify_id(
+    file: UploadFile = File(...),
+    name: str = Form(...)
+):
+
+    try:
+
+        contents = await file.read()
+
+        temp_path = "temp_id.jpg"
+
+        with open(temp_path, "wb") as f:
+            f.write(contents)
+
+        results = reader.readtext(temp_path)
+
+        extracted_text = " ".join(
+            [r[1] for r in results]
+        ).upper()
+
+        signup_name = name.upper()
+
+        clean_signup_name = re.sub(
+            r'[^A-Z ]',
+            '',
+            signup_name
+        )
+
+        name_match = (
+            clean_signup_name
+            in extracted_text
+        )
+
+        valid_keywords = [
+            "REPUBLIC OF THE PHILIPPINES",
+            "PHILSYS",
+            "DRIVER",
+            "LICENSE",
+            "PASSPORT",
+            "POSTAL",
+            "VOTER",
+            "UMID",
+            "STUDENT",
+            "TIN",
+            "PRC",
+        ]
+
+        valid_id = any(
+            keyword in extracted_text
+            for keyword in valid_keywords
+        )
+
+        return {
+            "success": True,
+            "valid_id": valid_id,
+            "name_match": name_match,
+            "extracted_text": extracted_text
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "message": str(e)
+        }
+    
+@app.post("/individual_signup")
+async def individual_signup(
+    fullname: str = Form(...),
+    email: str = Form(...),
+    password: str = Form(...)
+):
+    try:
+        query = """
+        INSERT INTO users (fullname, email, password)
+        VALUES (%s, %s, %s)
+        """
+
+        cursor.execute(
+            query,
+            (fullname, email, password)
+        )
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": "Signup successful"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }

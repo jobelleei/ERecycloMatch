@@ -55,7 +55,11 @@ export default function Profile() {
               source={require("../../assets/icons/location.png")}
               style={styles.iconSmall}
             />
-            <Text style={styles.address}>{user.address}</Text>
+            <Text style={styles.address}>
+              {user.address
+                ? user.address.split(",").slice(1, 3).join(", ").trim()
+                : "No location"}
+            </Text>{" "}
           </View>
         </View>
       </View>
