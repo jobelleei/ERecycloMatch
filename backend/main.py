@@ -1,3 +1,5 @@
+from cProfile import label
+
 from fastapi import FastAPI, UploadFile, File, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -145,12 +147,12 @@ async def match_facility(label: str):
             FROM facility_postings fp
             LEFT JOIN approved_facilities af
             ON fp.facility_id = af.id
-            WHERE LOWER(fp.item_needed)
-            LIKE LOWER(%s)
+            WHERE LOWER(TRIM(fp.item_needed))
+            = LOWER(TRIM(%s))
             AND fp.status = 'Posted'
-        """
+                    """
 
-        search_value = f"%{label}%"
+        search_value = label
 
         cursor.execute(query, (search_value,))
         facilities = cursor.fetchall()
