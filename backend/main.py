@@ -1,18 +1,19 @@
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import mysql.connector
 from ultralytics import YOLO
 import shutil
 import easyocr
-import re
 import os
 import uuid
+import asyncio
 
 app = FastAPI()
 
 reader = easyocr.Reader(['en'])
 
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,6 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# MYSQL
 db = mysql.connector.connect(
     unix_socket="/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
     user="root",
@@ -28,7 +30,7 @@ db = mysql.connector.connect(
     database="capstone_db"
 )
 
-# IMPORTANT: use your trained model
+# YOLO MODEL
 model = YOLO("runs/detect/train-4/weights/best.pt")
 
 UPLOAD_DIR = "uploads"
@@ -36,7 +38,44 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
+# REALTIME CONNECTIONS
+active_connections = []
 
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.append(websocket)
+
+    print("Client connected")
+
+    try:
+        while True:
+            await websocket.receive_text()
+
+    except Exception:
+        if websocket in active_connections:
+            active_connections.remove(websocket)
+
+        print("Client disconnected")
+
+
+async def send_notification(data):
+    disconnected = []
+
+    for connection in active_connections:
+        try:
+            await connection.send_json(data)
+
+        except Exception:
+            disconnected.append(connection)
+
+    for connection in disconnected:
+        if connection in active_connections:
+            active_connections.remove(connection)
+
+
+# YOLO DETECT API
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
     try:
@@ -91,106 +130,10 @@ async def detect(file: UploadFile = File(...)):
         }
 
 
-@app.get("/my-items/{submitter_name}")
-def get_my_items(submitter_name: str):
-    cursor = db.cursor(dictionary=True)
-
-    pending_query = """
-        SELECT 
-            id,
-            submitter_name,
-            item_name,
-            description,
-            issues,
-            hazard_status,
-            recyclability,
-            item_image,
-            created_at,
-            'Pending' AS status
-        FROM pending_items
-        WHERE TRIM(submitter_name) = TRIM(%s)
-    """
-
-    approved_query = """
-        SELECT 
-            id,
-            submitter_name,
-            item_name,
-            description,
-            issues,
-            hazard_status,
-            recyclability,
-            item_image,
-            created_at,
-            'Listed' AS status
-        FROM approved_items
-        WHERE TRIM(submitter_name) = TRIM(%s)
-    """
-
-    rejected_query = """
-        SELECT 
-            id,
-            submitter_name,
-            item_name,
-            description,
-            issues,
-            hazard_status,
-            recyclability,
-            item_image,
-            created_at,
-            'Rejected' AS status
-        FROM rejected_items
-        WHERE TRIM(submitter_name) = TRIM(%s)
-    """
-
-    cursor.execute(pending_query, (submitter_name,))
-    pending_items = cursor.fetchall()
-
-    cursor.execute(approved_query, (submitter_name,))
-    approved_items = cursor.fetchall()
-
-    cursor.execute(rejected_query, (submitter_name,))
-    rejected_items = cursor.fetchall()
-
-    cursor.close()
-
-    all_items = pending_items + approved_items + rejected_items
-
-    return all_items
-
-
-@app.delete("/delete-item/{status}/{item_id}")
-def delete_item(status: str, item_id: int):
-    cursor = db.cursor(dictionary=True)
-
-    if status == "Pending":
-        table_name = "pending_items"
-    elif status == "Listed":
-        table_name = "approved_items"
-    elif status == "Rejected":
-        table_name = "rejected_items"
-    else:
-        return {"message": "Invalid item status"}
-
-    query = f"DELETE FROM {table_name} WHERE id = %s"
-
-    cursor.execute(query, (item_id,))
-    db.commit()
-    cursor.close()
-
-    return {"message": "Item deleted successfully"}
-
-
-@app.get("/")
-def home():
-    return {"message": "YOLO backend is running"}
-
 # MATCH FACILITY API
 @app.get("/match-facility/{label}")
-def match_facility(label: str):
-
+async def match_facility(label: str):
     try:
-
         cursor = db.cursor(dictionary=True)
 
         query = """
@@ -198,25 +141,33 @@ def match_facility(label: str):
                 fp.*,
                 af.profile_image,
                 af.name AS facility_name,
-                af.location AS facility_address
+                af.location AS facility_location
             FROM facility_postings fp
             LEFT JOIN approved_facilities af
             ON fp.facility_id = af.id
             WHERE LOWER(fp.item_needed)
             LIKE LOWER(%s)
             AND fp.status = 'Posted'
-            """
+        """
 
         search_value = f"%{label}%"
 
-        cursor.execute(
-            query,
-            (search_value,)
-        )
-
+        cursor.execute(query, (search_value,))
         facilities = cursor.fetchall()
 
         cursor.close()
+
+        # SEND REALTIME MATCH
+        if facilities:
+            facility = facilities[0]
+
+            await send_notification({
+                "type": "match_found",
+                "facility_id": facility["facility_id"],
+                "facility_name": facility["facility_name"],
+                "facility_location": facility["facility_location"],
+                "profile_image": facility["profile_image"]
+            })
 
         return {
             "success": True,
@@ -224,8 +175,101 @@ def match_facility(label: str):
         }
 
     except Exception as e:
-
         return {
             "success": False,
             "message": str(e)
         }
+
+
+# REALTIME ACCOUNT STATUS
+
+@app.get("/check-account-status/{email}")
+async def check_account_status(email: str):
+    try:
+        cursor = db.cursor(dictionary=True)
+
+        # INDIVIDUAL
+        cursor.execute("""
+            SELECT
+                id,
+                name,
+                email,
+                'individual' AS role
+            FROM approved_users
+            WHERE email = %s
+        """, (email,))
+
+        approved_user = cursor.fetchone()
+
+        if approved_user:
+            return {
+                "success": True,
+                "status": "approved",
+                "user": approved_user
+            }
+
+        # FACILITY
+        cursor.execute("""
+            SELECT
+                id,
+                name,
+                email,
+                location,
+                'facility' AS role
+            FROM approved_facilities
+            WHERE email = %s
+        """, (email,))
+
+        approved_facility = cursor.fetchone()
+
+        if approved_facility:
+            return {
+                "success": True,
+                "status": "approved",
+                "user": approved_facility
+            }
+
+        # CHECK REJECTED
+        cursor.execute("""
+            SELECT id
+            FROM rejected_users
+            WHERE email = %s
+        """, (email,))
+
+        rejected_user = cursor.fetchone()
+
+        if rejected_user:
+            return {
+                "success": True,
+                "status": "rejected"
+            }
+
+        return {
+            "success": True,
+            "status": "pending"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": str(e)
+        }
+
+
+# FACILITY REALTIME UPDATE
+@app.get("/facility-updated")
+async def facility_updated():
+    await send_notification({
+        "type": "facility_updated"
+    })
+
+    return {"success": True}
+
+
+# HOME
+@app.get("/")
+def home():
+    return {
+        "message": "YOLO backend with realtime is running"
+    }
+

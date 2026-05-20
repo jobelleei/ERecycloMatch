@@ -1,5 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import {
+  useFocusEffect,
+  usePathname,
+  useRouter,
+  useLocalSearchParams,
+} from "expo-router";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { useCallback, useState } from "react";
 import {
@@ -16,7 +21,8 @@ import { db } from "./firebaseConfig";
 export default function Messages() {
   const router = useRouter();
   const pathname = usePathname();
-
+  const params = useLocalSearchParams();
+  const { facility_id, facility_name, autoOpen } = useLocalSearchParams();
   const [user, setUser] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
 
