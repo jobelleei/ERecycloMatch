@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -11,8 +12,6 @@ import {
   TextInput,
   View,
 } from "react-native";
-
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
@@ -27,7 +26,7 @@ export default function Signin() {
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
-    if (!email || !password) {
+    if (!email.trim() || !password.trim()) {
       Toast.show({
         type: "error",
         text1: "Missing Fields",
@@ -39,36 +38,63 @@ export default function Signin() {
     try {
       const response = await fetch(`${API_URL}/signin.php`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
+        }),
       });
 
       const text = await response.text();
       console.log("RAW RESPONSE:", text);
 
       let data;
+
       try {
         data = JSON.parse(text);
       } catch {
         console.log("NOT JSON → wrong API URL or PHP error");
+        Toast.show({
+          type: "error",
+          text1: "Server Error",
+          text2: "Server did not return valid JSON.",
+        });
         return;
       }
 
       console.log("PARSED:", data);
 
       if (data.status === "success" && data.approved === true) {
+        const userData = {
+          id: data.user?.id || data.id || "",
+          name: data.user?.name || data.name || "",
+          username: data.user?.username || data.username || "",
+          email: data.user?.email || data.email || email.trim(),
+          address: data.user?.address || data.address || "",
+          profile_image: data.user?.profile_image || data.profile_image || "",
+          username_changed_at:
+            data.user?.username_changed_at || data.username_changed_at || "",
+          role: data.user?.role || data.role || "",
+        };
+
+        console.log("SAVED USER DATA:", userData);
+
+        await AsyncStorage.setItem("user", JSON.stringify(userData));
+
         Toast.show({
           type: "success",
           text1: "Welcome Back!",
           text2: "Login successful!",
         });
 
-        await AsyncStorage.setItem("user", JSON.stringify(data));
-
-        if (data.role === "individual") {
+        if (userData.role === "individual") {
           router.replace("/user_dashboard" as any);
-        } else if (data.role === "facility") {
+        } else if (userData.role === "facility") {
           router.replace("/facility_dashboard" as any);
+        } else {
+          router.replace("/user_dashboard" as any);
         }
       } else {
         Toast.show({
@@ -79,6 +105,7 @@ export default function Signin() {
       }
     } catch (error) {
       console.log("ERROR:", error);
+
       Toast.show({
         type: "error",
         text1: "Connection Error",
@@ -134,63 +161,50 @@ export default function Signin() {
           Sign in to continue recycling
         </Text>
 
-        <Text style={signinStyles.label}>
-          Email
-        </Text>
+      <Text style={signinStyles.label}>Email</Text>
 
-        <View style={signinStyles.inputBox}>
+      <View style={signinStyles.inputBox}>
+        <Image
+          source={require("../assets/icons/email.png")}
+          style={signinStyles.inputIcon}
+        />
+
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="Enter your Gmail address"
+          placeholderTextColor="#888"
+          style={signinStyles.input}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
+      <Text style={signinStyles.label}>Password</Text>
+
+      <View style={signinStyles.inputBox}>
+        <Image
+          source={require("../assets/icons/padlock.png")}
+          style={signinStyles.inputIcon}
+        />
+
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="Enter Password"
+          placeholderTextColor="#888"
+          secureTextEntry={secure}
+          style={signinStyles.input}
+        />
+
+        <Pressable onPress={() => setSecure(!secure)}>
           <Image
-            source={require("../assets/icons/email.png")}
-            style={signinStyles.inputIcon}
+            source={require("../assets/icons/view.png")}
+            style={signinStyles.eyeIcon}
           />
-
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter your email address"
-            placeholderTextColor="#888"
-            style={signinStyles.input}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <Text style={signinStyles.label}>
-          Password
-        </Text>
-
-        <View style={signinStyles.inputBox}>
-          <Image
-            source={require("../assets/icons/padlock.png")}
-            style={signinStyles.inputIcon}
-          />
-
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter Password"
-            placeholderTextColor="#888"
-            secureTextEntry={secure}
-            style={[
-              signinStyles.input,
-              { flex: 1 },
-            ]}
-          />
-
-          <Pressable
-            onPress={() =>
-              setSecure(!secure)
-            }
-          >
-            <Image
-              source={require("../assets/icons/view.png")}
-              style={
-                signinStyles.eyeIcon
-              }
-            />
-          </Pressable>
-        </View>
+        </Pressable>
+      </View>
 
         <Pressable>
           <Text

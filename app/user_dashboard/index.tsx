@@ -8,40 +8,120 @@ import {
   ImageBackground,
   TouchableOpacity,
 } from "react-native";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter, usePathname, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_URL } from "../../config";
 
 export default function UserDashboard() {
   const [userName, setUserName] = useState("");
+  const [submitterName, setSubmitterName] = useState("");
+  const [recentItems, setRecentItems] = useState<any[]>([]);
+
   const router = useRouter();
-  const pathname = usePathname(); // ✅ NEW
+  const pathname = usePathname();
 
   useEffect(() => {
-    const loadUser = async () => {
-      const user = await AsyncStorage.getItem("user");
-
-      if (user) {
-        const parsed = JSON.parse(user);
-        setUserName(parsed.name || parsed.email || "User");
-      }
-    };
-
     loadUser();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadUser();
+    }, [])
+  );
+
+  useEffect(() => {
+    if (submitterName) {
+      fetchRecentItems();
+    }
+  }, [submitterName]);
+
+  const loadUser = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem("user");
+
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+
+        const name =
+          parsed?.name ||
+          parsed?.user?.name ||
+          parsed?.data?.name ||
+          parsed?.fullname ||
+          parsed?.full_name ||
+          parsed?.username ||
+          parsed?.user?.username ||
+          parsed?.data?.username ||
+          "User";
+
+        setUserName(name);
+        setSubmitterName(String(name).trim());
+      }
+    } catch (error) {
+      console.log("LOAD USER ERROR:", error);
+    }
+  };
+
+  const fetchRecentItems = async () => {
+    try {
+      const encodedName = encodeURIComponent(submitterName);
+
+      const response = await fetch(
+        `${API_URL}/get_my_items.php?submitter_name=${encodedName}`
+      );
+
+      const text = await response.text();
+      console.log("DASHBOARD RECENT ITEMS RESPONSE:", text);
+
+      const result = JSON.parse(text);
+
+      if (result.success && Array.isArray(result.items)) {
+        const limitedItems = result.items.slice(0, 3);
+
+        setRecentItems(limitedItems);
+      } else {
+        setRecentItems([]);
+      }
+    } catch (error) {
+      console.log("FETCH RECENT ITEMS ERROR:", error);
+      setRecentItems([]);
+    }
+  };
+
+  const getImageUrl = (item: any) => {
+    if (!item.item_image) return "https://via.placeholder.com/100";
+
+    if (item.folder === "approved") {
+      return `${API_URL}/uploads/items/approved/${item.item_image}`;
+    }
+
+    if (item.folder === "rejected") {
+      return `${API_URL}/uploads/items/rejected/${item.item_image}`;
+    }
+
+    return `${API_URL}/uploads/items/pending/${item.item_image}`;
+  };
+
+  const getStatusStyle = (status: string) => {
+    if (status === "Listed") return styles.statusGreen;
+    if (status === "Approved") return styles.statusBlue;
+    if (status === "Rejected") return styles.statusRed;
+    return styles.statusGray;
+  };
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <ScrollView style={styles.container}>
-
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.welcome}>
             Welcome Back{userName ? `, ${userName}` : ""}!
           </Text>
+
           <Image
-            source={require("../../assets/icons/icon.png")} // ✅ FIXED
+            source={require("../../assets/icons/icon.png")}
             style={styles.avatar}
           />
         </View>
@@ -61,9 +141,11 @@ export default function UserDashboard() {
           imageStyle={{ borderRadius: 15 }}
         >
           <View style={styles.overlay} />
+
           <Text style={styles.bannerTitle}>
             RECYCLE SMARTER{"\n"}MATCH FASTER
           </Text>
+
           <Text style={styles.bannerSub}>
             Find the right place for your e-waste with just a few clicks.
           </Text>
@@ -72,39 +154,39 @@ export default function UserDashboard() {
         {/* RECENT ITEMS */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Items</Text>
-          <Text style={styles.viewAll}>View All</Text>
+
+          <TouchableOpacity
+            onPress={() => router.push("/user_dashboard/user_myItems" as any)}
+          >
+            <Text style={styles.viewAll}>View All</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* ITEMS */}
-        <View style={styles.itemCard}>
-          <Image
-            source={require("../../assets/images/ip6s.jpg")}
-            style={styles.itemImage}
-          />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.itemTitle}>Iphone 6s</Text>
-            <Text style={styles.itemSub}>Smartphone</Text>
-          </View>
-          <Text style={styles.statusGreen}>Listed</Text>
-        </View>
+        {recentItems.length > 0 ? (
+          recentItems.map((item) => (
+            <View key={`${item.folder}-${item.id}`} style={styles.itemCard}>
+              <Image source={{ uri: getImageUrl(item) }} style={styles.itemImage} />
 
-        <View style={styles.itemCard}>
-          <Image
-            source={require("../../assets/images/samsung.jpg")}
-            style={styles.itemImage}
-          />
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.itemTitle}>Samsung Digi Cam</Text>
-            <Text style={styles.itemSub}>Camera</Text>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.itemTitle}>{item.item_name}</Text>
+
+                <Text style={styles.itemSub}>
+                  {item.description || "No description"}
+                </Text>
+              </View>
+
+              <Text style={getStatusStyle(item.status)}>{item.status}</Text>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>No recent items yet.</Text>
           </View>
-          <Text style={styles.statusGray}>Pending</Text>
-        </View>
+        )}
 
         {/* FACILITIES */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>
-            Partnered Recycling Facilities
-          </Text>
+          <Text style={styles.sectionTitle}>Partnered Recycling Facilities</Text>
           <Text style={styles.viewAll}>View More</Text>
         </View>
 
@@ -114,9 +196,7 @@ export default function UserDashboard() {
               source={require("../../assets/images/dyma.webp")}
               style={styles.facilityImage}
             />
-            <Text style={styles.facilityName}>
-              Dyma Trading & Junk Shop
-            </Text>
+            <Text style={styles.facilityName}>Dyma Trading & Junk Shop</Text>
           </View>
 
           <View style={styles.facilityCard}>
@@ -124,95 +204,119 @@ export default function UserDashboard() {
               source={require("../../assets/images/villa.webp")}
               style={styles.facilityImage}
             />
-            <Text style={styles.facilityName}>
-              Villa Fe Junk Shop
-            </Text>
+            <Text style={styles.facilityName}>Villa Fe Junk Shop</Text>
           </View>
         </ScrollView>
-
       </ScrollView>
 
       {/* NAVBAR */}
       <View style={styles.bottomNav}>
-
-        {/* HOME ✅ ACTIVE */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard")}
         >
-          <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/user_dashboard" && styles.navActive
-          ]}>
+          <Image
+            source={require("../../assets/icons/home.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard" && styles.navActive,
+            ]}
+          >
             Home
           </Text>
         </TouchableOpacity>
 
-        {/* SCAN */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/user_scan")}
         >
-          <Image source={require("../../assets/icons/scan.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/user_dashboard/user_scan" && styles.navActive
-          ]}>
+          <Image
+            source={require("../../assets/icons/scan.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/user_scan" && styles.navActive,
+            ]}
+          >
             Scan
           </Text>
         </TouchableOpacity>
 
-        {/* MAP */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/user_map")}
         >
-          <Image source={require("../../assets/icons/map.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/user_dashboard/user_map" && styles.navActive
-          ]}>
+          <Image
+            source={require("../../assets/icons/map.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/user_map" && styles.navActive,
+            ]}
+          >
             Map
           </Text>
         </TouchableOpacity>
 
-        {/* MESSAGES */}
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require("../../assets/icons/chatting.png")} style={styles.navImage} />
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/user_dashboard/messages")}
+        >
+          <Image
+            source={require("../../assets/icons/chatting.png")}
+            style={styles.navImage}
+          />
           <Text style={styles.navLabel}>Messages</Text>
         </TouchableOpacity>
 
-        {/* PROFILE */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/profile")}
         >
-          <Image source={require("../../assets/icons/user.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/user_dashboard/profile" && styles.navActive
-          ]}>
+          <Image
+            source={require("../../assets/icons/user.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/profile" && styles.navActive,
+            ]}
+          >
             Profile
           </Text>
         </TouchableOpacity>
 
-        {/* SETTINGS */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/settings")}
         >
-          <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/user_dashboard/settings" && styles.navActive
-          ]}>
+          <Image
+            source={require("../../assets/icons/setting_1.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/settings" && styles.navActive,
+            ]}
+          >
             Settings
           </Text>
         </TouchableOpacity>
-
       </View>
-
     </SafeAreaView>
   );
 }
@@ -280,6 +384,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
+    alignItems: "center",
   },
 
   sectionTitle: {
@@ -289,6 +394,7 @@ const styles = StyleSheet.create({
 
   viewAll: {
     color: "#777",
+    fontWeight: "600",
   },
 
   itemCard: {
@@ -312,6 +418,7 @@ const styles = StyleSheet.create({
 
   itemSub: {
     color: "#777",
+    marginTop: 2,
   },
 
   statusGreen: {
@@ -319,8 +426,32 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  statusBlue: {
+    color: "#1976d2",
+    fontWeight: "600",
+  },
+
+  statusRed: {
+    color: "red",
+    fontWeight: "600",
+  },
+
   statusGray: {
     color: "gray",
+    fontWeight: "600",
+  },
+
+  emptyCard: {
+    backgroundColor: "#fff",
+    padding: 18,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: "center",
+  },
+
+  emptyText: {
+    color: "gray",
+    fontSize: 14,
   },
 
   facilityCard: {

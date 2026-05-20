@@ -8,6 +8,7 @@ import {
   ImageBackground,
   TouchableOpacity,
 } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
 
@@ -18,12 +19,12 @@ export default function FacilityDashboard() {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <ScrollView style={styles.container}>
-
         {/* HEADER */}
         <View style={styles.header}>
           <Text style={styles.welcome}>Welcome Back!</Text>
+
           <Image
-            source={require("../../assets/icons/icon.png")} // ✅ FIXED
+            source={require("../../assets/icons/icon.png")}
             style={styles.avatar}
           />
         </View>
@@ -43,9 +44,11 @@ export default function FacilityDashboard() {
           imageStyle={{ borderRadius: 15 }}
         >
           <View style={styles.overlay} />
+
           <Text style={styles.bannerTitle}>
             RECYCLE SMARTER{"\n"}MATCH FASTER
           </Text>
+
           <Text style={styles.bannerSub}>
             Find the right place for your e-waste with just a few clicks.
           </Text>
@@ -54,6 +57,7 @@ export default function FacilityDashboard() {
         {/* RECENT VIEWED ITEMS */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Viewed Items</Text>
+
           <Text style={styles.viewAll}>View All</Text>
         </View>
 
@@ -62,62 +66,146 @@ export default function FacilityDashboard() {
             source={require("../../assets/images/ip6s.jpg")}
             style={styles.itemImage}
           />
+
           <View style={{ flex: 1, marginLeft: 10 }}>
             <Text style={styles.itemTitle}>iPhone 6s</Text>
+
             <Text style={styles.itemSub}>Smartphone</Text>
           </View>
+
           <Text style={styles.statusGreen}>Viewed</Text>
         </View>
-
       </ScrollView>
 
       {/* NAVBAR */}
       <View style={styles.bottomNav}>
-
         {/* HOME */}
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
-          <Text style={[styles.navLabel, styles.navActive]}>Home</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() =>
+            router.push("/index" as any)
+          }
+        >
+          <Image
+            source={require("../../assets/icons/home.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/index" &&
+                styles.navActive,
+            ]}
+          >
+            Home
+          </Text>
         </TouchableOpacity>
 
         {/* MAP */}
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/facility_dashboard/facility_map")}
+          onPress={() =>
+            router.push(
+              "/facility_dashboard/facility_map" as any
+            )
+          }
         >
-          <Image source={require("../../assets/icons/map.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Map</Text>
+          <Image
+            source={require("../../assets/icons/map.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname ===
+                "/facility_dashboard/facility_map" &&
+                styles.navActive,
+            ]}
+          >
+            Map
+          </Text>
         </TouchableOpacity>
 
         {/* MESSAGES */}
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require("../../assets/icons/chatting.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Messages</Text>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() =>
+            router.push(
+              "/facility_dashboard/messages" as any
+            )
+          }
+        >
+          <Image
+            source={require("../../assets/icons/chatting.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname ===
+                "/facility_dashboard/messages" &&
+                styles.navActive,
+            ]}
+          >
+            Messages
+          </Text>
         </TouchableOpacity>
 
         {/* PROFILE */}
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/profile")}
+          onPress={() =>
+            router.push(
+              "/facility_dashboard/profile" as any
+            )
+          }
         >
-          <Image source={require("../../assets/icons/user.png")} style={styles.navImage} />
-          <Text style={styles.navLabel}>Profile</Text>
+          <Image
+            source={require("../../assets/icons/user.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname ===
+                "/facility_dashboard/profile" &&
+                styles.navActive,
+            ]}
+          >
+            Profile
+          </Text>
         </TouchableOpacity>
 
         {/* SETTINGS */}
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/facility_dashboard/settings")}>
-          <Image source={require("../../assets/icons/setting_1.png")} style={styles.navImage} />
-          <Text style={[
-            styles.navLabel,
-            pathname === "/facility_dashboard/settings" && styles.navActive]}>
+          onPress={() =>
+            router.push(
+              "/facility_dashboard/settings" as any
+            )
+          }
+        >
+          <Image
+            source={require("../../assets/icons/setting_1.png")}
+            style={styles.navImage}
+          />
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname ===
+                "/facility_dashboard/settings" &&
+                styles.navActive,
+            ]}
+          >
             Settings
           </Text>
         </TouchableOpacity>
-
       </View>
-
     </SafeAreaView>
   );
 }
@@ -221,26 +309,6 @@ const styles = StyleSheet.create({
 
   statusGreen: {
     color: "green",
-    fontWeight: "600",
-  },
-
-  statusGray: {
-    color: "gray",
-  },
-
-  facilityCard: {
-    marginRight: 15,
-    marginTop: 10,
-  },
-
-  facilityImage: {
-    width: 150,
-    height: 120,
-    borderRadius: 15,
-  },
-
-  facilityName: {
-    marginTop: 5,
     fontWeight: "600",
   },
 

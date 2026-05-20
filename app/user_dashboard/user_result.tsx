@@ -27,6 +27,11 @@ type ItemData = {
   suggestions: string[];
 };
 
+type LoggedInUser = {
+  userId: number;
+  submitterName: string;
+};
+
 const NONE_ISSUE = { name: "None", deduction: 0, hazard: 0 };
 
 const ITEM_DATA: Record<string, ItemData> = {
@@ -123,227 +128,6 @@ const ITEM_DATA: Record<string, ItemData> = {
     ],
   },
 
-  microwave: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Magnetron damaged", deduction: 25, hazard: 15 },
-      { name: "Mixed plastic casing", deduction: 15, hazard: 5 },
-      { name: "PCB corroded", deduction: 20, hazard: 10 },
-      { name: "Glass plate broken", deduction: 10, hazard: 5 },
-      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Discharge capacitors safely",
-      "Remove glass plate",
-      "Handle magnetron with care",
-    ],
-  },
-
-  oven: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Heating element damaged", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Detach heating element",
-      "Separate metal housing",
-      "Inspect PCB for corrosion",
-    ],
-  },
-
-  toaster: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Heating coil damaged", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove heating coils",
-      "Separate plastics and metals",
-      "Check wiring for burns",
-    ],
-  },
-
-  refrigerator: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Compressor damaged", deduction: 30, hazard: 15 },
-      { name: "Insulation foam", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Hazardous refrigerants", deduction: 25, hazard: 30 },
-    ],
-    suggestions: [
-      "Remove compressor unit",
-      "Handle refrigerants properly",
-      "Separate insulation foam",
-    ],
-  },
-
-  "air conditioner": {
-    issues: [
-      NONE_ISSUE,
-      { name: "Compressor damaged", deduction: 30, hazard: 15 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous refrigerants", deduction: 30, hazard: 30 },
-    ],
-    suggestions: [
-      "Remove compressor safely",
-      "Check PCB for damage",
-      "Handle refrigerant gases carefully",
-    ],
-  },
-
-  monitor: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Screen cracked", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous flame retardants", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Handle cracked screen carefully",
-      "Separate plastics and metals",
-      "Send PCB to recycler",
-    ],
-  },
-
-  tablet: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Battery glued", deduction: 30, hazard: 15 },
-      { name: "Screen cracked", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove battery if detachable",
-      "Handle cracked screen carefully",
-      "Separate plastics and metals",
-    ],
-  },
-
-  "power bank": {
-    issues: [
-      NONE_ISSUE,
-      { name: "Battery glued", deduction: 30, hazard: 15 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Check battery for swelling/leaks",
-      "Store in fireproof container",
-      "Send to accredited recycler",
-    ],
-  },
-
-  router: {
-    issues: [
-      NONE_ISSUE,
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove detachable antennas",
-      "Separate casing and PCB",
-      "Send PCB to accredited recycler",
-    ],
-  },
-
-  "wifi router": {
-    issues: [
-      NONE_ISSUE,
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove detachable antennas",
-      "Separate casing and PCB",
-      "Send PCB to accredited recycler",
-    ],
-  },
-
-  keyboard: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Mixed plastics", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Keys damaged", deduction: 10, hazard: 5 },
-      { name: "Hazardous coatings", deduction: 20, hazard: 15 },
-    ],
-    suggestions: [
-      "Remove keycaps",
-      "Separate plastic casing",
-      "Inspect PCB for corrosion",
-    ],
-  },
-
-  mouse: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Mixed plastics", deduction: 20, hazard: 10 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Hazardous substances", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove battery if wireless",
-      "Separate plastics",
-      "Inspect PCB for damage",
-    ],
-  },
-
-  "phone charger": {
-    issues: [
-      NONE_ISSUE,
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Wires damaged", deduction: 15, hazard: 5 },
-      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove damaged wires",
-      "Separate casing and PCB",
-      "Send capacitors to accredited recycler",
-    ],
-  },
-
-  "laptop charger": {
-    issues: [
-      NONE_ISSUE,
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Wires damaged", deduction: 15, hazard: 5 },
-      { name: "Hazardous capacitors", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Remove damaged wires",
-      "Separate casing and PCB",
-      "Send capacitors to accredited recycler",
-    ],
-  },
-
-  television: {
-    issues: [
-      NONE_ISSUE,
-      { name: "Screen cracked", deduction: 25, hazard: 15 },
-      { name: "PCB corroded", deduction: 25, hazard: 10 },
-      { name: "Mixed plastics", deduction: 15, hazard: 5 },
-      { name: "Hazardous flame retardants", deduction: 30, hazard: 20 },
-    ],
-    suggestions: [
-      "Handle cracked screen carefully",
-      "Separate casing and PCB",
-      "Send hazardous components to recycler",
-    ],
-  },
-
   unknown: {
     issues: [
       NONE_ISSUE,
@@ -353,6 +137,7 @@ const ITEM_DATA: Record<string, ItemData> = {
       { name: "Hazardous substances potential", deduction: 30, hazard: 20 },
     ],
     suggestions: [
+      "State the possible item name in the description",
       "Inspect for removable battery or power source",
       "Check for burned surfaces, corrosion, or leaks",
       "Separate plastics, metals, and electronics if possible",
@@ -383,6 +168,7 @@ export default function ScanResult() {
   const router = useRouter();
 
   const itemName = typeof label === "string" ? label : "Unknown";
+  const isUnknownItem = normalizeText(itemName) === "unknown";
   const itemData = getItemData(itemName);
 
   const [description, setDescription] = useState("");
@@ -402,6 +188,53 @@ export default function ScanResult() {
 
   const recyclability = Math.max(100 - totalDeduction, 0);
   const hazardStatus = Math.min(totalHazard, 100);
+
+  const getLoggedInUser = async (): Promise<LoggedInUser> => {
+    const storedUser = await AsyncStorage.getItem("user");
+
+    console.log("UPLOAD STORED USER:", storedUser);
+
+    if (!storedUser) {
+      return {
+        userId: 0,
+        submitterName: "",
+      };
+    }
+
+    const parsedUser = JSON.parse(storedUser);
+
+    const userId =
+      parsedUser?.id ||
+      parsedUser?.user_id ||
+      parsedUser?.user?.id ||
+      parsedUser?.user?.user_id ||
+      parsedUser?.data?.id ||
+      parsedUser?.data?.user_id ||
+      0;
+
+    const submitterName =
+      parsedUser?.name ||
+      parsedUser?.fullname ||
+      parsedUser?.full_name ||
+      parsedUser?.username ||
+      parsedUser?.user?.name ||
+      parsedUser?.user?.fullname ||
+      parsedUser?.user?.full_name ||
+      parsedUser?.user?.username ||
+      parsedUser?.data?.name ||
+      parsedUser?.data?.fullname ||
+      parsedUser?.data?.full_name ||
+      parsedUser?.data?.username ||
+      "";
+
+    console.log("UPLOAD USER ID:", userId);
+    console.log("UPLOAD SUBMITTER NAME:", submitterName);
+
+    return {
+      userId: Number(userId) || 0,
+      submitterName: String(submitterName).trim(),
+    };
+  };
 
   const toggleIssue = (issue: IssueOption) => {
     const alreadySelected = selectedIssues.some(
@@ -433,13 +266,16 @@ export default function ScanResult() {
       return false;
     }
 
-    if (!itemName || itemName === "Unknown") {
-      Alert.alert("Missing Item", "No identified item found.");
+    if (!description.trim()) {
+      Alert.alert("Missing Description", "Please enter a description.");
       return false;
     }
 
-    if (!description.trim()) {
-      Alert.alert("Missing Description", "Please enter a description.");
+    if (isUnknownItem && description.trim().length < 5) {
+      Alert.alert(
+        "Item Name Reminder",
+        "Since the item was detected as Unknown, please state the possible item name in the description."
+      );
       return false;
     }
 
@@ -457,21 +293,23 @@ export default function ScanResult() {
 
       setUploading(true);
 
-      const storedUser = await AsyncStorage.getItem("user");
-      const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+      const loggedInUser = await getLoggedInUser();
 
-      const submitterName =
-        parsedUser?.name ||
-        parsedUser?.user?.name ||
-        parsedUser?.data?.name ||
-        "Unknown User";
+      if (!loggedInUser.submitterName) {
+        Alert.alert(
+          "User Error",
+          "Cannot find logged-in user name. Please log in again."
+        );
+        return;
+      }
 
       const imageUri = image as string;
       const imageName = imageUri.split("/").pop() || "scanned_item.jpg";
 
       const formData = new FormData();
 
-      formData.append("submitter_name", submitterName);
+      formData.append("user_id", String(loggedInUser.userId));
+      formData.append("submitter_name", loggedInUser.submitterName);
       formData.append("item_name", itemName);
       formData.append("description", description.trim());
 
@@ -509,11 +347,14 @@ export default function ScanResult() {
         return;
       }
 
-      Alert.alert("Upload Status", data.message);
-
-      if (data.message === "Item submitted for verification") {
-        router.back();
-      }
+      Alert.alert("Upload Status", data.message, [
+        {
+          text: "OK",
+          onPress: () => {
+            router.replace("/user_dashboard/user_myItems" as any);
+          },
+        },
+      ]);
     } catch (error) {
       console.log("UPLOAD ERROR:", error);
       Alert.alert("Upload Failed", "Check your API URL or PHP file.");
@@ -546,6 +387,16 @@ export default function ScanResult() {
         <View style={styles.card}>
           <Text style={styles.item}>{itemName}</Text>
 
+          {isUnknownItem && (
+            <View style={styles.reminderBox}>
+              <Text style={styles.reminderTitle}>Reminder</Text>
+              <Text style={styles.reminderText}>
+                This item was not recognized. Please state the possible item
+                name in the description before submitting.
+              </Text>
+            </View>
+          )}
+
           <Text style={styles.statusText}>
             Hazard Status: <Text style={styles.bold}>{hazardStatus}%</Text>
           </Text>
@@ -557,7 +408,11 @@ export default function ScanResult() {
           <Text style={styles.label}>Description:</Text>
 
           <TextInput
-            placeholder="Enter description..."
+            placeholder={
+              isUnknownItem
+                ? "Example: Laptop..."
+                : "Enter description..."
+            }
             placeholderTextColor="#777"
             value={description}
             onChangeText={setDescription}
@@ -605,8 +460,7 @@ export default function ScanResult() {
                     >
                       <Text style={styles.optionText}>
                         {isSelected ? "✓ " : ""}
-                        {issue.name} (-{issue.deduction}%, +{issue.hazard}%
-                        hazard)
+                        {issue.name}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -714,6 +568,28 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 
+  reminderBox: {
+    backgroundColor: "#fff3cd",
+    borderColor: "#ffecb5",
+    borderWidth: 1,
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+
+  reminderTitle: {
+    fontWeight: "bold",
+    color: "#856404",
+    marginBottom: 4,
+  },
+
+  reminderText: {
+    color: "#856404",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
   statusText: {
     fontSize: 16,
     marginTop: 2,
@@ -730,14 +606,14 @@ const styles = StyleSheet.create({
   },
 
   input: {
-  backgroundColor: "#fff",
-  padding: 12,
-  borderRadius: 10,
-  marginTop: 6,
-  minHeight: 45,
-  textAlignVertical: "top",
-  color: "#000",
-},
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 10,
+    marginTop: 6,
+    minHeight: 45,
+    textAlignVertical: "top",
+    color: "#000",
+  },
 
   dropdown: {
     backgroundColor: "#fff",
