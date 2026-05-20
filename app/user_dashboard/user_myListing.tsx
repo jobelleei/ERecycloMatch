@@ -247,7 +247,6 @@ export default function MyListing() {
       ],
     );
   };
-
   const matchItem = async (item: any) => {
     try {
       const label = item.item_name;
@@ -258,12 +257,11 @@ export default function MyListing() {
 
       const result = await response.json();
 
-      console.log("MATCH RESULT:", result);
-
       if (result.success && result.matches?.length > 0) {
         const facility = result.matches[0];
 
         console.log("MATCH RESULT:", facility);
+
         console.log("PROFILE IMAGE:", facility.profile_image);
 
         setMatchFound(true);
@@ -273,7 +271,7 @@ export default function MyListing() {
 
           name: facility.facility_name || facility.submitter_name,
 
-          address: facility.facility_address || facility.facility_location,
+          address: facility.facility_location || facility.location,
 
           image: facility.profile_image
             ? {
@@ -283,13 +281,7 @@ export default function MyListing() {
         });
       } else {
         setMatchFound(false);
-
-        setMatchedProfile({
-          name: "Village Junk Shop",
-          address: "Carlos Hilado Hwy, Bacolod City",
-
-          image: require("../../assets/icons/icon.png"),
-        });
+        setMatchedProfile(null);
       }
 
       setMatchModalVisible(true);
@@ -529,39 +521,44 @@ export default function MyListing() {
               </Text>
             )}
 
-            <Image
-              source={
-                matchedProfile?.image
-                  ? matchedProfile.image
-                  : require("../../assets/icons/avatar.png")
-              }
-              style={styles.matchImage}
-            />
-            <Text style={styles.matchName}>{matchedProfile?.name}</Text>
+            {matchFound && matchedProfile ? (
+              <>
+                <Image
+                  source={matchedProfile.image}
+                  style={styles.matchImage}
+                  resizeMode="cover"
+                />
 
-            <Text style={styles.matchAddress}>{matchedProfile?.address}</Text>
+                <Text style={styles.matchName}>{matchedProfile.name}</Text>
 
-            {matchFound && (
-              <TouchableOpacity
-                style={styles.matchGreenButton}
-                onPress={() => {
-                  setMatchModalVisible(false);
-
-                  router.push({
-                    pathname: "/user_dashboard/messages",
-                    params: {
-                      facility_id: matchedProfile?.id,
-                      facility_name: matchedProfile?.name,
-                      facility_image: matchedProfile?.image?.uri || "",
-                      autoOpen: "true",
-                    },
-                  });
-                }}
-              >
-                <Text style={styles.matchButtonText}>
-                  Message the Facility now
+                <Text style={styles.matchAddress}>
+                  {matchedProfile.address}
                 </Text>
-              </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.matchGreenButton}
+                  onPress={() => {
+                    setMatchModalVisible(false);
+
+                    router.push({
+                      pathname: "/user_dashboard/messages",
+                      params: {
+                        facility_id: matchedProfile?.id,
+                        facility_name: matchedProfile?.name,
+                        autoOpen: "true",
+                      },
+                    });
+                  }}
+                >
+                  <Text style={styles.matchButtonText}>
+                    Message the Facility now
+                  </Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <Text style={styles.matchSubtext}>
+                No facilities available for this item.
+              </Text>
             )}
 
             <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
