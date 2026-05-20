@@ -7,204 +7,462 @@ import {
   TextInput,
   ImageBackground,
   TouchableOpacity,
+  ActivityIndicator,
+  Keyboard,
 } from "react-native";
 
+import { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, usePathname } from "expo-router";
+import { API_URL } from "../../config";
 
 export default function FacilityDashboard() {
   const router = useRouter();
   const pathname = usePathname();
 
+  const [searchText, setSearchText] = useState("");
+  const [searchedUsers, setSearchedUsers] = useState<any[]>([]);
+  const [searchedItems, setSearchedItems] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
+  useEffect(() => {
+    const delaySearch = setTimeout(() => {
+      if (searchText.trim().length > 0) {
+        searchFacilityData(searchText.trim());
+      } else {
+        setSearchedUsers([]);
+        setSearchedItems([]);
+        setShowSearchResults(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delaySearch);
+  }, [searchText]);
+
+  const searchFacilityData = async (keyword: string) => {
+    try {
+      setIsSearching(true);
+      setShowSearchResults(true);
+
+      const encodedKeyword = encodeURIComponent(keyword);
+
+      const response = await fetch(
+        `${API_URL}/facility_search.php?search=${encodedKeyword}`
+      );
+
+      const text = await response.text();
+      console.log("FACILITY SEARCH RESPONSE:", text);
+
+      let result;
+
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.log("JSON PARSE ERROR:", parseError);
+        console.log("RAW PHP RESPONSE:", text);
+
+        setSearchedUsers([]);
+        setSearchedItems([]);
+        return;
+      }
+
+      if (result.success) {
+        setSearchedUsers(Array.isArray(result.users) ? result.users : []);
+        setSearchedItems(Array.isArray(result.items) ? result.items : []);
+      } else {
+        console.log("FACILITY SEARCH ERROR:", result.message || result);
+
+        setSearchedUsers([]);
+        setSearchedItems([]);
+      }
+    } catch (error) {
+      console.log("FACILITY SEARCH FETCH ERROR:", error);
+
+      setSearchedUsers([]);
+      setSearchedItems([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearchText("");
+    setSearchedUsers([]);
+    setSearchedItems([]);
+    setShowSearchResults(false);
+    Keyboard.dismiss();
+  };
+
+  const getUserProfileUrl = (user: any) => {
+    if (user.profile_image_url && String(user.profile_image_url).trim() !== "") {
+      return user.profile_image_url;
+    }
+
+    if (user.profile_image && String(user.profile_image).trim() !== "") {
+      return `${API_URL}/uploads/profile/user_profile/${encodeURIComponent(
+        user.profile_image
+      )}`;
+    }
+
+    return `${API_URL}/assets/icons/avatar.png`;
+  };
+
+  const getItemImageUrl = (item: any) => {
+    if (item.item_image_url && String(item.item_image_url).trim() !== "") {
+      return item.item_image_url;
+    }
+
+    if (item.item_image && String(item.item_image).trim() !== "") {
+      return `${API_URL}/uploads/items/approved/${encodeURIComponent(
+        item.item_image
+      )}`;
+    }
+
+    return `${API_URL}/assets/icons/no-image.png`;
+  };
+
+  const getUserLocation = (user: any) => {
+    const location =
+      user.location ||
+      user.address ||
+      user.user_location ||
+      user.user_address ||
+      "";
+
+    return String(location).trim() !== "" ? location : "No location provided";
+  };
+
+  const getItemLocation = (item: any) => {
+    const location =
+      item.location ||
+      item.poster_location ||
+      item.submitter_location ||
+      item.address ||
+      "";
+
+    return String(location).trim() !== "" ? location : "No location provided";
+  };
+
+  const hasResults = searchedUsers.length > 0 || searchedItems.length > 0;
+
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-      <ScrollView style={styles.container}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <Text style={styles.welcome}>Welcome Back!</Text>
-
-          <Image
-            source={require("../../assets/icons/icon.png")}
-            style={styles.avatar}
-          />
-        </View>
-
-        {/* SEARCH */}
-        <View style={styles.searchBox}>
-          <TextInput
-            placeholder="Search Items, Users"
-            placeholderTextColor="#777"
-          />
-        </View>
-
-        {/* BANNER */}
-        <ImageBackground
-          source={require("../../assets/images/ewaste-banner.jpg")}
-          style={styles.banner}
-          imageStyle={{ borderRadius: 15 }}
+      <View style={{ flex: 1 }}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.overlay} />
+          {/* HEADER */}
+          <View style={styles.header}>
+            <Text style={styles.welcome}>Welcome Back!</Text>
 
-          <Text style={styles.bannerTitle}>
-            RECYCLE SMARTER{"\n"}MATCH FASTER
-          </Text>
-
-          <Text style={styles.bannerSub}>
-            Find the right place for your e-waste with just a few clicks.
-          </Text>
-        </ImageBackground>
-
-        {/* RECENT VIEWED ITEMS */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Viewed Items</Text>
-
-          <Text style={styles.viewAll}>View All</Text>
-        </View>
-
-        <View style={styles.itemCard}>
-          <Image
-            source={require("../../assets/images/ip6s.jpg")}
-            style={styles.itemImage}
-          />
-
-          <View style={{ flex: 1, marginLeft: 10 }}>
-            <Text style={styles.itemTitle}>iPhone 6s</Text>
-
-            <Text style={styles.itemSub}>Smartphone</Text>
+            <Image
+              source={require("../../assets/icons/icon.png")}
+              style={styles.avatar}
+            />
           </View>
 
-          <Text style={styles.statusGreen}>Viewed</Text>
+          {/* SEARCH */}
+          <View style={styles.searchArea}>
+            <View style={styles.searchBox}>
+              <TextInput
+                placeholder="Search approved users or listed items"
+                placeholderTextColor="#777"
+                value={searchText}
+                onChangeText={(text) => {
+                  setSearchText(text);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => {
+                  if (searchText.trim().length > 0) {
+                    setShowSearchResults(true);
+                  }
+                }}
+                style={styles.searchInput}
+              />
+
+              {searchText.length > 0 && (
+                <TouchableOpacity onPress={clearSearch}>
+                  <Text style={styles.clearSearch}>×</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {showSearchResults && searchText.trim().length > 0 && (
+              <View style={styles.searchResultsBox}>
+                {isSearching ? (
+                  <View style={styles.searchLoading}>
+                    <ActivityIndicator size="small" color="#2f7d1f" />
+
+                    <Text style={styles.searchLoadingText}>Searching...</Text>
+                  </View>
+                ) : hasResults ? (
+                  <ScrollView
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.searchResultScroll}
+                  >
+                    {/* APPROVED USERS */}
+                    {searchedUsers.length > 0 && (
+                      <View>
+                        <Text style={styles.resultSectionTitle}>
+                          Users
+                        </Text>
+
+                        {searchedUsers.map((user) => (
+                          <TouchableOpacity
+                            key={`user-${user.id}`}
+                            style={styles.searchResultItem}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              Keyboard.dismiss();
+                              setShowSearchResults(false);
+
+                              /*
+                                If you already have a user details page,
+                                you can use this later:
+
+                                router.push({
+                                  pathname: "/facility_dashboard/user_details",
+                                  params: { id: user.id },
+                                } as any);
+                              */
+                            }}
+                          >
+                            <Image
+                              source={{ uri: getUserProfileUrl(user) }}
+                              style={styles.searchRoundImage}
+                              onError={(e) => {
+                                console.log("USER IMAGE ERROR:", e.nativeEvent);
+                              }}
+                            />
+
+                            <View style={styles.searchInfo}>
+                              <Text style={styles.searchTitle}>
+                                {user.name || "No name"}
+                              </Text>
+
+                              <Text style={styles.searchSubtitle}>
+                                {getUserLocation(user)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {/* LISTED ITEMS */}
+                    {searchedItems.length > 0 && (
+                      <View>
+                        <Text style={styles.resultSectionTitle}>
+                          Items
+                        </Text>
+
+                        {searchedItems.map((item) => (
+                          <TouchableOpacity
+                            key={`item-${item.id}`}
+                            style={styles.searchResultItem}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                              Keyboard.dismiss();
+                              setShowSearchResults(false);
+
+                              /*
+                                If you already have a listed item details page,
+                                you can use this later:
+
+                                router.push({
+                                  pathname: "/facility_dashboard/listed_item_details",
+                                  params: { id: item.id },
+                                } as any);
+                              */
+                            }}
+                          >
+                            <Image
+                              source={{ uri: getItemImageUrl(item) }}
+                              style={styles.searchSquareImage}
+                              onError={(e) => {
+                                console.log("ITEM IMAGE ERROR:", e.nativeEvent);
+                              }}
+                            />
+
+                            <View style={styles.searchInfo}>
+                              <Text style={styles.searchTitle}>
+                                {item.item_name || "No item name"}
+                              </Text>
+
+                              <Text style={styles.searchSubtitle}>
+                                {getItemLocation(item)}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.noSearchResult}>
+                    <Text style={styles.noSearchResultText}>
+                      No results found.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* BANNER */}
+          <ImageBackground
+            source={require("../../assets/images/ewaste-banner.jpg")}
+            style={styles.banner}
+            imageStyle={{ borderRadius: 15 }}
+          >
+            <View style={styles.overlay} />
+
+            <Text style={styles.bannerTitle}>
+              RECYCLE SMARTER{"\n"}MATCH FASTER
+            </Text>
+
+            <Text style={styles.bannerSub}>
+              Find the right place for your e-waste with just a few clicks.
+            </Text>
+          </ImageBackground>
+
+          {/* RECENT VIEWED ITEMS */}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Viewed Items</Text>
+
+            <TouchableOpacity>
+              <Text style={styles.viewAll}>View All</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.itemCard}>
+            <Image
+              source={require("../../assets/images/ip6s.jpg")}
+              style={styles.itemImage}
+            />
+
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.itemTitle}>iPhone 6s</Text>
+
+              <Text style={styles.itemSub}>Smartphone</Text>
+            </View>
+
+            <Text style={styles.statusGreen}>Viewed</Text>
+          </View>
+        </ScrollView>
+
+        {/* NAVBAR */}
+        <View style={styles.bottomNav}>
+          {/* HOME */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/index" as any)}
+          >
+            <Image
+              source={require("../../assets/icons/home.png")}
+              style={styles.navImage}
+            />
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/index" && styles.navActive,
+              ]}
+            >
+              Home
+            </Text>
+          </TouchableOpacity>
+
+          {/* MAP */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() =>
+              router.push("/facility_dashboard/facility_map" as any)
+            }
+          >
+            <Image
+              source={require("../../assets/icons/map.png")}
+              style={styles.navImage}
+            />
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/facility_map" &&
+                  styles.navActive,
+              ]}
+            >
+              Map
+            </Text>
+          </TouchableOpacity>
+
+          {/* MESSAGES */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/facility_dashboard/messages" as any)}
+          >
+            <Image
+              source={require("../../assets/icons/chatting.png")}
+              style={styles.navImage}
+            />
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/messages" &&
+                  styles.navActive,
+              ]}
+            >
+              Messages
+            </Text>
+          </TouchableOpacity>
+
+          {/* PROFILE */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/facility_dashboard/profile" as any)}
+          >
+            <Image
+              source={require("../../assets/icons/user.png")}
+              style={styles.navImage}
+            />
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/profile" &&
+                  styles.navActive,
+              ]}
+            >
+              Profile
+            </Text>
+          </TouchableOpacity>
+
+          {/* SETTINGS */}
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/facility_dashboard/settings" as any)}
+          >
+            <Image
+              source={require("../../assets/icons/setting_1.png")}
+              style={styles.navImage}
+            />
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/settings" &&
+                  styles.navActive,
+              ]}
+            >
+              Settings
+            </Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
-
-      {/* NAVBAR */}
-      <View style={styles.bottomNav}>
-        {/* HOME */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.push("/index" as any)
-          }
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/index" &&
-                styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        {/* MAP */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.push(
-              "/facility_dashboard/facility_map" as any
-            )
-          }
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname ===
-                "/facility_dashboard/facility_map" &&
-                styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        {/* MESSAGES */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.push(
-              "/facility_dashboard/messages" as any
-            )
-          }
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname ===
-                "/facility_dashboard/messages" &&
-                styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        {/* PROFILE */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.push(
-              "/facility_dashboard/profile" as any
-            )
-          }
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname ===
-                "/facility_dashboard/profile" &&
-                styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        {/* SETTINGS */}
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() =>
-            router.push(
-              "/facility_dashboard/settings" as any
-            )
-          }
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname ===
-                "/facility_dashboard/settings" &&
-                styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -213,9 +471,12 @@ export default function FacilityDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+
+  scrollContent: {
     padding: 20,
     paddingBottom: 100,
-    backgroundColor: "#f5f5f5",
   },
 
   header: {
@@ -235,11 +496,125 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
 
-  searchBox: {
+  searchArea: {
     marginTop: 15,
+    zIndex: 999,
+  },
+
+  searchBox: {
     backgroundColor: "#dff0d8",
     borderRadius: 25,
-    padding: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchInput: {
+    flex: 1,
+    height: 42,
+    fontSize: 14,
+    color: "#222",
+  },
+
+  clearSearch: {
+    fontSize: 26,
+    color: "#555",
+    paddingHorizontal: 5,
+    marginBottom: 2,
+  },
+
+  searchResultsBox: {
+    position: "absolute",
+    top: 55,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    paddingVertical: 8,
+    maxHeight: 350,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 9999,
+  },
+
+  searchResultScroll: {
+    maxHeight: 340,
+  },
+
+  resultSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#2f7d1f",
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 5,
+  },
+
+  searchLoading: {
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+
+  searchLoadingText: {
+    marginLeft: 8,
+    color: "#555",
+    fontSize: 14,
+  },
+
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+
+  searchRoundImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#eee",
+  },
+
+  searchSquareImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#eee",
+  },
+
+  searchInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+
+  searchTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222",
+  },
+
+  searchSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#666",
+  },
+
+  noSearchResult: {
+    padding: 18,
+    alignItems: "center",
+  },
+
+  noSearchResultText: {
+    color: "#777",
+    fontSize: 14,
   },
 
   banner: {
