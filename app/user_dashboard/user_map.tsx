@@ -228,6 +228,7 @@ export default function MapScreen() {
               key={f.id}
               coordinate={{ latitude: f.latitude, longitude: f.longitude }}
               title={f.name}
+              pinColor="green"
               onPress={() => goToFacility(f)}
             />
           ))}
@@ -318,8 +319,14 @@ export default function MapScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem}>
-            <Image source={require("../../assets/icons/chatting.png")} style={styles.navImage} />
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push("/user_dashboard/messages")}
+          >
+            <Image
+              source={require("../../assets/icons/chatting.png")}
+              style={styles.navImage}
+            />
             <Text style={styles.navLabel}>Messages</Text>
           </TouchableOpacity>
 
@@ -387,14 +394,15 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   legend: {
-    position: "absolute",
-    bottom: NAV_HEIGHT + 200,
-    left: 30,
-    backgroundColor: "#ddd",
-    padding: 12,
-    borderRadius: 10,
-    zIndex: 5,
-  },
+  position: "absolute",
+  bottom: NAV_HEIGHT + 90,
+  left: 20,
+  backgroundColor: "#ddd",
+  padding: 12,
+  borderRadius: 10,
+  zIndex: 1,
+  elevation: 1,
+},
   legendTitle: { fontWeight: "bold", marginBottom: 5 },
   row: { flexDirection: "row", alignItems: "center" },
   blueDot: {
@@ -412,15 +420,17 @@ const styles = StyleSheet.create({
     marginRight: 5,
   },
   listContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    maxHeight: 250,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 15,
-  },
+  position: "absolute",
+  left: 0,
+  right: 0,
+  maxHeight: 250,
+  backgroundColor: "#fff",
+  borderTopLeftRadius: 20,
+  borderTopRightRadius: 20,
+  padding: 15,
+  zIndex: 10,
+  elevation: 10,
+},
   listTitle: { fontWeight: "bold", marginBottom: 10 },
   listItem: {
     paddingVertical: 10,

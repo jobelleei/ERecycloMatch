@@ -1,58 +1,176 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "expo-router";
+import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   FlatList,
   Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
-  Alert
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_URL } from "../../config";
 
 export default function MyItems() {
   const router = useRouter();
   const pathname = usePathname();
 
   const [items, setItems] = useState<any[]>([]);
-  const [selectedItem, setSelectedItem] = useState<number | null>(null);
+  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [submitterName, setSubmitterName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState("All");
+
+  const [editVisible, setEditVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editedDescription, setEditedDescription] = useState("");
+
+  const getItemStatus = (item: any) => {
+    if (item.folder === "rejected") return "Rejected";
+
+    const status =
+      item.status ||
+      item.item_status ||
+      item.approval_status ||
+      item.match_status ||
+      "";
+
+    if (String(status).toLowerCase() === "rejected") return "Rejected";
+    if (String(status).toLowerCase() === "approved") return "Approved";
+    if (String(status).toLowerCase() === "listed") return "Listed";
+    if (String(status).toLowerCase() === "pending") return "Pending";
+
+    return "Pending";
+  };
+
+  const getItemTimeValue = (item: any) => {
+    const dateValue =
+      item.listed_at ||
+      item.date_listed ||
+      item.submitted_at ||
+      item.created_at ||
+      item.updated_at ||
+      item.date_created ||
+      item.date_submitted ||
+      item.id ||
+      0;
+
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) return date.getTime();
+
+    const numberValue = Number(dateValue);
+    return isNaN(numberValue) ? 0 : numberValue;
+  };
+
+  const sortByLatest = (list: any[]) => {
+    return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
+  };
+
+  const mergeItemsAndListings = (myItems: any[], listings: any[]) => {
+    const listingIds = new Set(listings.map((item) => String(item.id)));
+
+    const updatedMyItems = myItems.map((item) => {
+      const realStatus = getItemStatus(item);
+
+      if (realStatus === "Rejected") {
+        return {
+          ...item,
+          status: "Rejected",
+          folder: item.folder || "rejected",
+        };
+      }
+
+      if (listingIds.has(String(item.id))) {
+        const listedItem = listings.find(
+          (listed) => String(listed.id) === String(item.id),
+        );
+
+        return {
+          ...item,
+          status: "Listed",
+          folder: item.folder || "approved",
+          listed_at: listedItem?.listed_at || item.listed_at,
+          date_listed: listedItem?.date_listed || item.date_listed,
+          match_status:
+            listedItem?.match_status || item.match_status || "Listed",
+        };
+      }
+
+      return item;
+    });
+
+    const missingListedItems = listings.filter(
+      (listed) =>
+        !myItems.some((item) => String(item.id) === String(listed.id)),
+    );
+
+    const normalizedMissingListedItems = missingListedItems.map((item) => ({
+      ...item,
+      status: "Listed",
+      folder: item.folder || "approved",
+    }));
+
+    return sortByLatest([...updatedMyItems, ...normalizedMissingListedItems]);
+  };
+
+  const filteredItems =
+    filter === "All"
+      ? items
+      : items.filter((item) => getItemStatus(item) === filter);
 
   useEffect(() => {
     loadUser();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      loadUser();
+    }, []),
+  );
+
   useEffect(() => {
-    if (!submitterName) return;
-
-    fetchItems();
-
-    const interval = setInterval(() => {
+    if (submitterName) {
       fetchItems();
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [submitterName]);
+    }
+  }, [submitterName, userId]);
 
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
+      if (!stored) return;
 
-      console.log("STORED USER:", stored);
+      const parsed = JSON.parse(stored);
 
-      if (stored) {
-        const parsed = JSON.parse(stored);
+      const finalUserId =
+        parsed?.id ||
+        parsed?.user_id ||
+        parsed?.user?.id ||
+        parsed?.data?.id ||
+        "";
 
-        console.log("PARSED USER:", parsed);
+      const userName =
+        parsed?.name ||
+        parsed?.user?.name ||
+        parsed?.data?.name ||
+        parsed?.fullname ||
+        parsed?.full_name ||
+        parsed?.username ||
+        parsed?.user?.username ||
+        parsed?.data?.username ||
+        "";
 
-        const userName = parsed.name?.trim();
-
-        console.log("USERNAME:", userName);
-
-        setSubmitterName(userName || "");
-      }
+      setUserId(String(finalUserId));
+      setSubmitterName(String(userName).trim());
     } catch (error) {
       console.log("LOAD USER ERROR:", error);
     }
@@ -60,143 +178,341 @@ export default function MyItems() {
 
   const fetchItems = async () => {
     try {
-      console.log("FETCHING FOR:", submitterName);
-      const response = await fetch(
-        `http://192.168.1.10:8000/pending-items/${submitterName}`,
+      const encodedName = encodeURIComponent(submitterName);
+      const encodedUserId = encodeURIComponent(String(userId || ""));
+
+      const itemsResponse = await fetch(
+        `${API_URL}/get_my_items.php?submitter_name=${encodedName}`,
       );
 
-      const text = await response.text();
+      const itemsText = await itemsResponse.text();
+      console.log("MY ITEMS RESPONSE:", itemsText);
 
-      console.log("RAW RESPONSE:", text);
+      const itemsResult = JSON.parse(itemsText);
 
-      const data = text ? JSON.parse(text) : [];
-      const pendingItems = data.map((item: any) => ({
-        ...item,
-        status: "Pending",
-      }));
+      const myItems =
+        itemsResult.success && Array.isArray(itemsResult.items)
+          ? itemsResult.items
+          : [];
 
-      const approvedResponse = await fetch(
-        `http://192.168.1.10:8000/approved-items/${submitterName}`,
-      );
+      let myListings: any[] = [];
 
-      const approvedText = await approvedResponse.text();
+      try {
+        const listingsResponse = await fetch(
+          `${API_URL}/get_my_listings.php?user_id=${encodedUserId}&submitter_name=${encodedName}`,
+        );
 
-      console.log("APPROVED:", approvedText);
+        const listingsText = await listingsResponse.text();
+        console.log("MY ITEMS LISTINGS MERGE RESPONSE:", listingsText);
 
-      const approvedData = approvedText ? JSON.parse(approvedText) : [];
-      const approvedItems = approvedData.map((item: any) => ({
-        ...item,
-        status: "Listed",
-      }));
+        const listingsResult = JSON.parse(listingsText);
 
-      const rejectedResponse = await fetch(
-        `http://192.168.1.10:8000/rejected-items/${submitterName}`,
-      );
+        if (listingsResult.success && Array.isArray(listingsResult.items)) {
+          myListings = listingsResult.items;
+        }
+      } catch (listingError) {
+        console.log("FETCH LISTINGS FOR MY ITEMS ERROR:", listingError);
+      }
 
-      const rejectedData = await rejectedResponse.json();
-
-      const rejectedItems = rejectedData.map((item: any) => ({
-        ...item,
-        status: "Rejected",
-      }));
-
-      const combined = [...pendingItems, ...approvedItems, ...rejectedItems];
-
-      setItems(combined);
+      setItems(mergeItemsAndListings(myItems, myListings));
     } catch (error) {
-      console.log(error);
+      console.log("FETCH ITEMS ERROR:", error);
+      setItems([]);
     }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchItems();
+    setRefreshing(false);
+  };
+
+  const listItem = async (item: any) => {
+    const status = getItemStatus(item);
+
+    if (status === "Rejected") {
+      Alert.alert("Not Allowed", "Rejected items cannot be listed.");
+      return;
+    }
+
+    if (status === "Listed") {
+      Alert.alert("Already Listed", "This item is already listed.");
+      return;
+    }
+
+    if (item.folder !== "approved") {
+      Alert.alert("Not Allowed", "Only approved items can be listed.");
+      return;
+    }
+
+    if (!userId) {
+      Alert.alert("Error", "User ID not found. Please log in again.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("id", String(item.id));
+    formData.append("user_id", String(userId));
+
+    try {
+      const response = await fetch(`${API_URL}/list_item.php`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const text = await response.text();
+      console.log("LIST ITEM RESPONSE:", text);
+
+      const result = JSON.parse(text);
+      Alert.alert("List Item", result.message);
+
+      if (result.success) {
+        setItems((prevItems) =>
+          sortByLatest(
+            prevItems.map((currentItem) =>
+              String(currentItem.id) === String(item.id)
+                ? {
+                    ...currentItem,
+                    status: "Listed",
+                    listed_at: new Date().toISOString(),
+                  }
+                : currentItem,
+            ),
+          ),
+        );
+
+        fetchItems();
+      }
+    } catch (error) {
+      console.log("LIST ITEM ERROR:", error);
+      Alert.alert("Error", "Failed to list item.");
+    }
+  };
+
+  const openItemModal = (item: any) => {
+    setEditingItem(item);
+    setEditedDescription(item.description || "");
+    setEditVisible(true);
+  };
+
+  const updateDescription = async () => {
+    if (!editingItem) return;
+
+    Keyboard.dismiss();
+
+    if (getItemStatus(editingItem) === "Rejected") {
+      setEditVisible(false);
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("id", String(editingItem.id));
+    formData.append("folder", editingItem.folder || "approved");
+    formData.append("description", editedDescription);
+
+    try {
+      const response = await fetch(`${API_URL}/update_item_description.php`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const text = await response.text();
+      console.log("UPDATE DESCRIPTION RESPONSE:", text);
+
+      const result = JSON.parse(text);
+      Alert.alert("Update Item", result.message);
+
+      if (result.success) {
+        setEditVisible(false);
+        fetchItems();
+      }
+    } catch (error) {
+      console.log("UPDATE DESCRIPTION ERROR:", error);
+      Alert.alert("Error", "Failed to update description.");
+    }
+  };
+
+  const deleteItem = async (item: any) => {
+    const status = getItemStatus(item);
+
+    Alert.alert(
+      "Delete Item",
+      status === "Listed"
+        ? "This item is listed. Deleting it will also remove it from My Listings and Profile posts."
+        : "Are you sure you want to delete this item?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const formData = new FormData();
+            formData.append("id", String(item.id));
+            formData.append("folder", item.folder || "approved");
+
+            try {
+              const response = await fetch(`${API_URL}/delete_item.php`, {
+                method: "POST",
+                body: formData,
+              });
+
+              const text = await response.text();
+              console.log("DELETE ITEM RESPONSE:", text);
+
+              const result = JSON.parse(text);
+              Alert.alert("Delete Item", result.message);
+
+              if (result.success) {
+                setItems((prevItems) =>
+                  prevItems.filter(
+                    (currentItem) => String(currentItem.id) !== String(item.id),
+                  ),
+                );
+
+                fetchItems();
+              }
+            } catch (error) {
+              console.log("DELETE ITEM ERROR:", error);
+              Alert.alert("Error", "Failed to delete item.");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const getStatusStyle = (status: string) => {
+    if (status === "Listed") return styles.listed;
+    if (status === "Approved") return styles.approved;
+    if (status === "Rejected") return styles.rejected;
+    return styles.pending;
+  };
+
+  const getImageUrl = (item: any) => {
+    if (!item.item_image) return "https://via.placeholder.com/100";
+
+    if (getItemStatus(item) === "Rejected" || item.folder === "rejected") {
+      return `${API_URL}/uploads/items/rejected/${item.item_image}`;
+    }
+
+    if (item.folder === "approved" || getItemStatus(item) === "Listed") {
+      return `${API_URL}/uploads/items/approved/${item.item_image}`;
+    }
+
+    return `${API_URL}/uploads/items/pending/${item.item_image}`;
+  };
+
+  const renderActionButtons = (item: any) => {
+    const status = getItemStatus(item);
+
+    if (status === "Pending") {
+      return (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => openItemModal(item)}
+          >
+            <Text style={styles.actionText}>Update</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => deleteItem(item)}
+          >
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (status === "Approved" || status === "Listed") {
+      return (
+        <View style={styles.actionContainer}>
+          {status !== "Listed" && (
+            <TouchableOpacity
+              style={styles.listButton}
+              onPress={() => listItem(item)}
+            >
+              <Text style={styles.listText}>List</Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => openItemModal(item)}
+          >
+            <Text style={styles.actionText}>Update</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => deleteItem(item)}
+          >
+            <Text style={styles.deleteText}>Delete</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.actionContainer}>
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => openItemModal(item)}
+        >
+          <Text style={styles.actionText}>View Details</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.deleteButton}
+          onPress={() => deleteItem(item)}
+        >
+          <Text style={styles.deleteText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const cleanIssues = (issues: string) => {
+    if (!issues) return "None";
+
+    return issues
+      .replace(/\s*\([^)]*\)/g, "")
+      .replace(/\s*recyclability/gi, "")
+      .replace(/\s*hazard/gi, "")
+      .trim();
+  };
+
   const renderItem = ({ item }: any) => {
+    const status = getItemStatus(item);
+    const uniqueKey = `${item.folder}-${item.id}-${status}`;
+
     return (
       <View>
         <TouchableOpacity
           style={styles.card}
           onPress={() =>
-            setSelectedItem(selectedItem === item.id ? null : item.id)
+            setSelectedItem(selectedItem === uniqueKey ? null : uniqueKey)
           }
         >
-          <Image
-            source={{
-              uri: item.item_image
-                ? `http://192.168.1.10:8000/uploads/${item.item_image}`
-                : "https://via.placeholder.com/100",
-            }}
-            style={styles.itemImage}
-          />
+          <Image source={{ uri: getImageUrl(item) }} style={styles.itemImage} />
 
           <View style={styles.itemInfo}>
             <Text style={styles.itemTitle}>{item.item_name}</Text>
 
-            <Text style={styles.itemCategory}>{item.description}</Text>
+            <Text style={styles.itemCategory}>
+              {item.description || "No description"}
+            </Text>
 
-            <Text
-              style={[
-                styles.itemStatus,
-                item.status === "Pending" ? styles.pending : styles.listed,
-              ]}
-            >
-              {item.status}
+            <Text style={[styles.itemStatus, getStatusStyle(status)]}>
+              {status}
             </Text>
           </View>
 
           <Text style={styles.dots}>⋮</Text>
         </TouchableOpacity>
 
-        {selectedItem === item.id && (
-          <View style={styles.actionContainer}>
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionText}>List</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.actionButton}>
-              <Text style={styles.actionText}>Edit</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-  style={styles.deleteButton}
-  onPress={() => {
-
-    Alert.alert(
-      "Delete Item",
-      "Are you sure you want to delete this item?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-
-            try {
-
-              await fetch(
-                `http://192.168.1.10:8000/delete-item/${item.id}`,
-                {
-                  method: "DELETE",
-                }
-              );
-
-              setItems(items.filter((i) => i.id !== item.id));
-
-            } catch (error) {
-              console.log(error);
-            }
-
-          },
-        },
-      ]
-    );
-
-  }}
->
-  <Text style={styles.deleteText}>Delete</Text>
-</TouchableOpacity>
-          </View>
-        )}
+        {selectedItem === uniqueKey && renderActionButtons(item)}
       </View>
     );
   };
@@ -208,30 +524,206 @@ export default function MyItems() {
       <View style={styles.statsContainer}>
         <View style={styles.statsCard}>
           <Text style={styles.statsNumber}>{items.length}</Text>
-          <Text style={styles.statsLabel}>Total Items</Text>
+          <Text style={styles.statsLabel}>Total</Text>
         </View>
 
         <View style={styles.statsCard}>
           <Text style={styles.statsNumber}>
-            {items.filter((item) => item.status === "Listed").length}
+            {items.filter((item) => getItemStatus(item) === "Approved").length}
+          </Text>
+          <Text style={styles.statsLabel}>Approved</Text>
+        </View>
+
+        <View style={styles.statsCard}>
+          <Text style={styles.statsNumber}>
+            {items.filter((item) => getItemStatus(item) === "Listed").length}
           </Text>
           <Text style={styles.statsLabel}>Listed</Text>
         </View>
 
         <View style={styles.statsCard}>
-          <Text style={styles.statsNumber}>0</Text>
-          <Text style={styles.statsLabel}>Matched</Text>
+          <Text style={styles.statsNumber}>
+            {items.filter((item) => getItemStatus(item) === "Rejected").length}
+          </Text>
+          <Text style={styles.statsLabel}>Rejected</Text>
         </View>
       </View>
 
+      <View style={styles.filterWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterContent}
+        >
+          {["All", "Pending", "Approved", "Listed", "Rejected"].map(
+            (status) => (
+              <TouchableOpacity
+                key={status}
+                style={[
+                  styles.filterButton,
+                  filter === status && styles.activeFilterButton,
+                ]}
+                onPress={() => {
+                  setFilter(status);
+                  setSelectedItem(null);
+                }}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    filter === status && styles.activeFilterText,
+                  ]}
+                >
+                  {status}
+                </Text>
+              </TouchableOpacity>
+            ),
+          )}
+        </ScrollView>
+      </View>
+
       <FlatList
-        data={items}
-        keyExtractor={(item) => item.id.toString()}
+        data={filteredItems}
+        keyExtractor={(item) =>
+          `${item.folder}-${item.id}-${getItemStatus(item)}`
+        }
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>
+            No {filter.toLowerCase()} items yet.
+          </Text>
+        }
       />
-      {/* NAVBAR */}
+
+      <Modal visible={editVisible} transparent animationType="fade">
+        <View style={styles.overlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.keyboardView}
+          >
+            <View style={styles.modalBox}>
+              <ScrollView
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={styles.modalScrollContent}
+              >
+                <Text style={styles.modalTitle}>
+                  {getItemStatus(editingItem || {}) === "Rejected"
+                    ? "Rejected Item Details"
+                    : getItemStatus(editingItem || {}) === "Listed"
+                      ? "Listed Item Details"
+                      : "Update Item"}
+                </Text>
+
+                {editingItem && (
+                  <>
+                    <Image
+                      source={{ uri: getImageUrl(editingItem) }}
+                      style={styles.modalImage}
+                    />
+
+                    <Text style={styles.modalLabel}>Item Name</Text>
+                    <Text style={styles.readOnlyText}>
+                      {editingItem.item_name}
+                    </Text>
+
+                    <Text style={styles.modalLabel}>Issues</Text>
+                    <Text style={styles.readOnlyText}>
+                      {cleanIssues(editingItem.issues)}
+                    </Text>
+
+                    <Text style={styles.modalLabel}>Hazard Status</Text>
+                    <Text style={styles.readOnlyText}>
+                      {editingItem.hazard_status}%
+                    </Text>
+
+                    <Text style={styles.modalLabel}>Recyclability</Text>
+                    <Text style={styles.readOnlyText}>
+                      {editingItem.recyclability}%
+                    </Text>
+
+                    <Text style={styles.modalLabel}>Status</Text>
+                    <Text
+                      style={[
+                        styles.readOnlyText,
+                        getStatusStyle(getItemStatus(editingItem)),
+                      ]}
+                    >
+                      {getItemStatus(editingItem)}
+                    </Text>
+
+                    {getItemStatus(editingItem) === "Rejected" && (
+                      <>
+                        <Text style={styles.modalLabel}>
+                          Reason for Rejection
+                        </Text>
+                        <View style={styles.rejectionBox}>
+                          <Text style={styles.rejectionText}>
+                            {editingItem.rejection_reason ||
+                              editingItem.reason ||
+                              "No reason provided"}
+                          </Text>
+                        </View>
+                      </>
+                    )}
+
+                    <Text style={styles.modalLabel}>Description</Text>
+
+                    {getItemStatus(editingItem) === "Rejected" ? (
+                      <Text style={styles.readOnlyText}>
+                        {editedDescription || "No description"}
+                      </Text>
+                    ) : (
+                      <TextInput
+                        value={editedDescription}
+                        onChangeText={setEditedDescription}
+                        style={styles.input}
+                        multiline
+                        textAlignVertical="top"
+                      />
+                    )}
+                  </>
+                )}
+
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={[
+                      styles.cancelButton,
+                      getItemStatus(editingItem || {}) === "Rejected" &&
+                        styles.fullWidthButton,
+                    ]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setEditVisible(false);
+                    }}
+                  >
+                    <Text style={styles.cancelText}>
+                      {getItemStatus(editingItem || {}) === "Rejected"
+                        ? "Close"
+                        : "Cancel"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {getItemStatus(editingItem || {}) !== "Rejected" && (
+                    <TouchableOpacity
+                      style={styles.saveButton}
+                      onPress={updateDescription}
+                    >
+                      <Text style={styles.saveText}>Save</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
@@ -287,7 +779,10 @@ export default function MyItems() {
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/user_dashboard/messages")}
+        >
           <Image
             source={require("../../assets/icons/chatting.png")}
             style={styles.navImage}
@@ -313,7 +808,6 @@ export default function MyItems() {
           </Text>
         </TouchableOpacity>
 
-        {/* SETTINGS */}
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/settings")}
@@ -352,27 +846,64 @@ const styles = StyleSheet.create({
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 15,
   },
 
   statsCard: {
-    width: "30%",
+    width: "23%",
     backgroundColor: "#fff",
     borderRadius: 10,
-    padding: 15,
+    paddingVertical: 12,
+    paddingHorizontal: 5,
     alignItems: "center",
     elevation: 3,
   },
 
   statsNumber: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
   },
 
   statsLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: "gray",
     marginTop: 5,
+  },
+
+  filterWrapper: {
+    height: 45,
+    marginBottom: 15,
+  },
+
+  filterContent: {
+    alignItems: "center",
+  },
+
+  filterButton: {
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginRight: 8,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  activeFilterButton: {
+    backgroundColor: "#1b5e20",
+    borderColor: "#1b5e20",
+  },
+
+  filterText: {
+    color: "#555",
+    fontWeight: "bold",
+    fontSize: 12,
+  },
+
+  activeFilterText: {
+    color: "#fff",
   },
 
   card: {
@@ -411,12 +942,34 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 
+  listButton: {
+    borderWidth: 1,
+    borderColor: "green",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 5,
+    backgroundColor: "#fff",
+  },
+
+  listText: {
+    color: "green",
+    fontWeight: "bold",
+  },
+
   pending: {
     color: "orange",
   },
 
+  approved: {
+    color: "#1976d2",
+  },
+
   listed: {
     color: "green",
+  },
+
+  rejected: {
+    color: "red",
   },
 
   dots: {
@@ -429,13 +982,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     marginBottom: 15,
     marginTop: -5,
+    gap: 8,
   },
 
   actionButton: {
     borderWidth: 1,
-    borderColor: "green",
+    borderColor: "#1976d2",
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     borderRadius: 5,
     backgroundColor: "#fff",
   },
@@ -444,18 +998,141 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "red",
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     borderRadius: 5,
     backgroundColor: "#fff",
   },
 
   actionText: {
-    color: "green",
+    color: "#1976d2",
     fontWeight: "bold",
   },
 
   deleteText: {
     color: "red",
+    fontWeight: "bold",
+  },
+
+  emptyText: {
+    textAlign: "center",
+    color: "gray",
+    marginTop: 40,
+    fontSize: 15,
+  },
+
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+
+  keyboardView: {
+    width: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  modalBox: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 18,
+    maxHeight: "85%",
+  },
+
+  modalScrollContent: {
+    paddingBottom: 10,
+  },
+
+  modalImage: {
+    width: "100%",
+    height: 240,
+    borderRadius: 12,
+    marginBottom: 15,
+    resizeMode: "cover",
+  },
+
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+
+  modalLabel: {
+    fontWeight: "bold",
+    marginTop: 10,
+  },
+
+  readOnlyText: {
+    backgroundColor: "#eee",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 5,
+  },
+
+  rejectionBox: {
+    backgroundColor: "#ffebee",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 5,
+    borderWidth: 1,
+    borderColor: "#ffcdd2",
+  },
+
+  rejectionText: {
+    color: "red",
+    fontWeight: "bold",
+  },
+
+  input: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 5,
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 20,
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "gray",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+
+  fullWidthButton: {
+    width: "100%",
+  },
+
+  saveButton: {
+    flex: 1,
+    backgroundColor: "green",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+
+  cancelText: {
+    color: "gray",
+    fontWeight: "bold",
+  },
+
+  saveText: {
+    color: "#fff",
     fontWeight: "bold",
   },
 

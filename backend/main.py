@@ -1,113 +1,182 @@
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from ultralytics import YOLO
-from PIL import Image
-import io
 import mysql.connector
-import os
+from ultralytics import YOLO
 import shutil
+import os
+import uuid
 
 app = FastAPI()
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# MYSQL CONNECTION
-conn = mysql.connector.connect(
-    host="localhost",
+db = mysql.connector.connect(
+    unix_socket="/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
     user="root",
     password="",
     database="capstone_db"
 )
 
-cursor = conn.cursor(dictionary=True)
-
+# IMPORTANT: use your trained model
 model = YOLO("runs/detect/train-4/weights/best.pt")
-print("MODEL LOADED:", model.ckpt_path)
 
-@app.get("/")
-def home():
-    return {"message": "YOLO Backend Running"}
+UPLOAD_DIR = "uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
+
 
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
-    
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).convert("RGB")
+    try:
+        file_extension = file.filename.split(".")[-1]
+        file_name = f"{uuid.uuid4()}.{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, file_name)
 
-    results = model(image)
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
 
-    detections = []
+        results = model(file_path, conf=0.10)
 
-    for r in results:
-        for box in r.boxes:
-            cls = int(box.cls[0])
-            label = model.names[cls]
-            conf = float(box.conf[0])
+        detections = []
 
-            detections.append({
-                "label": label,
-                "confidence": conf
-            })
+        for result in results:
+            for box in result.boxes:
+                class_id = int(box.cls[0])
+                confidence = float(box.conf[0])
+                label = model.names[class_id]
 
-    return {"detections": detections}
+                detections.append({
+                    "label": label,
+                    "confidence": confidence
+                })
 
-# APPROVED ITEMS API newly added block of codes
+        if len(detections) == 0:
+            return {
+                "message": "object not found",
+                "label": "Unknown",
+                "detections": []
+            }
 
-# PENDING ITEMS API
-# PENDING ITEMS API
-@app.get("/pending-items/{submitter_name}")
-def get_pending_items(submitter_name: str):
+        detections = sorted(
+            detections,
+            key=lambda item: item["confidence"],
+            reverse=True
+        )
 
-    query = """
-    SELECT *
-    FROM pending_items
-    WHERE LOWER(submitter_name) = LOWER(%s)
+        return {
+            "message": "object detected",
+            "label": detections[0]["label"],
+            "confidence": detections[0]["confidence"],
+            "detections": detections
+        }
+
+    except Exception as e:
+        return {
+            "message": "scan error",
+            "label": "Unknown",
+            "error": str(e),
+            "detections": []
+        }
+
+
+@app.get("/my-items/{submitter_name}")
+def get_my_items(submitter_name: str):
+    cursor = db.cursor(dictionary=True)
+
+    pending_query = """
+        SELECT 
+            id,
+            submitter_name,
+            item_name,
+            description,
+            issues,
+            hazard_status,
+            recyclability,
+            item_image,
+            created_at,
+            'Pending' AS status
+        FROM pending_items
+        WHERE TRIM(submitter_name) = TRIM(%s)
     """
 
-    cursor.execute(query, (submitter_name,))
-    items = cursor.fetchall()
-
-    return items
-
-
-# APPROVED ITEMS API
-@app.get("/approved-items/{submitter_name}")
-def get_approved_items(submitter_name: str):
-
-    query = """
-    SELECT *
-    FROM approved_items
-    WHERE LOWER(submitter_name) = LOWER(%s)
+    approved_query = """
+        SELECT 
+            id,
+            submitter_name,
+            item_name,
+            description,
+            issues,
+            hazard_status,
+            recyclability,
+            item_image,
+            created_at,
+            'Listed' AS status
+        FROM approved_items
+        WHERE TRIM(submitter_name) = TRIM(%s)
     """
 
-    cursor.execute(query, (submitter_name,))
-    items = cursor.fetchall()
-
-    return items
-
-
-# REJECTED ITEMS API
-@app.get("/rejected-items/{submitter_name}")
-def get_rejected_items(submitter_name: str):
-
-    query = """
-    SELECT *
-    FROM rejected_items
-    WHERE LOWER(submitter_name) = LOWER(%s)
+    rejected_query = """
+        SELECT 
+            id,
+            submitter_name,
+            item_name,
+            description,
+            issues,
+            hazard_status,
+            recyclability,
+            item_image,
+            created_at,
+            'Rejected' AS status
+        FROM rejected_items
+        WHERE TRIM(submitter_name) = TRIM(%s)
     """
 
-    cursor.execute(query, (submitter_name,))
-    items = cursor.fetchall()
+    cursor.execute(pending_query, (submitter_name,))
+    pending_items = cursor.fetchall()
 
-    return items
+    cursor.execute(approved_query, (submitter_name,))
+    approved_items = cursor.fetchall()
 
-# DELETE ITEM API
-@app.delete("/delete-item/{item_id}")
-def delete_item(item_id: int):
+    cursor.execute(rejected_query, (submitter_name,))
+    rejected_items = cursor.fetchall()
 
-    query = "DELETE FROM pending_items WHERE id = %s"
+    cursor.close()
+
+    all_items = pending_items + approved_items + rejected_items
+
+    return all_items
+
+
+@app.delete("/delete-item/{status}/{item_id}")
+def delete_item(status: str, item_id: int):
+    cursor = db.cursor(dictionary=True)
+
+    if status == "Pending":
+        table_name = "pending_items"
+    elif status == "Listed":
+        table_name = "approved_items"
+    elif status == "Rejected":
+        table_name = "rejected_items"
+    else:
+        return {"message": "Invalid item status"}
+
+    query = f"DELETE FROM {table_name} WHERE id = %s"
 
     cursor.execute(query, (item_id,))
-    conn.commit()
+    db.commit()
+    cursor.close()
 
     return {"message": "Item deleted successfully"}
+
+
+@app.get("/")
+def home():
+    return {"message": "YOLO backend is running"}
