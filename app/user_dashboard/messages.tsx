@@ -63,6 +63,8 @@ export default function Messages() {
       pathname: "/user_dashboard/chat" as any,
       params: {
         conversationId: conversation.id,
+        facility_name: conversation.facility_name || "Facility",
+        facility_id: conversation.facility_id || "",
       },
     });
   };

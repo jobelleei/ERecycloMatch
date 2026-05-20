@@ -28,6 +28,10 @@ export default function MyListing() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");
+  const [matchModalVisible, setMatchModalVisible] = useState(false);
+
+  const [matchedProfile, setMatchedProfile] = useState<any>(null);
+  const [matchFound, setMatchFound] = useState(false);
 
   const [editVisible, setEditVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -73,7 +77,7 @@ export default function MyListing() {
   useFocusEffect(
     useCallback(() => {
       fetchListings();
-    }, [])
+    }, []),
   );
 
   const fetchListings = async () => {
@@ -106,7 +110,7 @@ export default function MyListing() {
       const encodedName = encodeURIComponent(String(userName || ""));
 
       const response = await fetch(
-        `${API_URL}/get_my_listings.php?user_id=${encodedUserId}&submitter_name=${encodedName}`
+        `${API_URL}/get_my_listings.php?user_id=${encodedUserId}&submitter_name=${encodedName}`,
       );
 
       const text = await response.text();
@@ -228,8 +232,8 @@ export default function MyListing() {
               if (result.success) {
                 setItems((prevItems) =>
                   prevItems.filter(
-                    (currentItem) => String(currentItem.id) !== String(item.id)
-                  )
+                    (currentItem) => String(currentItem.id) !== String(item.id),
+                  ),
                 );
 
                 fetchListings();
@@ -240,12 +244,60 @@ export default function MyListing() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  const matchItem = (item: any) => {
-    Alert.alert("Match", "Match feature will be added later.");
+  const matchItem = async (item: any) => {
+    try {
+      const label = item.item_name;
+
+      const response = await fetch(
+        `http://192.168.1.8:8000/match-facility/${encodeURIComponent(label)}`,
+      );
+
+      const result = await response.json();
+
+      console.log("MATCH RESULT:", result);
+
+      if (result.success && result.matches?.length > 0) {
+        const facility = result.matches[0];
+
+        console.log("MATCH RESULT:", facility);
+        console.log("PROFILE IMAGE:", facility.profile_image);
+
+        setMatchFound(true);
+
+        setMatchedProfile({
+          id: facility.facility_id,
+
+          name: facility.facility_name || facility.submitter_name,
+
+          address: facility.facility_address || facility.facility_location,
+
+          image: facility.profile_image
+            ? {
+                uri: `http://192.168.1.8/Admin_Side/uploads/profile/facility_profile/${facility.profile_image}`,
+              }
+            : require("../../assets/icons/avatar.png"),
+        });
+      } else {
+        setMatchFound(false);
+
+        setMatchedProfile({
+          name: "Village Junk Shop",
+          address: "Carlos Hilado Hwy, Bacolod City",
+
+          image: require("../../assets/icons/icon.png"),
+        });
+      }
+
+      setMatchModalVisible(true);
+    } catch (error) {
+      console.log("MATCH ERROR:", error);
+
+      Alert.alert("Error", "Failed to match item.");
+    }
   };
 
   const renderItem = ({ item }: any) => {
@@ -274,8 +326,8 @@ export default function MyListing() {
                 matchStatus === "Matched"
                   ? styles.matchedStatus
                   : matchStatus === "Pending Match"
-                  ? styles.pendingMatchStatus
-                  : styles.status
+                    ? styles.pendingMatchStatus
+                    : styles.status
               }
             >
               {matchStatus}
@@ -333,9 +385,8 @@ export default function MyListing() {
         <View style={styles.statsCard}>
           <Text style={styles.statsNumber}>
             {
-              items.filter(
-                (item) => getMatchStatus(item) === "Pending Match"
-              ).length
+              items.filter((item) => getMatchStatus(item) === "Pending Match")
+                .length
             }
           </Text>
           <Text style={styles.statsLabel}>Pending Match</Text>
@@ -462,6 +513,61 @@ export default function MyListing() {
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={matchModalVisible} transparent animationType="fade">
+        <View style={styles.matchOverlay}>
+          <View style={styles.matchCard}>
+            <Text style={styles.matchHeader}>
+              {matchFound ? "Found a Match!" : "Match not found"}
+            </Text>
+
+            {!matchFound && (
+              <Text style={styles.matchSubtext}>
+                Dispose it to E-Waste Drop Off Bins instead?
+              </Text>
+            )}
+
+            <Image
+              source={
+                matchedProfile?.image
+                  ? matchedProfile.image
+                  : require("../../assets/icons/avatar.png")
+              }
+              style={styles.matchImage}
+            />
+            <Text style={styles.matchName}>{matchedProfile?.name}</Text>
+
+            <Text style={styles.matchAddress}>{matchedProfile?.address}</Text>
+
+            {matchFound && (
+              <TouchableOpacity
+                style={styles.matchGreenButton}
+                onPress={() => {
+                  setMatchModalVisible(false);
+
+                  router.push({
+                    pathname: "/user_dashboard/messages",
+                    params: {
+                      facility_id: matchedProfile?.id,
+                      facility_name: matchedProfile?.name,
+                      facility_image: matchedProfile?.image?.uri || "",
+                      autoOpen: "true",
+                    },
+                  });
+                }}
+              >
+                <Text style={styles.matchButtonText}>
+                  Message the Facility now
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity onPress={() => setMatchModalVisible(false)}>
+              <Text style={styles.cancelMatchText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
@@ -595,7 +701,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statsNumber: { fontSize: 20, fontWeight: "bold" },
-  statsLabel: { fontSize: 12, color: "gray", marginTop: 5, textAlign: "center" },
+  statsLabel: {
+    fontSize: 12,
+    color: "gray",
+    marginTop: 5,
+    textAlign: "center",
+  },
   filterWrapper: { height: 45, marginBottom: 15 },
   filterContent: { alignItems: "center" },
   filterButton: {
@@ -758,5 +869,95 @@ const styles = StyleSheet.create({
   navItem: { alignItems: "center" },
   navImage: { width: 24, height: 24, marginBottom: 2 },
   navLabel: { fontSize: 12, color: "#777" },
-  navActive: { color: "green", fontWeight: "bold" },
+  navActive: {
+    color: "green",
+    fontWeight: "bold",
+  },
+
+  matchOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  matchCard: {
+    width: "92%",
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    paddingTop: 20,
+    paddingHorizontal: 18,
+    paddingBottom: 20,
+    alignItems: "center",
+
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    elevation: 10,
+  },
+
+  matchHeader: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    marginBottom: 8,
+  },
+
+  matchSubtext: {
+    fontSize: 13,
+    color: "#444",
+    textAlign: "center",
+    marginBottom: 14,
+  },
+
+  matchImage: {
+    width: 180,
+    height: 180,
+    borderRadius: 20,
+    marginBottom: 14,
+  },
+
+  matchName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
+    textAlign: "center",
+  },
+
+  matchAddress: {
+    fontSize: 13,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 18,
+    paddingHorizontal: 10,
+  },
+
+  matchGreenButton: {
+    width: "90%",
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: "#53D120",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  matchButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 15,
+  },
+
+  cancelMatchText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
 });

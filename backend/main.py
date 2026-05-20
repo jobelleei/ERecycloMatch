@@ -1,5 +1,4 @@
 from fastapi import FastAPI, UploadFile, File, Form
-from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import mysql.connector
@@ -7,6 +6,8 @@ from ultralytics import YOLO
 import shutil
 import easyocr
 import re
+import os
+import uuid
 
 app = FastAPI()
 
@@ -183,3 +184,48 @@ def delete_item(status: str, item_id: int):
 @app.get("/")
 def home():
     return {"message": "YOLO backend is running"}
+
+# MATCH FACILITY API
+@app.get("/match-facility/{label}")
+def match_facility(label: str):
+
+    try:
+
+        cursor = db.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                fp.*,
+                af.profile_image,
+                af.name AS facility_name,
+                af.location AS facility_address
+            FROM facility_postings fp
+            LEFT JOIN approved_facilities af
+            ON fp.facility_id = af.id
+            WHERE LOWER(fp.item_needed)
+            LIKE LOWER(%s)
+            AND fp.status = 'Posted'
+            """
+
+        search_value = f"%{label}%"
+
+        cursor.execute(
+            query,
+            (search_value,)
+        )
+
+        facilities = cursor.fetchall()
+
+        cursor.close()
+
+        return {
+            "success": True,
+            "matches": facilities
+        }
+
+    except Exception as e:
+
+        return {
+            "success": False,
+            "message": str(e)
+        }

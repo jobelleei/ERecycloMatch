@@ -260,7 +260,7 @@ export default function Chat() {
 
         <View>
           <Text style={styles.title}>
-            {conversation?.facility_name || "Conversation"}
+            {params.facility_name || conversation?.facility_name || "Facility"}
           </Text>
 
           <Text style={styles.subtitle}>
