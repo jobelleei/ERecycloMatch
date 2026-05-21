@@ -134,127 +134,137 @@ async def detect(file: UploadFile = File(...)):
 
 # MATCH FACILITY API
 @app.get("/match-facility/{label}")
-async def match_facility(label: str):
+async def match_facility(
+    label: str,
+    description: str = ""
+):
     try:
-        cursor = db.cursor(dictionary=True)
+        cursor = db.cursor(
+            dictionary=True
+        )
 
-        query = """
+        # GET ALL ACTIVE FACILITY POSTS
+        cursor.execute("""
             SELECT
                 fp.*,
                 af.profile_image,
-                af.name AS facility_name,
-                af.location AS facility_location
-            FROM facility_postings fp
-            LEFT JOIN approved_facilities af
-            ON fp.facility_id = af.id
-            WHERE LOWER(TRIM(fp.item_needed))
-            = LOWER(TRIM(%s))
-            AND fp.status = 'Posted'
-                    """
+                af.name
+                    AS facility_name,
+                af.location
+                    AS facility_location
+            FROM
+                facility_postings fp
+            LEFT JOIN
+                approved_facilities af
+            ON
+                fp.facility_id = af.id
+            WHERE
+                fp.status = 'Posted'
+        """)
 
-        search_value = label
-
-        cursor.execute(query, (search_value,))
         facilities = cursor.fetchall()
+
+        matches = []
+
+        label_clean = (
+            label.strip()
+            .lower()
+        )
+
+        description_clean = (
+            description.strip()
+            .lower()
+        )
+
+        for facility in facilities:
+
+            item_needed = (
+                facility.get(
+                    "item_needed",
+                    ""
+                )
+                .strip()
+                .lower()
+            )
+
+            # =================
+            # PRIORITY 1:
+            # LABEL MATCH
+            # CASE INSENSITIVE
+            # =================
+            if (
+                label_clean !=
+                "unknown"
+                and
+                label_clean ==
+                item_needed
+            ):
+                matches.append(
+                    facility
+                )
+                continue
+
+            # =================
+            # PRIORITY 2:
+            # UNKNOWN ITEM
+            # USE DESCRIPTION
+            # =================
+            if (
+                label_clean ==
+                "unknown"
+                and
+                item_needed
+                and
+                item_needed in
+                description_clean
+            ):
+                matches.append(
+                    facility
+                )
+
+        # REALTIME MATCH
+        if matches:
+
+            facility = matches[0]
+
+            await send_notification({
+                "type":
+                    "match_found",
+
+                "facility_id":
+                    facility[
+                        "facility_id"
+                    ],
+
+                "facility_name":
+                    facility[
+                        "facility_name"
+                    ],
+
+                "facility_location":
+                    facility[
+                        "facility_location"
+                    ],
+
+                "profile_image":
+                    facility[
+                        "profile_image"
+                    ]
+            })
 
         cursor.close()
 
-        # SEND REALTIME MATCH
-        if facilities:
-            facility = facilities[0]
-
-            await send_notification({
-                "type": "match_found",
-                "facility_id": facility["facility_id"],
-                "facility_name": facility["facility_name"],
-                "facility_location": facility["facility_location"],
-                "profile_image": facility["profile_image"]
-            })
-
         return {
             "success": True,
-            "matches": facilities
+            "matches": matches
         }
 
     except Exception as e:
+
         return {
             "success": False,
-            "message": str(e)
-        }
-
-
-# REALTIME ACCOUNT STATUS
-
-@app.get("/check-account-status/{email}")
-async def check_account_status(email: str):
-    try:
-        cursor = db.cursor(dictionary=True)
-
-        # INDIVIDUAL
-        cursor.execute("""
-            SELECT
-                id,
-                name,
-                email,
-                'individual' AS role
-            FROM approved_users
-            WHERE email = %s
-        """, (email,))
-
-        approved_user = cursor.fetchone()
-
-        if approved_user:
-            return {
-                "success": True,
-                "status": "approved",
-                "user": approved_user
-            }
-
-        # FACILITY
-        cursor.execute("""
-            SELECT
-                id,
-                name,
-                email,
-                location,
-                'facility' AS role
-            FROM approved_facilities
-            WHERE email = %s
-        """, (email,))
-
-        approved_facility = cursor.fetchone()
-
-        if approved_facility:
-            return {
-                "success": True,
-                "status": "approved",
-                "user": approved_facility
-            }
-
-        # CHECK REJECTED
-        cursor.execute("""
-            SELECT id
-            FROM rejected_users
-            WHERE email = %s
-        """, (email,))
-
-        rejected_user = cursor.fetchone()
-
-        if rejected_user:
-            return {
-                "success": True,
-                "status": "rejected"
-            }
-
-        return {
-            "success": True,
-            "status": "pending"
-        }
-
-    except Exception as e:
-        return {
-            "success": False,
-            "message": str(e)
+            "message":
+                str(e)
         }
 
 

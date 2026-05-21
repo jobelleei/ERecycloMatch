@@ -9,7 +9,9 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  setDoc,
 } from "firebase/firestore";
+
 import { useEffect, useState } from "react";
 import {
   Alert,
@@ -24,17 +26,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "./firebaseConfig";
+import { Image } from "react-native";
 
 export default function Chat() {
   const router = useRouter();
   const params = useLocalSearchParams();
-
   const conversationId = String(params.conversationId || "");
-
   const [user, setUser] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageText, setMessageText] = useState("");
+  const [acceptedByUser, setAcceptedByUser] = useState(false);
 
   useEffect(() => {
     loadUser();
@@ -95,19 +97,46 @@ export default function Chat() {
     const text = messageText.trim();
     setMessageText("");
 
-    await addDoc(collection(db, "conversations", conversationId, "messages"), {
-      sender_id: String(user.id),
-      sender_name: user.name || "User",
-      sender_type: "user",
-      type: "text",
-      message: text,
-      created_at: serverTimestamp(),
-    });
+    try {
+      // CREATE OR UPDATE CONVERSATION
+      await setDoc(
+        doc(db, "conversations", conversationId),
+        {
+          user_id: String(user.id),
 
-    await updateDoc(doc(db, "conversations", conversationId), {
-      last_message: text,
-      updated_at: serverTimestamp(),
-    });
+          facility_id: String(params.facility_id),
+
+          facility_name: params.facility_name || "Facility",
+
+          last_message: text,
+
+          updated_at: serverTimestamp(),
+
+          status: "pending",
+        },
+        { merge: true },
+      );
+
+      // SEND MESSAGE
+      await addDoc(
+        collection(db, "conversations", conversationId, "messages"),
+        {
+          sender_id: String(user.id),
+
+          sender_name: user.name || "User",
+
+          sender_type: "user",
+
+          type: "text",
+
+          message: text,
+
+          created_at: serverTimestamp(),
+        },
+      );
+    } catch (error) {
+      console.log("SEND MESSAGE ERROR:", error);
+    }
   };
 
   const addSystemMessage = async (text: string) => {
@@ -127,19 +156,39 @@ export default function Chat() {
   };
 
   const acceptTransaction = async () => {
-    await updateDoc(doc(db, "conversations", conversationId), {
-      status: "accepted",
-      updated_at: serverTimestamp(),
-    });
+    await setDoc(
+      doc(db, "conversations", conversationId),
+      {
+        status: "accepted",
+        updated_at: serverTimestamp(),
+      },
+      {
+        merge: true,
+      },
+    );
+
+    setAcceptedByUser(true);
 
     await addSystemMessage("Transaction Accepted");
   };
 
   const finishTransaction = async () => {
-    await updateDoc(doc(db, "conversations", conversationId), {
-      status: "finished",
-      updated_at: serverTimestamp(),
-    });
+    await setDoc(
+      doc(db, "conversations", conversationId),
+      {
+        user_id: String(user?.id || ""),
+
+        facility_id: String(params.facility_id || ""),
+
+        facility_name: params.facility_name || "Facility",
+
+        last_message: "System Update",
+        updated_at: serverTimestamp(),
+
+        status: conversation?.status || "pending",
+      },
+      { merge: true },
+    );
 
     await addSystemMessage("Transaction Finished");
   };
@@ -172,7 +221,8 @@ export default function Chat() {
   const renderTransactionButtons = () => {
     const status = conversation?.status || "pending";
 
-    if (status === "pending") {
+    // BEFORE ACCEPT
+    if (status === "pending" && !acceptedByUser) {
       return (
         <View style={styles.transactionButtons}>
           <TouchableOpacity
@@ -192,7 +242,8 @@ export default function Chat() {
       );
     }
 
-    if (status === "accepted") {
+    // AFTER ACCEPT
+    if (status === "accepted" || acceptedByUser) {
       return (
         <View style={styles.transactionButtons}>
           <TouchableOpacity
@@ -212,6 +263,7 @@ export default function Chat() {
       );
     }
 
+    // FINISHED/CANCELLED
     return (
       <View style={styles.statusBox}>
         <Text style={styles.statusText}>
@@ -220,7 +272,6 @@ export default function Chat() {
       </View>
     );
   };
-
   const renderMessage = ({ item }: any) => {
     const isMine = String(item.sender_id) === String(user?.id);
     const isSystem = item.type === "system";
@@ -258,13 +309,28 @@ export default function Chat() {
           <Text style={styles.back}>‹</Text>
         </TouchableOpacity>
 
-        <View>
+        <Image
+          source={{
+            uri: params.profile_image
+              ? String(params.profile_image)
+              : "http://192.168.1.8/Admin_Side/assets/icons/avatar.png",
+          }}
+          style={styles.avatar}
+        />
+
+        <View
+          style={{
+            marginLeft: 12,
+          }}
+        >
           <Text style={styles.title}>
             {params.facility_name || conversation?.facility_name || "Facility"}
           </Text>
 
           <Text style={styles.subtitle}>
-            {conversation?.item_name || "Matched Item"}
+            {conversation?.status === "accepted"
+              ? "Transaction Active"
+              : "Pending Transaction"}
           </Text>
         </View>
       </View>
@@ -312,6 +378,21 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
   },
 
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#1b5e20",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  avatarText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 20,
+  },
+
   back: {
     fontSize: 36,
     marginRight: 15,
@@ -335,31 +416,38 @@ const styles = StyleSheet.create({
 
   acceptButton: {
     flex: 1,
-    backgroundColor: "green",
-    padding: 12,
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#1b5e20",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
   },
 
   finishButton: {
     flex: 1,
-    backgroundColor: "#1976d2",
-    padding: 12,
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#1976d2",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
   },
 
   cancelButton: {
     flex: 1,
-    backgroundColor: "red",
-    padding: 12,
-    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: "#ff3b30",
+    backgroundColor: "#fff",
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
   },
 
   buttonText: {
-    color: "#fff",
     fontWeight: "bold",
+    fontSize: 15,
+    color: "#222",
   },
 
   statusBox: {
@@ -424,7 +512,9 @@ const styles = StyleSheet.create({
 
   inputRow: {
     flexDirection: "row",
-    padding: 10,
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderTopWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#fff",
@@ -433,20 +523,28 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: "#f5f5f5",
-    borderRadius: 20,
-    paddingHorizontal: 15,
+    borderRadius: 25,
+    paddingHorizontal: 18,
+    minHeight: 50,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    color: "#000",
   },
 
   sendButton: {
     marginLeft: 10,
     backgroundColor: "#1b5e20",
-    paddingHorizontal: 18,
+    height: 50,
+    minWidth: 90,
     justifyContent: "center",
-    borderRadius: 20,
+    alignItems: "center",
+    borderRadius: 25,
   },
 
   sendText: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 20,
   },
 });

@@ -31,6 +31,7 @@ export default function MyListing() {
   const [matchModalVisible, setMatchModalVisible] = useState(false);
 
   const [matchedProfile, setMatchedProfile] = useState<any>(null);
+  const [matchedFacilities, setMatchedFacilities] = useState<any[]>([]);
   const [matchFound, setMatchFound] = useState(false);
 
   const [editVisible, setEditVisible] = useState(false);
@@ -249,39 +250,37 @@ export default function MyListing() {
   };
   const matchItem = async (item: any) => {
     try {
-      const label = item.item_name;
+      const label = item.item_name || "";
 
       const response = await fetch(
-        `http://192.168.1.8:8000/match-facility/${encodeURIComponent(label)}`,
+        `http://192.168.1.8:8000/match-facility/${encodeURIComponent(
+          label,
+        )}?description=${encodeURIComponent(item.description || "")}`,
       );
 
       const result = await response.json();
 
       if (result.success && result.matches?.length > 0) {
-        const facility = result.matches[0];
-
-        console.log("MATCH RESULT:", facility);
-
-        console.log("PROFILE IMAGE:", facility.profile_image);
-
         setMatchFound(true);
 
-        setMatchedProfile({
+        const facilities = result.matches.map((facility: any) => ({
           id: facility.facility_id,
 
-          name: facility.facility_name || facility.submitter_name,
+          name: facility.facility_name,
 
-          address: facility.facility_location || facility.location,
+          address: facility.facility_location,
 
           image: facility.profile_image
             ? {
                 uri: `http://192.168.1.8/Admin_Side/uploads/profile/facility_profile/${facility.profile_image}`,
               }
             : require("../../assets/icons/avatar.png"),
-        });
+        }));
+
+        setMatchedFacilities(facilities);
       } else {
         setMatchFound(false);
-        setMatchedProfile(null);
+        setMatchedFacilities([]);
       }
 
       setMatchModalVisible(true);
@@ -521,40 +520,97 @@ export default function MyListing() {
               </Text>
             )}
 
-            {matchFound && matchedProfile ? (
-              <>
-                <Image
-                  source={matchedProfile.image}
-                  style={styles.matchImage}
-                  resizeMode="cover"
-                />
+            {matchFound && matchedFacilities.length > 0 ? (
+              <ScrollView
+                style={{
+                  maxHeight: 350,
+                  width: "100%",
+                }}
+                showsVerticalScrollIndicator={false}
+              >
+                {matchedFacilities.map((facility, index) => (
+                  <View
+                    key={index}
+                    style={{
+                      backgroundColor: "#fff",
+                      borderRadius: 16,
+                      padding: 15,
+                      marginBottom: 14,
+                      alignItems: "center",
+                      borderWidth: 1,
+                      borderColor: "#ddd",
+                    }}
+                  >
+                    <Image
+                      source={facility.image}
+                      style={{
+                        width: 75,
+                        height: 75,
+                        borderRadius: 40,
+                        marginBottom: 10,
+                      }}
+                    />
 
-                <Text style={styles.matchName}>{matchedProfile.name}</Text>
+                    <Text
+                      style={{
+                        fontSize: 18,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {facility.name}
+                    </Text>
 
-                <Text style={styles.matchAddress}>
-                  {matchedProfile.address}
-                </Text>
+                    <Text
+                      style={{
+                        color: "#666",
+                        textAlign: "center",
+                        marginTop: 4,
+                        marginBottom: 12,
+                      }}
+                    >
+                      {facility.address}
+                    </Text>
 
-                <TouchableOpacity
-                  style={styles.matchGreenButton}
-                  onPress={() => {
-                    setMatchModalVisible(false);
+                    <TouchableOpacity
+                      style={styles.matchGreenButton}
+                      onPress={async () => {
+                        try {
+                          const stored = await AsyncStorage.getItem("user");
 
-                    router.push({
-                      pathname: "/user_dashboard/messages",
-                      params: {
-                        facility_id: matchedProfile?.id,
-                        facility_name: matchedProfile?.name,
-                        autoOpen: "true",
-                      },
-                    });
-                  }}
-                >
-                  <Text style={styles.matchButtonText}>
-                    Message the Facility now
-                  </Text>
-                </TouchableOpacity>
-              </>
+                          const parsed = JSON.parse(stored || "{}");
+
+                          const actualUser =
+                            parsed.user || parsed.data || parsed;
+
+                          const conversationId = `${actualUser.id}_${facility.id}`;
+
+                          setMatchModalVisible(false);
+
+                          router.push({
+                            pathname: "/user_dashboard/chat",
+
+                            params: {
+                              conversationId,
+
+                              facility_id: facility.id,
+
+                              facility_name: facility.name,
+
+                              profile_image: facility.image?.uri,
+                            },
+                          });
+                        } catch (error) {
+                          console.log(error);
+                        }
+                      }}
+                    >
+                      <Text style={styles.matchButtonText}>
+                        Message This Facility
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
             ) : (
               <Text style={styles.matchSubtext}>
                 No facilities available for this item.

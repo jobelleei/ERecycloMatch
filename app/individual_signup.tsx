@@ -18,6 +18,7 @@ import styles from "./styles/individual_signup";
 import { Picker } from "@react-native-picker/picker";
 import axios from "axios";
 import { useEffect } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const PSGC_API = "https://psgc.gitlab.io/api";
 
@@ -353,7 +354,7 @@ export default function IndividualSignup() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
+    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
@@ -407,6 +408,7 @@ export default function IndividualSignup() {
               value={name}
               onChangeText={setName}
               style={styles.input}
+              placeholderTextColor="#7a7a7a"
             />
           </View>
 
@@ -423,6 +425,7 @@ export default function IndividualSignup() {
               style={styles.input}
               keyboardType="email-address"
               autoCapitalize="none"
+              placeholderTextColor="#7a7a7a"
               autoCorrect={false}
             />
           </View>
@@ -509,6 +512,7 @@ export default function IndividualSignup() {
 
             <TextInput
               placeholder="Enter street or village name"
+              placeholderTextColor="#7a7a7a"
               value={street}
               onChangeText={(text) => {
                 setStreet(text);
@@ -654,6 +658,6 @@ export default function IndividualSignup() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }
