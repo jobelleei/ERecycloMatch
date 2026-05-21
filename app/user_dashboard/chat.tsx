@@ -23,10 +23,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { db } from "./firebaseConfig";
 import { Image } from "react-native";
+
+const API_URL = "http://192.168.1.8/Admin_Side/admin_UI";
 
 export default function Chat() {
   const router = useRouter();
@@ -36,6 +39,9 @@ export default function Chat() {
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageText, setMessageText] = useState("");
+  const [ratingVisible, setRatingVisible] = useState(false);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingReason, setRatingReason] = useState("");
   const [acceptedByUser, setAcceptedByUser] = useState(false);
 
   useEffect(() => {
@@ -90,15 +96,100 @@ export default function Chat() {
     });
   };
 
+  const submitRating =
+  async () => {
+    try {
+
+      if (
+        selectedRating === 0
+      ) {
+        Alert.alert(
+          "Rating Required",
+          "Please select a rating."
+        );
+        return;
+      }
+
+      if (
+        selectedRating <= 2 &&
+        !ratingReason.trim()
+      ) {
+        Alert.alert(
+          "Reason Required",
+          "Please explain why you gave a low rating."
+        );
+        return;
+      }
+
+      await addDoc(
+        collection(
+          db,
+          "ratings"
+        ),
+        {
+          conversation_id:
+            conversationId,
+
+          transaction_id:
+            conversationId,
+
+          rater_id:
+            String(
+              user?.id
+            ),
+
+          rated_id:
+            String(
+              params.facility_id
+            ),
+
+          rated_type:
+            "facility",
+
+          rating:
+            selectedRating,
+
+          reason:
+            ratingReason,
+
+          created_at:
+            serverTimestamp(),
+        }
+      );
+
+      Alert.alert(
+        "Thank You",
+        "Your rating has been submitted."
+      );
+
+      setRatingVisible(
+        false
+      );
+
+      router.back();
+
+    } catch (
+      error
+    ) {
+      console.log(
+        "RATING ERROR:",
+        error
+      );
+    }
+  };
+
   const sendMessage = async () => {
     if (!messageText.trim()) return;
+
     if (!user) return;
 
     const text = messageText.trim();
+
     setMessageText("");
 
     try {
       // CREATE OR UPDATE CONVERSATION
+      // DO NOT RESET STATUS
       await setDoc(
         doc(db, "conversations", conversationId),
         {
@@ -111,10 +202,10 @@ export default function Chat() {
           last_message: text,
 
           updated_at: serverTimestamp(),
-
-          status: "pending",
         },
-        { merge: true },
+        {
+          merge: true,
+        },
       );
 
       // SEND MESSAGE
@@ -173,24 +264,70 @@ export default function Chat() {
   };
 
   const finishTransaction = async () => {
-    await setDoc(
-      doc(db, "conversations", conversationId),
-      {
-        user_id: String(user?.id || ""),
+    try {
+      // update conversation
+      await setDoc(
+        doc(db, "conversations", conversationId),
+        {
+          status: "finished",
 
-        facility_id: String(params.facility_id || ""),
+          updated_at: serverTimestamp(),
+        },
+        {
+          merge: true,
+        },
+      );
 
-        facility_name: params.facility_name || "Facility",
+      /*
+      REMOVE FROM
+      MY LISTINGS
+      */
 
-        last_message: "System Update",
-        updated_at: serverTimestamp(),
+      await fetch(`${API_URL}/finish_listing.php`, {
+        method: "POST",
 
-        status: conversation?.status || "pending",
-      },
-      { merge: true },
-    );
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-    await addSystemMessage("Transaction Finished");
+        body: JSON.stringify({
+          user_id: user?.id,
+
+          conversation_id: conversationId,
+        }),
+      });
+
+      /*
+      SAVE TO
+      RECYCLING HISTORY
+      */
+
+      await addDoc(collection(db, "recycling_history"), {
+        user_id: String(user?.id),
+
+        conversation_id: conversationId,
+
+        facility_id: String(params.facility_id),
+
+        facility_name: params.facility_name,
+
+        transaction_status: "Finished",
+
+        posted_date: conversation?.created_at || null,
+
+        listed_date: conversation?.updated_at || null,
+
+        finished_date: serverTimestamp(),
+      });
+
+      await addSystemMessage("Transaction Finished");
+
+      Alert.alert("Success", "Transaction finished.");
+
+      setRatingVisible(true);
+    } catch (error) {
+      console.log("FINISH ERROR:", error);
+    }
   };
 
   const cancelTransaction = async () => {
@@ -313,7 +450,7 @@ export default function Chat() {
           source={{
             uri: params.profile_image
               ? String(params.profile_image)
-              : "http://172.20.10.2/Admin_Side/assets/icons/avatar.png",
+              : "http://192.168.129.144/Admin_Side/assets/icons/avatar.png",
           }}
           style={styles.avatar}
         />

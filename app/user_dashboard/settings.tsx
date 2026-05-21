@@ -57,10 +57,7 @@ export default function Settings() {
 
       setUser({
         name:
-          parsed?.name ||
-          parsed?.user?.name ||
-          parsed?.data?.name ||
-          "User",
+          parsed?.name || parsed?.user?.name || parsed?.data?.name || "User",
         username:
           parsed?.username ||
           parsed?.user?.username ||
@@ -101,10 +98,13 @@ export default function Settings() {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            Alert.alert("Notice", "Delete account function is not connected yet.");
+            Alert.alert(
+              "Notice",
+              "Delete account function is not connected yet.",
+            );
           },
         },
-      ]
+      ],
     );
   };
 
@@ -159,7 +159,9 @@ export default function Settings() {
 
             <TouchableOpacity
               style={styles.item}
-              onPress={() => router.push("/user_dashboard/user_myListing" as any)}
+              onPress={() =>
+                router.push("/user_dashboard/user_myListing" as any)
+              }
             >
               <Image
                 source={require("../../assets/icons/price-tag.png")}
@@ -169,12 +171,19 @@ export default function Settings() {
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.item}>
+            <TouchableOpacity
+              style={styles.item}
+              onPress={() =>
+                router.push("/user_dashboard/user_recycling_history" as any)
+              }
+            >
               <Image
                 source={require("../../assets/icons/recycle.png")}
                 style={styles.icon}
               />
+
               <Text style={styles.text}>Recycling History</Text>
+
               <Text style={styles.arrow}>›</Text>
             </TouchableOpacity>
           </View>

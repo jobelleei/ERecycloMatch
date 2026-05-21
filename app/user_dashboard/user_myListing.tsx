@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_URL } from "../../config";
+import { API_URL, YOLO_URL } from "../../config";
 
 export default function MyListing() {
   const router = useRouter();
@@ -31,6 +31,7 @@ export default function MyListing() {
   const [matchModalVisible, setMatchModalVisible] = useState(false);
 
   const [matchedProfile, setMatchedProfile] = useState<any>(null);
+  const [selectedMatchedItem, setSelectedMatchedItem] = useState<any>(null);
   const [matchedFacilities, setMatchedFacilities] = useState<any[]>([]);
   const [matchFound, setMatchFound] = useState(false);
 
@@ -253,7 +254,7 @@ export default function MyListing() {
       const label = item.item_name || "";
 
       const response = await fetch(
-        `http://192.168.1.8:8000/match-facility/${encodeURIComponent(
+        `${YOLO_URL}/match-facility/${encodeURIComponent(
           label,
         )}?description=${encodeURIComponent(item.description || "")}`,
       );
@@ -282,7 +283,7 @@ export default function MyListing() {
         setMatchFound(false);
         setMatchedFacilities([]);
       }
-
+      setSelectedMatchedItem(item);
       setMatchModalVisible(true);
     } catch (error) {
       console.log("MATCH ERROR:", error);
@@ -582,8 +583,7 @@ export default function MyListing() {
                           const actualUser =
                             parsed.user || parsed.data || parsed;
 
-                          const conversationId = `${actualUser.id}_${facility.id}`;
-
+                          const conversationId = `${actualUser.id}_${facility.id}_${selectedMatchedItem?.id}`;
                           setMatchModalVisible(false);
 
                           router.push({
@@ -597,6 +597,8 @@ export default function MyListing() {
                               facility_name: facility.name,
 
                               profile_image: facility.image?.uri,
+                              item_id: selectedMatchedItem?.id,
+                              item_name: selectedMatchedItem?.item_name,
                             },
                           });
                         } catch (error) {

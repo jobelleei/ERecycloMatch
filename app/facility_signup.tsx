@@ -462,8 +462,9 @@ export default function FacilitySignup() {
             autoCorrect={false}
           />
         </View>
-        <RulesBox rules={emailRules} />
-
+        {email.length > 0 && emailRules.some((r) => !r.met) && (
+          <RulesBox rules={emailRules.filter((r) => !r.met)} />
+        )}
         {/* CONTACT */}
         <Text style={styles.label}>Contact Number</Text>
         <View style={styles.inputBox}>
@@ -483,8 +484,9 @@ export default function FacilitySignup() {
             maxLength={11}
           />
         </View>
-        <RulesBox rules={contactRules} />
-
+        {contactNum.length > 0 && contactRules.some((r) => !r.met) && (
+          <RulesBox rules={contactRules.filter((r) => !r.met)} />
+        )}
         {/* PASSWORD */}
         <Text style={styles.label}>Password</Text>
         <View style={styles.inputBox}>
@@ -507,8 +509,9 @@ export default function FacilitySignup() {
             />
           </Pressable>
         </View>
-        <RulesBox rules={passwordRules} />
-
+        {password.length > 0 && passwordRules.some((r) => !r.met) && (
+          <RulesBox rules={passwordRules.filter((r) => !r.met)} />
+        )}
         {/* CONFIRM PASSWORD */}
         <Text style={styles.label}>Confirm Password</Text>
         <View style={styles.inputBox}>
@@ -531,15 +534,16 @@ export default function FacilitySignup() {
             />
           </Pressable>
         </View>
-        <RulesBox rules={confirmRules} />
-
+        {confirmPass.length > 0 && confirmRules.some((r) => !r.met) && (
+          <RulesBox rules={confirmRules.filter((r) => !r.met)} />
+        )}
         {/* UPLOAD */}
         <Text style={styles.label}>
           Facility Certification{" "}
           <Text style={{ color: "#2E7D32" }}>(Required)</Text>
         </Text>
 
-        {/* ✅ Upload instructions */}
+        {/* Upload instructions */}
         <View
           style={{
             width: "85%",
