@@ -46,12 +46,12 @@ export default function FacilityDashboard() {
       setShowSearchResults(true);
 
       const encodedKeyword = encodeURIComponent(keyword);
+      const url = `${API_URL}/facility_search.php?search=${encodedKeyword}`;
+      console.log("FACILITY SEARCH URL:", url);
 
-      const response = await fetch(
-        `${API_URL}/facility_search.php?search=${encodedKeyword}`
-      );
-
+      const response = await fetch(url);
       const text = await response.text();
+
       console.log("FACILITY SEARCH RESPONSE:", text);
 
       let result;
@@ -59,7 +59,7 @@ export default function FacilityDashboard() {
       try {
         result = JSON.parse(text);
       } catch (parseError) {
-        console.log("JSON PARSE ERROR:", parseError);
+        console.log("FACILITY SEARCH JSON PARSE ERROR:", parseError);
         console.log("RAW PHP RESPONSE:", text);
 
         setSearchedUsers([]);
@@ -72,13 +72,11 @@ export default function FacilityDashboard() {
         setSearchedItems(Array.isArray(result.items) ? result.items : []);
       } else {
         console.log("FACILITY SEARCH ERROR:", result.message || result);
-
         setSearchedUsers([]);
         setSearchedItems([]);
       }
     } catch (error) {
       console.log("FACILITY SEARCH FETCH ERROR:", error);
-
       setSearchedUsers([]);
       setSearchedItems([]);
     } finally {
@@ -95,13 +93,16 @@ export default function FacilityDashboard() {
   };
 
   const getUserProfileUrl = (user: any) => {
-    if (user.profile_image_url && String(user.profile_image_url).trim() !== "") {
+    if (
+      user.profile_image_url &&
+      String(user.profile_image_url).trim() !== ""
+    ) {
       return user.profile_image_url;
     }
 
     if (user.profile_image && String(user.profile_image).trim() !== "") {
       return `${API_URL}/uploads/profile/user_profile/${encodeURIComponent(
-        user.profile_image
+        user.profile_image,
       )}`;
     }
 
@@ -115,7 +116,7 @@ export default function FacilityDashboard() {
 
     if (item.item_image && String(item.item_image).trim() !== "") {
       return `${API_URL}/uploads/items/approved/${encodeURIComponent(
-        item.item_image
+        item.item_image,
       )}`;
     }
 
@@ -144,6 +145,52 @@ export default function FacilityDashboard() {
     return String(location).trim() !== "" ? location : "No location provided";
   };
 
+  const getUsername = (user: any) => {
+    if (user.username && String(user.username).trim() !== "") {
+      return `@${user.username}`;
+    }
+
+    return "@No username";
+  };
+
+  const openUserProfile = (user: any) => {
+    Keyboard.dismiss();
+    setShowSearchResults(false);
+
+    router.push({
+      pathname: "/facility_dashboard/user_view_profile" as any,
+      params: {
+        user_id: String(user.id || ""),
+        username: String(user.username || ""),
+        email: String(user.email || ""),
+        name: String(user.name || ""),
+      },
+    });
+  };
+
+  const openListedItemDetails = (item: any) => {
+    Keyboard.dismiss();
+    setShowSearchResults(false);
+
+    console.log("CLICKED ITEM:", item);
+
+    router.push({
+      pathname: "/facility_dashboard/listed_item_details" as any,
+      params: {
+        item_id: String(item.id || ""),
+        listed_item_id: String(item.listed_item_id || item.id || ""),
+        approved_item_id: String(item.approved_item_id || ""),
+        item_name: String(item.item_name || ""),
+        submitter_name: String(
+          item.submitter_full_name || item.submitter_name || "User",
+        ),
+        submitter_user_id: String(item.submitter_user_id || ""),
+        submitter_username: String(item.submitter_username || ""),
+        submitter_email: String(item.submitter_email || ""),
+      },
+    });
+  };
+
   const hasResults = searchedUsers.length > 0 || searchedItems.length > 0;
 
   return (
@@ -154,7 +201,6 @@ export default function FacilityDashboard() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* HEADER */}
           <View style={styles.header}>
             <Text style={styles.welcome}>Welcome Back!</Text>
 
@@ -164,11 +210,10 @@ export default function FacilityDashboard() {
             />
           </View>
 
-          {/* SEARCH */}
           <View style={styles.searchArea}>
             <View style={styles.searchBox}>
               <TextInput
-                placeholder="Search approved users or listed items"
+                placeholder="Search users by name, username, or listed items"
                 placeholderTextColor="#777"
                 value={searchText}
                 onChangeText={(text) => {
@@ -195,7 +240,6 @@ export default function FacilityDashboard() {
                 {isSearching ? (
                   <View style={styles.searchLoading}>
                     <ActivityIndicator size="small" color="#2f7d1f" />
-
                     <Text style={styles.searchLoadingText}>Searching...</Text>
                   </View>
                 ) : hasResults ? (
@@ -204,32 +248,16 @@ export default function FacilityDashboard() {
                     keyboardShouldPersistTaps="handled"
                     style={styles.searchResultScroll}
                   >
-                    {/* APPROVED USERS */}
                     {searchedUsers.length > 0 && (
                       <View>
-                        <Text style={styles.resultSectionTitle}>
-                          Users
-                        </Text>
+                        <Text style={styles.resultSectionTitle}>Users</Text>
 
                         {searchedUsers.map((user) => (
                           <TouchableOpacity
                             key={`user-${user.id}`}
                             style={styles.searchResultItem}
                             activeOpacity={0.8}
-                            onPress={() => {
-                              Keyboard.dismiss();
-                              setShowSearchResults(false);
-
-                              /*
-                                If you already have a user details page,
-                                you can use this later:
-
-                                router.push({
-                                  pathname: "/facility_dashboard/user_details",
-                                  params: { id: user.id },
-                                } as any);
-                              */
-                            }}
+                            onPress={() => openUserProfile(user)}
                           >
                             <Image
                               source={{ uri: getUserProfileUrl(user) }}
@@ -244,6 +272,10 @@ export default function FacilityDashboard() {
                                 {user.name || "No name"}
                               </Text>
 
+                              <Text style={styles.usernameText}>
+                                {getUsername(user)}
+                              </Text>
+
                               <Text style={styles.searchSubtitle}>
                                 {getUserLocation(user)}
                               </Text>
@@ -253,32 +285,18 @@ export default function FacilityDashboard() {
                       </View>
                     )}
 
-                    {/* LISTED ITEMS */}
                     {searchedItems.length > 0 && (
                       <View>
-                        <Text style={styles.resultSectionTitle}>
-                          Items
-                        </Text>
+                        <Text style={styles.resultSectionTitle}>Items</Text>
 
-                        {searchedItems.map((item) => (
+                        {searchedItems.map((item, index) => (
                           <TouchableOpacity
-                            key={`item-${item.id}`}
+                            key={`item-${
+                              item.id
+                            }-${item.approved_item_id || ""}-${index}`}
                             style={styles.searchResultItem}
                             activeOpacity={0.8}
-                            onPress={() => {
-                              Keyboard.dismiss();
-                              setShowSearchResults(false);
-
-                              /*
-                                If you already have a listed item details page,
-                                you can use this later:
-
-                                router.push({
-                                  pathname: "/facility_dashboard/listed_item_details",
-                                  params: { id: item.id },
-                                } as any);
-                              */
-                            }}
+                            onPress={() => openListedItemDetails(item)}
                           >
                             <Image
                               source={{ uri: getItemImageUrl(item) }}
@@ -291,6 +309,12 @@ export default function FacilityDashboard() {
                             <View style={styles.searchInfo}>
                               <Text style={styles.searchTitle}>
                                 {item.item_name || "No item name"}
+                              </Text>
+
+                              <Text style={styles.usernameText}>
+                                {item.submitter_username
+                                  ? `@${item.submitter_username}`
+                                  : item.submitter_name || "No submitter"}
                               </Text>
 
                               <Text style={styles.searchSubtitle}>
@@ -313,7 +337,6 @@ export default function FacilityDashboard() {
             )}
           </View>
 
-          {/* BANNER */}
           <ImageBackground
             source={require("../../assets/images/ewaste-banner.jpg")}
             style={styles.banner}
@@ -330,7 +353,6 @@ export default function FacilityDashboard() {
             </Text>
           </ImageBackground>
 
-          {/* RECENT VIEWED ITEMS */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Viewed Items</Text>
 
@@ -347,7 +369,6 @@ export default function FacilityDashboard() {
 
             <View style={{ flex: 1, marginLeft: 10 }}>
               <Text style={styles.itemTitle}>iPhone 6s</Text>
-
               <Text style={styles.itemSub}>Smartphone</Text>
             </View>
 
@@ -355,12 +376,10 @@ export default function FacilityDashboard() {
           </View>
         </ScrollView>
 
-        {/* NAVBAR */}
         <View style={styles.bottomNav}>
-          {/* HOME */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push("/index" as any)}
+            onPress={() => router.push("/facility_dashboard" as any)}
           >
             <Image
               source={require("../../assets/icons/home.png")}
@@ -370,14 +389,13 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/index" && styles.navActive,
+                pathname === "/facility_dashboard" && styles.navActive,
               ]}
             >
               Home
             </Text>
           </TouchableOpacity>
 
-          {/* MAP */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() =>
@@ -400,7 +418,6 @@ export default function FacilityDashboard() {
             </Text>
           </TouchableOpacity>
 
-          {/* MESSAGES */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => router.push("/facility_dashboard/messages" as any)}
@@ -413,15 +430,13 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/messages" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/messages" && styles.navActive,
               ]}
             >
               Messages
             </Text>
           </TouchableOpacity>
 
-          {/* PROFILE */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => router.push("/facility_dashboard/profile" as any)}
@@ -434,15 +449,13 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/profile" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/profile" && styles.navActive,
               ]}
             >
               Profile
             </Text>
           </TouchableOpacity>
 
-          {/* SETTINGS */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => router.push("/facility_dashboard/settings" as any)}
@@ -455,8 +468,7 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/settings" && styles.navActive,
               ]}
             >
               Settings
@@ -532,7 +544,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 15,
     paddingVertical: 8,
-    maxHeight: 350,
+    maxHeight: 370,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 3 },
@@ -542,7 +554,7 @@ const styles = StyleSheet.create({
   },
 
   searchResultScroll: {
-    maxHeight: 340,
+    maxHeight: 360,
   },
 
   resultSectionTitle: {
@@ -601,8 +613,15 @@ const styles = StyleSheet.create({
     color: "#222",
   },
 
+  usernameText: {
+    marginTop: 2,
+    fontSize: 13,
+    color: "#2f7d1f",
+    fontWeight: "600",
+  },
+
   searchSubtitle: {
-    marginTop: 4,
+    marginTop: 3,
     fontSize: 13,
     color: "#666",
   },

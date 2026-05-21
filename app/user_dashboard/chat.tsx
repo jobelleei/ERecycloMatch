@@ -313,7 +313,7 @@ export default function Chat() {
           source={{
             uri: params.profile_image
               ? String(params.profile_image)
-              : "http://192.168.1.8/Admin_Side/assets/icons/avatar.png",
+              : "http://172.20.10.2/Admin_Side/assets/icons/avatar.png",
           }}
           style={styles.avatar}
         />

@@ -61,7 +61,7 @@ export default function FacilityMapScreen() {
           }).start();
         }
       },
-    })
+    }),
   ).current;
 
   const facilities = [
@@ -176,7 +176,7 @@ export default function FacilityMapScreen() {
 
   const handleSearch = () => {
     const found = facilities.find((facility) =>
-      facility.name.toLowerCase().includes(search.toLowerCase())
+      facility.name.toLowerCase().includes(search.toLowerCase()),
     );
 
     if (found) {
@@ -234,15 +234,15 @@ export default function FacilityMapScreen() {
         >
           {facilities.map((facility) => (
             <Marker
-            key={facility.id}
-            coordinate={{
-              latitude: facility.latitude,
-              longitude: facility.longitude,
-            }}
-            title={facility.name}
-            pinColor="#008000"
-            onPress={() => goToFacility(facility)}
-          />
+              key={facility.id}
+              coordinate={{
+                latitude: facility.latitude,
+                longitude: facility.longitude,
+              }}
+              title={facility.name}
+              pinColor="#008000"
+              onPress={() => goToFacility(facility)}
+            />
           ))}
         </MapView>
 
@@ -294,6 +294,7 @@ export default function FacilityMapScreen() {
         )}
 
         <View style={styles.bottomNav}>
+          {/* HOME */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() => router.push("/facility_dashboard" as any)}
@@ -302,6 +303,7 @@ export default function FacilityMapScreen() {
               source={require("../../assets/icons/home.png")}
               style={styles.navImage}
             />
+
             <Text
               style={[
                 styles.navLabel,
@@ -312,6 +314,7 @@ export default function FacilityMapScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* MAP */}
           <TouchableOpacity
             style={styles.navItem}
             onPress={() =>
@@ -322,6 +325,7 @@ export default function FacilityMapScreen() {
               source={require("../../assets/icons/map.png")}
               style={styles.navImage}
             />
+
             <Text
               style={[
                 styles.navLabel,
@@ -333,43 +337,60 @@ export default function FacilityMapScreen() {
             </Text>
           </TouchableOpacity>
 
+          {/* MESSAGES */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push("/messages" as any)}
+            onPress={() => router.push("/facility_dashboard/messages" as any)}
           >
             <Image
               source={require("../../assets/icons/chatting.png")}
               style={styles.navImage}
             />
-            <Text style={styles.navLabel}>Messages</Text>
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/messages" && styles.navActive,
+              ]}
+            >
+              Messages
+            </Text>
           </TouchableOpacity>
 
+          {/* PROFILE */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push("/profile" as any)}
+            onPress={() => router.push("/facility_dashboard/profile" as any)}
           >
             <Image
               source={require("../../assets/icons/user.png")}
               style={styles.navImage}
             />
-            <Text style={styles.navLabel}>Profile</Text>
+
+            <Text
+              style={[
+                styles.navLabel,
+                pathname === "/facility_dashboard/profile" && styles.navActive,
+              ]}
+            >
+              Profile
+            </Text>
           </TouchableOpacity>
 
+          {/* SETTINGS */}
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() =>
-              router.push("/facility_dashboard/settings" as any)
-            }
+            onPress={() => router.push("/facility_dashboard/settings" as any)}
           >
             <Image
               source={require("../../assets/icons/setting_1.png")}
               style={styles.navImage}
             />
+
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/settings" && styles.navActive,
               ]}
             >
               Settings

@@ -126,7 +126,7 @@ export default function FacilityProfile() {
     if (!showDropdown || !itemName.trim()) return [];
 
     return ITEM_OPTIONS.filter((item) =>
-      item.toLowerCase().includes(itemName.toLowerCase())
+      item.toLowerCase().includes(itemName.toLowerCase()),
     ).slice(0, 20);
   }, [itemName, showDropdown]);
 
@@ -137,7 +137,7 @@ export default function FacilityProfile() {
   useFocusEffect(
     useCallback(() => {
       loadFacility();
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -171,11 +171,11 @@ export default function FacilityProfile() {
 
       const finalProfileImage =
         profileImage && profileImage.startsWith("http")
-            ? profileImage
-            : profileImage
+          ? profileImage
+          : profileImage
             ? profileImage.includes("facility_profile")
-            ? `${API_URL}/${profileImage}`
-            : `${API_URL}/uploads/profile/facility_profile/${profileImage}`
+              ? `${API_URL}/${profileImage}`
+              : `${API_URL}/uploads/profile/facility_profile/${profileImage}`
             : "";
 
       setFacility({
@@ -204,8 +204,8 @@ export default function FacilityProfile() {
     try {
       const response = await fetch(
         `${API_URL}/get_facility_postings.php?facility_id=${encodeURIComponent(
-          facility.id
-        )}`
+          facility.id,
+        )}`,
       );
 
       const text = await response.text();
@@ -234,11 +234,15 @@ export default function FacilityProfile() {
   const changeProfilePhoto = async () => {
     try {
       if (!facility.id) {
-        Alert.alert("Facility Error", "Facility ID not found. Please log in again.");
+        Alert.alert(
+          "Facility Error",
+          "Facility ID not found. Please log in again.",
+        );
         return;
       }
 
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const permission =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (!permission.granted) {
         Alert.alert("Permission Denied", "Please allow access to your photos.");
@@ -404,10 +408,13 @@ export default function FacilityProfile() {
             formData.append("id", String(post.id));
             formData.append("facility_id", facility.id);
 
-            const response = await fetch(`${API_URL}/delete_facility_posting.php`, {
-              method: "POST",
-              body: formData,
-            });
+            const response = await fetch(
+              `${API_URL}/delete_facility_posting.php`,
+              {
+                method: "POST",
+                body: formData,
+              },
+            );
 
             const text = await response.text();
             console.log("DELETE POST RESPONSE:", text);
@@ -460,10 +467,14 @@ export default function FacilityProfile() {
     return (
       <View style={styles.postCard}>
         <Text style={styles.postLabel}>Facility Name</Text>
-        <Text style={styles.postTitle}>{item.submitter_name || facility.name}</Text>
+        <Text style={styles.postTitle}>
+          {item.submitter_name || facility.name}
+        </Text>
 
         <Text style={styles.postLabel}>Item Needed</Text>
-        <Text style={styles.itemNeeded}>{item.item_needed || "No item added"}</Text>
+        <Text style={styles.itemNeeded}>
+          {item.item_needed || "No item added"}
+        </Text>
 
         <Text style={styles.postLabel}>Description</Text>
         <Text style={styles.description}>
@@ -518,11 +529,17 @@ export default function FacilityProfile() {
         }
         ListHeaderComponent={
           <View style={styles.profileHeader}>
-            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+            >
               <Text style={styles.backText}>←</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.avatarWrapper} onPress={changeProfilePhoto}>
+            <TouchableOpacity
+              style={styles.avatarWrapper}
+              onPress={changeProfilePhoto}
+            >
               <Image
                 source={
                   facility.profileImage
@@ -545,12 +562,17 @@ export default function FacilityProfile() {
               <Text style={styles.headerAddress}>{facility.location}</Text>
             </View>
 
-            <TouchableOpacity style={styles.addPostButton} onPress={openCreateModal}>
+            <TouchableOpacity
+              style={styles.addPostButton}
+              onPress={openCreateModal}
+            >
               <Text style={styles.addPostText}>＋ Create Item Request</Text>
             </TouchableOpacity>
           </View>
         }
-        ListEmptyComponent={<Text style={styles.emptyText}>No item postings yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No item postings yet.</Text>
+        }
       />
 
       <TouchableOpacity style={styles.floatingButton} onPress={openCreateModal}>
@@ -573,8 +595,8 @@ export default function FacilityProfile() {
                 </Text>
 
                 <Text style={styles.helperText}>
-                  Add details about what your facility is looking for so users can
-                  match their listed items with your request.
+                  Add details about what your facility is looking for so users
+                  can match their listed items with your request.
                 </Text>
 
                 <Text style={styles.modalLabel}>Item Needed</Text>
@@ -626,11 +648,17 @@ export default function FacilityProfile() {
                 />
 
                 <View style={styles.modalButtons}>
-                  <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={closeModal}
+                  >
                     <Text style={styles.cancelText}>Cancel</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.saveButton} onPress={savePosting}>
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={savePosting}
+                  >
                     <Text style={styles.saveText}>
                       {editingPost ? "Update" : "Post"}
                     </Text>
@@ -647,7 +675,10 @@ export default function FacilityProfile() {
           style={styles.navItem}
           onPress={() => router.push("/facility_dashboard" as any)}
         >
-          <Image source={require("../../assets/icons/home.png")} style={styles.navImage} />
+          <Image
+            source={require("../../assets/icons/home.png")}
+            style={styles.navImage}
+          />
           <Text
             style={[
               styles.navLabel,
@@ -662,30 +693,48 @@ export default function FacilityProfile() {
           style={styles.navItem}
           onPress={() => router.push("/facility_dashboard/facility_map" as any)}
         >
-          <Image source={require("../../assets/icons/map.png")} style={styles.navImage} />
+          <Image
+            source={require("../../assets/icons/map.png")}
+            style={styles.navImage}
+          />
           <Text
             style={[
               styles.navLabel,
-              pathname === "/facility_dashboard/facility_map" && styles.navActive,
+              pathname === "/facility_dashboard/facility_map" &&
+                styles.navActive,
             ]}
           >
             Map
           </Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.navItem}>
+        <TouchableOpacity
+          style={styles.navItem}
+          onPress={() => router.push("/facility_dashboard/messages" as any)}
+        >
           <Image
             source={require("../../assets/icons/chatting.png")}
             style={styles.navImage}
           />
-          <Text style={styles.navLabel}>Messages</Text>
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/facility_dashboard/messages" && styles.navActive,
+            ]}
+          >
+            Messages
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/facility_dashboard/profile" as any)}
         >
-          <Image source={require("../../assets/icons/user.png")} style={styles.navImage} />
+          <Image
+            source={require("../../assets/icons/user.png")}
+            style={styles.navImage}
+          />
           <Text
             style={[
               styles.navLabel,

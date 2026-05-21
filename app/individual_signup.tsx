@@ -354,8 +354,11 @@ export default function IndividualSignup() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-      <ImageBackground
+  <SafeAreaView
+    style={{ flex: 1 }}
+    edges={["top"]}
+  >      
+  <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
       >
@@ -431,76 +434,172 @@ export default function IndividualSignup() {
           </View>
           <RulesBox rules={emailRules} />
 
-          <Text style={styles.label}>Address</Text>
+ <Text style={styles.label}>Address</Text>
 
-          <View style={styles.inputBox}>
-            <Picker
-              selectedValue={country}
-              onValueChange={(value) => {
-                setCountry(value);
-              }}
-              style={{ flex: 1 }}
-            >
-              <Picker.Item label="Philippines" value="Philippines" />
-            </Picker>
-          </View>
+{/* COUNTRY */}
+<View style={styles.inputBox}>
+  <Picker
+    selectedValue={country}
+    onValueChange={(value) => {
+      setCountry(value);
+    }}
+    mode="dropdown"
+    dropdownIconColor="#666"
+    style={{
+      width: "100%",
+      color: "#333",
+    }}
+  >
+    <Picker.Item
+      label="Philippines"
+      value="Philippines"
+    />
+  </Picker>
+</View>
 
-          <View style={styles.inputBox}>
-            <Picker
-              selectedValue={province}
-              onValueChange={(value) => {
-                setProvince(value);
-                setCity("");
-                setBarangay("");
-                fetchCities(value);
-              }}
-              style={{ flex: 1 }}
-            >
-              <Picker.Item label="Select Province" value="" />
+{/* PROVINCE */}
+<View style={styles.inputBox}>
+  <Picker
+    selectedValue={province}
+    onValueChange={(value) => {
+      setProvince(value);
+      setCity("");
+      setBarangay("");
 
-              {provinces.map((item, index) => (
-                <Picker.Item key={index} label={item} value={item} />
-              ))}
-            </Picker>
-          </View>
+      if (value) {
+        fetchCities(value);
+      }
+    }}
+    mode="dropdown"
+    dropdownIconColor="#666"
+    style={{
+      width: "100%",
+      color: "#333",
+    }}
+  >
+    <Picker.Item
+      label="Select Province"
+      value=""
+    />
 
-          <View style={styles.inputBox}>
-            <Picker
-              selectedValue={city}
-              onValueChange={(value) => {
-                setCity(value);
-                setBarangay("");
-                fetchBarangays(value);
-              }}
-              style={{ flex: 1 }}
-            >
-              <Picker.Item label="Select City / Municipality" value="" />
+    {provinces.map(
+      (item, index) => (
+        <Picker.Item
+          key={index}
+          label={item}
+          value={item}
+        />
+      )
+    )}
+  </Picker>
+</View>
 
-              {cities.map((item, index) => (
-                <Picker.Item key={index} label={item} value={item} />
-              ))}
-            </Picker>
-          </View>
+{/* CITY / MUNICIPALITY */}
+<View style={styles.inputBox}>
+  <Picker
+    selectedValue={city}
+    onValueChange={(value) => {
+      setCity(value);
+      setBarangay("");
 
-          <View style={styles.inputBox}>
-            <Picker
-              selectedValue={barangay}
-              onValueChange={(value) => {
-                setBarangay(value);
+      if (value) {
+        fetchBarangays(value);
+      }
+    }}
+    enabled={!!province}
+    mode="dropdown"
+    dropdownIconColor="#666"
+    style={{
+      width: "100%",
+      color: province
+        ? "#333"
+        : "#999",
+    }}
+  >
+    <Picker.Item
+      label="Select City / Municipality"
+      value=""
+    />
 
-                const fullAddress = `${value}, ${city}, ${province}, ${country}`;
+    {cities.map(
+      (item, index) => (
+        <Picker.Item
+          key={index}
+          label={item}
+          value={item}
+        />
+      )
+    )}
+  </Picker>
+</View>
 
-                setAddress(fullAddress);
-              }}
-              style={{ flex: 1 }}
-            >
-              <Picker.Item label="Select Barangay" value="" />
+{/* BARANGAY */}
+<View style={styles.inputBox}>
+  <Picker
+    selectedValue={barangay}
+    onValueChange={(value) => {
+      setBarangay(value);
 
-              {barangays.map((item, index) => (
-                <Picker.Item key={index} label={item} value={item} />
-              ))}
-            </Picker>
-          </View>
+      const fullAddress =
+        `${street}, ${value}, ${city}, ${province}, ${country}`;
+
+      setAddress(fullAddress);
+    }}
+    enabled={!!city}
+    mode="dropdown"
+    dropdownIconColor="#666"
+    style={{
+      width: "100%",
+      color: city
+        ? "#333"
+        : "#999",
+    }}
+  >
+    <Picker.Item
+      label="Select Barangay"
+      value=""
+    />
+
+    {barangays.map(
+      (item, index) => (
+        <Picker.Item
+          key={index}
+          label={item}
+          value={item}
+        />
+      )
+    )}
+  </Picker>
+</View>
+
+{/* STREET */}
+<Text style={styles.label}>
+  Street / Village / Block / Lot
+</Text>
+
+<View style={styles.inputBox}>
+  <Image
+    source={require(
+      "../assets/icons/location.png"
+    )}
+    style={styles.icon}
+  />
+
+  <TextInput
+    placeholder="Enter street or village name"
+    placeholderTextColor="#7a7a7a"
+    value={street}
+    onChangeText={(text) => {
+      setStreet(text);
+
+      const fullAddress =
+        `${text}, ${barangay}, ${city}, ${province}, ${country}`;
+
+      setAddress(fullAddress);
+    }}
+    style={styles.input}
+  />
+</View>
 
           <Text style={styles.label}>Street / Village / Block / Lot</Text>
 

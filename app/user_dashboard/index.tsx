@@ -95,7 +95,16 @@ export default function UserDashboard() {
       const text = await response.text();
       console.log("DASHBOARD RECENT ITEMS RESPONSE:", text);
 
-      const result = JSON.parse(text);
+      let result;
+
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.log("RECENT ITEMS JSON PARSE ERROR:", parseError);
+        console.log("RAW RECENT ITEMS RESPONSE:", text);
+        setRecentItems([]);
+        return;
+      }
 
       if (result.success && Array.isArray(result.items)) {
         const limitedItems = result.items.slice(0, 3);
@@ -123,7 +132,16 @@ export default function UserDashboard() {
       const text = await response.text();
       console.log("SEARCH FACILITIES RESPONSE:", text);
 
-      const result = JSON.parse(text);
+      let result;
+
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        console.log("FACILITY SEARCH JSON PARSE ERROR:", parseError);
+        console.log("RAW FACILITY SEARCH RESPONSE:", text);
+        setSearchedFacilities([]);
+        return;
+      }
 
       if (result.success && Array.isArray(result.facilities)) {
         setSearchedFacilities(result.facilities);
@@ -146,7 +164,9 @@ export default function UserDashboard() {
   };
 
   const getImageUrl = (item: any) => {
-    if (!item.item_image) return "https://via.placeholder.com/100";
+    if (!item.item_image) {
+      return `${API_URL}/assets/icons/no-image.png`;
+    }
 
     if (item.folder === "approved") {
       return `${API_URL}/uploads/items/approved/${item.item_image}`;
@@ -160,11 +180,29 @@ export default function UserDashboard() {
   };
 
   const getFacilityProfileUrl = (facility: any) => {
-    if (!facility.profile_image) {
-      return `${API_URL}/assets/icons/avatar.png`;
+    if (facility.profile_image_url && String(facility.profile_image_url).trim() !== "") {
+      return facility.profile_image_url;
     }
 
-    return `${API_URL}/uploads/profile/facility_profile/${facility.profile_image}`;
+    if (facility.profile_image && String(facility.profile_image).trim() !== "") {
+      return `${API_URL}/uploads/profile/facility_profile/${encodeURIComponent(
+        facility.profile_image
+      )}`;
+    }
+
+    return `${API_URL}/assets/icons/avatar.png`;
+  };
+
+  const getFacilityLocation = (facility: any) => {
+    const location =
+      facility.location ||
+      facility.address ||
+      facility.facility_location ||
+      "";
+
+    return String(location).trim() !== ""
+      ? location
+      : "No location provided";
   };
 
   const getStatusStyle = (status: string) => {
@@ -198,7 +236,7 @@ export default function UserDashboard() {
           <View style={styles.searchArea}>
             <View style={styles.searchBox}>
               <TextInput
-                placeholder="Search for facilities or location"
+                placeholder="Search approved facilities or location"
                 placeholderTextColor="#777"
                 value={searchText}
                 onChangeText={(text) => {
@@ -225,49 +263,56 @@ export default function UserDashboard() {
                 {isSearching ? (
                   <View style={styles.searchLoading}>
                     <ActivityIndicator size="small" color="#2f7d1f" />
+
                     <Text style={styles.searchLoadingText}>Searching...</Text>
                   </View>
                 ) : searchedFacilities.length > 0 ? (
-                  searchedFacilities.map((facility) => (
-                    <TouchableOpacity
-                      key={facility.id}
-                      style={styles.facilitySearchItem}
-                      activeOpacity={0.8}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        setShowSearchResults(false);
+                  <ScrollView
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                    style={styles.searchResultScroll}
+                  >
+                    {searchedFacilities.map((facility) => (
+                      <TouchableOpacity
+                        key={`facility-${facility.id}`}
+                        style={styles.facilitySearchItem}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setShowSearchResults(false);
 
-                        /*
-                          If you already have a facility details page,
-                          you can change this route.
-
-                          Example:
                           router.push({
-                            pathname: "/user_dashboard/facility_details",
-                            params: { id: facility.id },
-                          } as any);
-                        */
-                      }}
-                    >
-                      <Image
-                        source={{ uri: getFacilityProfileUrl(facility) }}
-                        style={styles.searchFacilityImage}
-                        onError={(e) => {
-                          console.log("FACILITY IMAGE ERROR:", e.nativeEvent);
+                            pathname:
+                              "/user_dashboard/facility_view_profile" as any,
+                            params: {
+                              facility_id: facility.id,
+                            },
+                          });
                         }}
-                      />
+                      >
+                        <Image
+                          source={{ uri: getFacilityProfileUrl(facility) }}
+                          style={styles.searchFacilityImage}
+                          onError={(e) => {
+                            console.log(
+                              "FACILITY IMAGE ERROR:",
+                              e.nativeEvent
+                            );
+                          }}
+                        />
 
-                      <View style={styles.searchFacilityInfo}>
-                        <Text style={styles.searchFacilityName}>
-                          {facility.name}
-                        </Text>
+                        <View style={styles.searchFacilityInfo}>
+                          <Text style={styles.searchFacilityName}>
+                            {facility.name || "No facility name"}
+                          </Text>
 
-                        <Text style={styles.searchFacilityLocation}>
-                          {facility.location || "No location provided"}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))
+                          <Text style={styles.searchFacilityLocation}>
+                            {getFacilityLocation(facility)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
                 ) : (
                   <View style={styles.noSearchResult}>
                     <Text style={styles.noSearchResultText}>
@@ -316,14 +361,18 @@ export default function UserDashboard() {
                 />
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.itemTitle}>{item.item_name}</Text>
+                  <Text style={styles.itemTitle}>
+                    {item.item_name || "No item name"}
+                  </Text>
 
                   <Text style={styles.itemSub}>
                     {item.description || "No description"}
                   </Text>
                 </View>
 
-                <Text style={getStatusStyle(item.status)}>{item.status}</Text>
+                <Text style={getStatusStyle(item.status)}>
+                  {item.status || "Pending"}
+                </Text>
               </View>
             ))
           ) : (
@@ -390,7 +439,8 @@ export default function UserDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/user_dashboard/user_scan" && styles.navActive,
+                pathname === "/user_dashboard/user_scan" &&
+                  styles.navActive,
               ]}
             >
               Scan
@@ -409,7 +459,8 @@ export default function UserDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/user_dashboard/user_map" && styles.navActive,
+                pathname === "/user_dashboard/user_map" &&
+                  styles.navActive,
               ]}
             >
               Map
@@ -424,6 +475,7 @@ export default function UserDashboard() {
               source={require("../../assets/icons/chatting.png")}
               style={styles.navImage}
             />
+
             <Text
               style={[
                 styles.navLabel,
@@ -541,13 +593,17 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 15,
     paddingVertical: 8,
-    maxHeight: 260,
+    maxHeight: 300,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 3 },
     shadowRadius: 8,
     elevation: 8,
     zIndex: 9999,
+  },
+
+  searchResultScroll: {
+    maxHeight: 290,
   },
 
   searchLoading: {
