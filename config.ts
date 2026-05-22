@@ -1,3 +1,3 @@
-export const API_URL = "http://192.168.217.144/Admin_Side/admin_UI";
+export const API_URL = "http://192.168.1.54/Admin_Side";
 
-export const YOLO_URL = "http://192.168.217.144:8000";
+export const YOLO_URL = "http://192.168.1.54:8000";

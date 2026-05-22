@@ -6,14 +6,12 @@ from fastapi.staticfiles import StaticFiles
 import mysql.connector
 from ultralytics import YOLO
 import shutil
-import easyocr
 import os
 import uuid
 import asyncio
 
 app = FastAPI()
 
-reader = easyocr.Reader(['en'])
 
 # CORS
 app.add_middleware(

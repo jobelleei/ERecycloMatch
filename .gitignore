@@ -1,6 +1,7 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Learn more:
+# https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
+# Dependencies
 node_modules/
 
 # Expo
@@ -9,7 +10,11 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native generated folders
+/ios/
+/android/
+
+# Native keys / certificates
 .kotlin/
 *.orig.*
 *.jks
@@ -17,78 +22,53 @@ expo-env.d.ts
 *.p12
 *.key
 *.mobileprovision
+*.pem
 
 # Metro
 .metro-health-check*
 
-# debug
+# Debug logs
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+pnpm-debug.*
 
 # macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# Local environment files
+.env
+.env.local
+.env.*.local
 
-# typescript
+# TypeScript
 *.tsbuildinfo
 
-app-example
+# Example / template folders
+app-example/
 
-# generated native folders
-/ios
-/android
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.python-version
 
+# Backend generated/uploaded files
+backend/__pycache__/
+backend/uploads/
+
+# YOLO / AI training files
 backend/runs/
+backend/datasets/
 backend/E-Waste Dataset/
 backend/*.pt
-backend/E-Waste Dataset/
-backend/runs/
-backend/*.pt
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+backend/*.zip
 
-# dependencies
-node_modules/
+# Database backup files
+*.sql
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
-
+# Virtual environments
+.venv/
+venv/
+env/
