@@ -114,120 +114,101 @@ export default function Signin() {
     }
   };
 
- return (
-  <KeyboardAvoidingView
-    style={{ flex: 1 }}
-    behavior={
-      Platform.OS === "ios"
-        ? "padding"
-        : "height"
-    }
-  >
-    <ScrollView
-      contentContainerStyle={{
-        flexGrow: 1,
-      }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={signinStyles.container}>
-        <ImageBackground
-          source={require("../assets/images/firstbg.png")}
-          style={signinStyles.background}
-        >
-          <View style={signinStyles.overlay} />
-        </ImageBackground>
-
-        <Pressable
-          onPress={() => router.push("/")}
-          style={signinStyles.backButton}
-        >
-          <Image
-            source={require("../assets/icons/backbutton.png")}
-            style={signinStyles.backIcon}
-          />
-        </Pressable>
-
-        <Image
-          source={require("../assets/icons/icon.png")}
-          style={signinStyles.logo}
-        />
-
-        <Text style={signinStyles.title}>
-          Welcome Back!
-        </Text>
-
-        <Text style={signinStyles.subtitle}>
-          Sign in to continue recycling
-        </Text>
-
-      <Text style={signinStyles.label}>Email</Text>
-
-      <View style={signinStyles.inputBox}>
-        <Image
-          source={require("../assets/icons/email.png")}
-          style={signinStyles.inputIcon}
-        />
-
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Enter your Gmail address"
-          placeholderTextColor="#888"
-          style={signinStyles.input}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-      </View>
-
-      <Text style={signinStyles.label}>Password</Text>
-
-      <View style={signinStyles.inputBox}>
-        <Image
-          source={require("../assets/icons/padlock.png")}
-          style={signinStyles.inputIcon}
-        />
-
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Enter Password"
-          placeholderTextColor="#888"
-          secureTextEntry={secure}
-          style={signinStyles.input}
-        />
-
-        <Pressable onPress={() => setSecure(!secure)}>
-          <Image
-            source={require("../assets/icons/view.png")}
-            style={signinStyles.eyeIcon}
-          />
-        </Pressable>
-      </View>
-
-        <Pressable>
-          <Text
-            style={signinStyles.forgot}
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={signinStyles.container}>
+          <ImageBackground
+            source={require("../assets/images/firstbg.png")}
+            style={signinStyles.background}
           >
-            Forgot your Password?
-          </Text>
-        </Pressable>
+            <View style={signinStyles.overlay} />
+          </ImageBackground>
 
-        <Pressable
-          onPress={handleSignIn}
-          style={signinStyles.button}
-        >
-          <Text
-            style={
-              signinStyles.buttonText
-            }
+          <Pressable
+            onPress={() => router.push("/")}
+            style={signinStyles.backButton}
           >
-            Sign In
+            <Image
+              source={require("../assets/icons/backbutton.png")}
+              style={signinStyles.backIcon}
+            />
+          </Pressable>
+
+          <Image
+            source={require("../assets/icons/icon.png")}
+            style={signinStyles.logo}
+          />
+
+          <Text style={signinStyles.title}>Welcome Back!</Text>
+
+          <Text style={signinStyles.subtitle}>
+            Sign in to continue recycling
           </Text>
-        </Pressable>
-      </View>
-    </ScrollView>
-  </KeyboardAvoidingView>
-);
+
+          <Text style={signinStyles.label}>Email</Text>
+
+          <View style={signinStyles.inputBox}>
+            <Image
+              source={require("../assets/icons/email.png")}
+              style={signinStyles.inputIcon}
+            />
+
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your Gmail address"
+              placeholderTextColor="#888"
+              style={signinStyles.input}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          <Text style={signinStyles.label}>Password</Text>
+
+          <View style={signinStyles.inputBox}>
+            <Image
+              source={require("../assets/icons/padlock.png")}
+              style={signinStyles.inputIcon}
+            />
+
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter Password"
+              placeholderTextColor="#888"
+              secureTextEntry={secure}
+              style={signinStyles.input}
+            />
+
+            <Pressable onPress={() => setSecure(!secure)}>
+              <Image
+                source={require("../assets/icons/view.png")}
+                style={signinStyles.eyeIcon}
+              />
+            </Pressable>
+          </View>
+
+          <Pressable onPress={() => router.push("/forgot_password" as any)}>
+            <Text style={signinStyles.forgot}>Forgot your Password?</Text>
+          </Pressable>
+
+          <Pressable onPress={handleSignIn} style={signinStyles.button}>
+            <Text style={signinStyles.buttonText}>Sign In</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
 }

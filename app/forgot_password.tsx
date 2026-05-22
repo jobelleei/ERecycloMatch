@@ -7,16 +7,18 @@ import {
   Pressable,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { API_URL } from "../config";
 
 export default function ForgotPassword() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const sendOTP = async () => {
+    setLoading(true);
     if (!email.trim()) {
       Toast.show({
         type: "error",
@@ -53,6 +55,7 @@ export default function ForgotPassword() {
 
           text2: "Check your email",
         });
+        setLoading(false);
 
         router.push({
           pathname: "/verify_otp",
@@ -67,6 +70,7 @@ export default function ForgotPassword() {
 
           text1: data.message || "Failed to send OTP",
         });
+        setLoading(false);
       }
     } catch (error) {
       console.log(error);
@@ -76,6 +80,7 @@ export default function ForgotPassword() {
 
         text1: "Server Error",
       });
+      setLoading(false);
     }
   };
 
@@ -127,6 +132,7 @@ export default function ForgotPassword() {
 
       <Pressable
         onPress={sendOTP}
+        disabled={loading}
         style={{
           backgroundColor: "#1B5E20",
           padding: 16,
@@ -134,16 +140,20 @@ export default function ForgotPassword() {
           marginTop: 20,
         }}
       >
-        <Text
-          style={{
-            color: "#fff",
-            textAlign: "center",
-            fontWeight: "bold",
-            fontSize: 16,
-          }}
-        >
-          Send OTP
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color="#fff" />
+        ) : (
+          <Text
+            style={{
+              color: "#fff",
+              textAlign: "center",
+              fontWeight: "bold",
+              fontSize: 16,
+            }}
+          >
+            Send OTP
+          </Text>
+        )}
       </Pressable>
     </KeyboardAvoidingView>
   );
