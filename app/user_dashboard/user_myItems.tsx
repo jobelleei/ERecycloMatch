@@ -3,6 +3,7 @@ import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
+  Dimensions,
   FlatList,
   Image,
   Keyboard,
@@ -18,7 +19,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_URL } from "../../config";
+import { supabase } from "../../utils/supabase";
+
+const screenWidth = Dimensions.get("window").width;
+const screenHeight = Dimensions.get("window").height;
 
 export default function MyItems() {
   const router = useRouter();
@@ -35,9 +39,18 @@ export default function MyItems() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editedDescription, setEditedDescription] = useState("");
 
-  const getItemStatus = (item: any) => {
-    if (item.folder === "rejected") return "Rejected";
+  const [modalIssuePhotos, setModalIssuePhotos] = useState<any[]>([]);
+  const [loadingIssuePhotos, setLoadingIssuePhotos] = useState(false);
 
+  const [previewVisible, setPreviewVisible] = useState(false);
+  const [previewImageSource, setPreviewImageSource] = useState<any>(null);
+  const [previewTitle, setPreviewTitle] = useState("");
+
+  const goToPage = (path: string) => {
+    router.push(path as any);
+  };
+
+  const getItemStatus = (item: any) => {
     const status =
       item.status ||
       item.item_status ||
@@ -45,10 +58,12 @@ export default function MyItems() {
       item.match_status ||
       "";
 
-    if (String(status).toLowerCase() === "rejected") return "Rejected";
-    if (String(status).toLowerCase() === "approved") return "Approved";
-    if (String(status).toLowerCase() === "listed") return "Listed";
-    if (String(status).toLowerCase() === "pending") return "Pending";
+    const cleanStatus = String(status || "").trim().toLowerCase();
+
+    if (cleanStatus === "rejected") return "Rejected";
+    if (cleanStatus === "approved") return "Approved";
+    if (cleanStatus === "listed") return "Listed";
+    if (cleanStatus === "pending") return "Pending";
 
     return "Pending";
   };
@@ -66,7 +81,10 @@ export default function MyItems() {
       0;
 
     const date = new Date(dateValue);
-    if (!isNaN(date.getTime())) return date.getTime();
+
+    if (!isNaN(date.getTime())) {
+      return date.getTime();
+    }
 
     const numberValue = Number(dateValue);
     return isNaN(numberValue) ? 0 : numberValue;
@@ -74,53 +92,6 @@ export default function MyItems() {
 
   const sortByLatest = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
-  };
-
-  const mergeItemsAndListings = (myItems: any[], listings: any[]) => {
-    const listingIds = new Set(listings.map((item) => String(item.id)));
-
-    const updatedMyItems = myItems.map((item) => {
-      const realStatus = getItemStatus(item);
-
-      if (realStatus === "Rejected") {
-        return {
-          ...item,
-          status: "Rejected",
-          folder: item.folder || "rejected",
-        };
-      }
-
-      if (listingIds.has(String(item.id))) {
-        const listedItem = listings.find(
-          (listed) => String(listed.id) === String(item.id),
-        );
-
-        return {
-          ...item,
-          status: "Listed",
-          folder: item.folder || "approved",
-          listed_at: listedItem?.listed_at || item.listed_at,
-          date_listed: listedItem?.date_listed || item.date_listed,
-          match_status:
-            listedItem?.match_status || item.match_status || "Listed",
-        };
-      }
-
-      return item;
-    });
-
-    const missingListedItems = listings.filter(
-      (listed) =>
-        !myItems.some((item) => String(item.id) === String(listed.id)),
-    );
-
-    const normalizedMissingListedItems = missingListedItems.map((item) => ({
-      ...item,
-      status: "Listed",
-      folder: item.folder || "approved",
-    }));
-
-    return sortByLatest([...updatedMyItems, ...normalizedMissingListedItems]);
   };
 
   const filteredItems =
@@ -135,38 +106,40 @@ export default function MyItems() {
   useFocusEffect(
     useCallback(() => {
       loadUser();
-    }, []),
+    }, [])
   );
 
   useEffect(() => {
-    if (submitterName) {
+    if (userId) {
       fetchItems();
     }
-  }, [submitterName, userId]);
+  }, [userId]);
 
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
+
       if (!stored) return;
 
       const parsed = JSON.parse(stored);
+      const actualUser = parsed.user || parsed.data || parsed;
 
       const finalUserId =
+        actualUser?.id ||
+        actualUser?.user_id ||
         parsed?.id ||
         parsed?.user_id ||
-        parsed?.user?.id ||
-        parsed?.data?.id ||
         "";
 
       const userName =
+        actualUser?.name ||
+        actualUser?.fullname ||
+        actualUser?.full_name ||
+        actualUser?.username ||
         parsed?.name ||
-        parsed?.user?.name ||
-        parsed?.data?.name ||
         parsed?.fullname ||
         parsed?.full_name ||
         parsed?.username ||
-        parsed?.user?.username ||
-        parsed?.data?.username ||
         "";
 
       setUserId(String(finalUserId));
@@ -178,43 +151,26 @@ export default function MyItems() {
 
   const fetchItems = async () => {
     try {
-      const encodedName = encodeURIComponent(submitterName);
-      const encodedUserId = encodeURIComponent(String(userId || ""));
-
-      const itemsResponse = await fetch(
-        `${API_URL}/get_my_items.php?submitter_name=${encodedName}`,
-      );
-
-      const itemsText = await itemsResponse.text();
-      console.log("MY ITEMS RESPONSE:", itemsText);
-
-      const itemsResult = JSON.parse(itemsText);
-
-      const myItems =
-        itemsResult.success && Array.isArray(itemsResult.items)
-          ? itemsResult.items
-          : [];
-
-      let myListings: any[] = [];
-
-      try {
-        const listingsResponse = await fetch(
-          `${API_URL}/get_my_listings.php?user_id=${encodedUserId}&submitter_name=${encodedName}`,
-        );
-
-        const listingsText = await listingsResponse.text();
-        console.log("MY ITEMS LISTINGS MERGE RESPONSE:", listingsText);
-
-        const listingsResult = JSON.parse(listingsText);
-
-        if (listingsResult.success && Array.isArray(listingsResult.items)) {
-          myListings = listingsResult.items;
-        }
-      } catch (listingError) {
-        console.log("FETCH LISTINGS FOR MY ITEMS ERROR:", listingError);
+      if (!userId) {
+        setItems([]);
+        return;
       }
 
-      setItems(mergeItemsAndListings(myItems, myListings));
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("user_id", String(userId))
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.log("FETCH ITEMS ERROR:", error);
+        setItems([]);
+        return;
+      }
+
+      console.log("MY ITEMS DATA:", data);
+
+      setItems(sortByLatest(data || []));
     } catch (error) {
       console.log("FETCH ITEMS ERROR:", error);
       setItems([]);
@@ -240,7 +196,7 @@ export default function MyItems() {
       return;
     }
 
-    if (item.folder !== "approved") {
+    if (status !== "Approved") {
       Alert.alert("Not Allowed", "Only approved items can be listed.");
       return;
     }
@@ -250,49 +206,212 @@ export default function MyItems() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("id", String(item.id));
-    formData.append("user_id", String(userId));
-
     try {
-      const response = await fetch(`${API_URL}/list_item.php`, {
-        method: "POST",
-        body: formData,
-      });
+      const listedAt = new Date().toISOString();
 
-      const text = await response.text();
-      console.log("LIST ITEM RESPONSE:", text);
+      const { error } = await supabase
+        .from("items")
+        .update({
+          status: "Listed",
+          match_status: "Listed",
+          listed_at: listedAt,
+        })
+        .eq("id", item.id)
+        .eq("user_id", String(userId));
 
-      const result = JSON.parse(text);
-      Alert.alert("List Item", result.message);
-
-      if (result.success) {
-        setItems((prevItems) =>
-          sortByLatest(
-            prevItems.map((currentItem) =>
-              String(currentItem.id) === String(item.id)
-                ? {
-                    ...currentItem,
-                    status: "Listed",
-                    listed_at: new Date().toISOString(),
-                  }
-                : currentItem,
-            ),
-          ),
-        );
-
-        fetchItems();
+      if (error) {
+        Alert.alert("List Item", error.message);
+        return;
       }
+
+      Alert.alert("List Item", "Item listed successfully.");
+
+      setItems((prevItems) =>
+        sortByLatest(
+          prevItems.map((currentItem) =>
+            String(currentItem.id) === String(item.id)
+              ? {
+                  ...currentItem,
+                  status: "Listed",
+                  match_status: "Listed",
+                  listed_at: listedAt,
+                }
+              : currentItem
+          )
+        )
+      );
+
+      setSelectedItem(null);
+      fetchItems();
     } catch (error) {
       console.log("LIST ITEM ERROR:", error);
       Alert.alert("Error", "Failed to list item.");
     }
   };
 
-  const openItemModal = (item: any) => {
+  const getPublicImageUrl = (bucket: string, path: string) => {
+    if (!path) return "";
+
+    const cleanPath = String(path).trim();
+
+    if (cleanPath.startsWith("http")) {
+      return cleanPath;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
+
+    return data?.publicUrl || "";
+  };
+
+  const extractStoragePath = (value: string, bucketName: string) => {
+    if (!value || String(value).trim() === "") return "";
+
+    const cleanValue = String(value).trim();
+
+    if (!cleanValue.startsWith("http")) {
+      return cleanValue;
+    }
+
+    const marker = `/storage/v1/object/public/${bucketName}/`;
+    const markerIndex = cleanValue.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return "";
+    }
+
+    const pathWithQuery = cleanValue.substring(markerIndex + marker.length);
+    return decodeURIComponent(pathWithQuery.split("?")[0]);
+  };
+
+  const getItemImageSource = (item: any) => {
+    const imagePath =
+      item?.item_image ||
+      item?.image ||
+      item?.image_path ||
+      item?.item_image_url ||
+      item?.image_url ||
+      item?.photo ||
+      item?.photo_url ||
+      "";
+
+    console.log("MY ITEMS IMAGE PATH:", imagePath);
+
+    if (!imagePath || String(imagePath).trim() === "") {
+      return require("../../assets/icons/icon.png");
+    }
+
+    const imageUrl = getPublicImageUrl("item-images", String(imagePath));
+
+    console.log("MY ITEMS IMAGE URL:", imageUrl);
+
+    if (!imageUrl) {
+      return require("../../assets/icons/icon.png");
+    }
+
+    return {
+      uri: `${imageUrl}?v=${item?.updated_at || item?.created_at || Date.now()}`,
+    };
+  };
+
+  const getIssuePhotoImageSource = (photo: any) => {
+    const imagePath =
+      photo?.image_url ||
+      photo?.image_path ||
+      photo?.photo_url ||
+      photo?.photo ||
+      "";
+
+    console.log("ISSUE PHOTO PATH:", imagePath);
+
+    if (!imagePath || String(imagePath).trim() === "") {
+      return require("../../assets/icons/icon.png");
+    }
+
+    if (String(imagePath).startsWith("http")) {
+      return {
+        uri: `${String(imagePath).trim()}?v=${
+          photo?.updated_at || photo?.created_at || Date.now()
+        }`,
+      };
+    }
+
+    const imageUrl = getPublicImageUrl("item-issue-photos", String(imagePath));
+
+    console.log("ISSUE PHOTO URL:", imageUrl);
+
+    if (!imageUrl) {
+      return require("../../assets/icons/icon.png");
+    }
+
+    return {
+      uri: `${imageUrl}?v=${
+        photo?.updated_at || photo?.created_at || Date.now()
+      }`,
+    };
+  };
+
+  const fetchIssuePhotosForItem = async (item: any) => {
+    try {
+      if (!item?.id) {
+        setModalIssuePhotos([]);
+        return;
+      }
+
+      setLoadingIssuePhotos(true);
+
+      const { data, error } = await supabase
+        .from("item_issue_photos")
+        .select("*")
+        .eq("item_id", item.id)
+        .order("created_at", { ascending: true });
+
+      console.log("ITEM ISSUE PHOTOS DATA:", data);
+      console.log("ITEM ISSUE PHOTOS ERROR:", error);
+
+      if (error) {
+        setModalIssuePhotos([]);
+        return;
+      }
+
+      setModalIssuePhotos(data || []);
+    } catch (error) {
+      console.log("FETCH ISSUE PHOTOS ERROR:", error);
+      setModalIssuePhotos([]);
+    } finally {
+      setLoadingIssuePhotos(false);
+    }
+  };
+
+  const openImagePreview = (source: any, title: string) => {
+    setPreviewImageSource(source);
+    setPreviewTitle(title);
+
+    setEditVisible(false);
+
+    setTimeout(() => {
+      setPreviewVisible(true);
+    }, 250);
+  };
+
+  const closeImagePreview = () => {
+    setPreviewVisible(false);
+    setPreviewImageSource(null);
+    setPreviewTitle("");
+
+    if (editingItem) {
+      setTimeout(() => {
+        setEditVisible(true);
+      }, 250);
+    }
+  };
+
+  const openItemModal = async (item: any) => {
     setEditingItem(item);
     setEditedDescription(item.description || "");
+    setModalIssuePhotos([]);
     setEditVisible(true);
+
+    await fetchIssuePhotosForItem(item);
   };
 
   const updateDescription = async () => {
@@ -305,27 +424,26 @@ export default function MyItems() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("id", String(editingItem.id));
-    formData.append("folder", editingItem.folder || "approved");
-    formData.append("description", editedDescription);
-
     try {
-      const response = await fetch(`${API_URL}/update_item_description.php`, {
-        method: "POST",
-        body: formData,
-      });
+      const { error } = await supabase
+        .from("items")
+        .update({
+          description: editedDescription,
+        })
+        .eq("id", editingItem.id)
+        .eq("user_id", String(userId));
 
-      const text = await response.text();
-      console.log("UPDATE DESCRIPTION RESPONSE:", text);
-
-      const result = JSON.parse(text);
-      Alert.alert("Update Item", result.message);
-
-      if (result.success) {
-        setEditVisible(false);
-        fetchItems();
+      if (error) {
+        Alert.alert("Update Item", error.message);
+        return;
       }
+
+      Alert.alert("Update Item", "Description updated successfully.");
+
+      setEditVisible(false);
+      setEditingItem(null);
+      setModalIssuePhotos([]);
+      fetchItems();
     } catch (error) {
       console.log("UPDATE DESCRIPTION ERROR:", error);
       Alert.alert("Error", "Failed to update description.");
@@ -333,73 +451,146 @@ export default function MyItems() {
   };
 
   const deleteItem = async (item: any) => {
-    const status = getItemStatus(item);
-
     Alert.alert(
       "Delete Item",
-      status === "Listed"
-        ? "This item is listed. Deleting it will also remove it from My Listings and Profile posts."
-        : "Are you sure you want to delete this item?",
+      "Are you sure you want to delete this item? This will be deleted from your account and cannot be undone.",
       [
-        { text: "Cancel", style: "cancel" },
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
         {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            const formData = new FormData();
-            formData.append("id", String(item.id));
-            formData.append("folder", item.folder || "approved");
-
             try {
-              const response = await fetch(`${API_URL}/delete_item.php`, {
-                method: "POST",
-                body: formData,
-              });
+              const itemImageValue =
+                item?.item_image ||
+                item?.image ||
+                item?.image_path ||
+                item?.item_image_url ||
+                item?.image_url ||
+                item?.photo ||
+                item?.photo_url ||
+                "";
 
-              const text = await response.text();
-              console.log("DELETE ITEM RESPONSE:", text);
+              const itemImagePath = extractStoragePath(
+                String(itemImageValue || ""),
+                "item-images"
+              );
 
-              const result = JSON.parse(text);
-              Alert.alert("Delete Item", result.message);
+              const { data: issuePhotosData, error: issuePhotosFetchError } =
+                await supabase
+                  .from("item_issue_photos")
+                  .select("*")
+                  .eq("item_id", item.id);
 
-              if (result.success) {
-                setItems((prevItems) =>
-                  prevItems.filter(
-                    (currentItem) => String(currentItem.id) !== String(item.id),
-                  ),
+              if (issuePhotosFetchError) {
+                console.log(
+                  "FETCH ISSUE PHOTOS BEFORE DELETE ERROR:",
+                  issuePhotosFetchError
                 );
-
-                fetchItems();
               }
+
+              const issuePhotoPaths =
+                issuePhotosData
+                  ?.map((photo: any) => {
+                    const photoValue =
+                      photo?.image_url ||
+                      photo?.image_path ||
+                      photo?.photo_url ||
+                      photo?.photo ||
+                      "";
+
+                    return extractStoragePath(
+                      String(photoValue || ""),
+                      "item-issue-photos"
+                    );
+                  })
+                  .filter(
+                    (path: string) => path && String(path).trim() !== ""
+                  ) || [];
+
+              console.log("DELETE ITEM IMAGE PATH:", itemImagePath);
+              console.log("DELETE ISSUE PHOTO PATHS:", issuePhotoPaths);
+
+              if (itemImagePath) {
+                const { error: itemImageDeleteError } = await supabase.storage
+                  .from("item-images")
+                  .remove([itemImagePath]);
+
+                if (itemImageDeleteError) {
+                  console.log(
+                    "DELETE ITEM IMAGE STORAGE ERROR:",
+                    itemImageDeleteError
+                  );
+                }
+              }
+
+              if (issuePhotoPaths.length > 0) {
+                const { error: issueImagesDeleteError } =
+                  await supabase.storage
+                    .from("item-issue-photos")
+                    .remove(issuePhotoPaths);
+
+                if (issueImagesDeleteError) {
+                  console.log(
+                    "DELETE ISSUE PHOTOS STORAGE ERROR:",
+                    issueImagesDeleteError
+                  );
+                }
+              }
+
+              const { error: issueRowsDeleteError } = await supabase
+                .from("item_issue_photos")
+                .delete()
+                .eq("item_id", item.id);
+
+              if (issueRowsDeleteError) {
+                console.log(
+                  "DELETE ISSUE PHOTO ROWS ERROR:",
+                  issueRowsDeleteError
+                );
+              }
+
+              const { error: itemDeleteError } = await supabase
+                .from("items")
+                .delete()
+                .eq("id", item.id)
+                .eq("user_id", String(userId));
+
+              if (itemDeleteError) {
+                Alert.alert("Delete Item", itemDeleteError.message);
+                return;
+              }
+
+              Alert.alert("Delete Item", "Item deleted successfully.");
+
+              setItems((prevItems) =>
+                prevItems.filter(
+                  (currentItem) => String(currentItem.id) !== String(item.id)
+                )
+              );
+
+              setSelectedItem(null);
+              fetchItems();
             } catch (error) {
               console.log("DELETE ITEM ERROR:", error);
               Alert.alert("Error", "Failed to delete item.");
             }
           },
         },
-      ],
+      ]
     );
   };
 
   const getStatusStyle = (status: string) => {
-    if (status === "Listed") return styles.listed;
+    if (status === "Pending") return styles.pending;
     if (status === "Approved") return styles.approved;
+    if (status === "Listed") return styles.listed;
     if (status === "Rejected") return styles.rejected;
+
     return styles.pending;
-  };
-
-  const getImageUrl = (item: any) => {
-    if (!item.item_image) return "https://via.placeholder.com/100";
-
-    if (getItemStatus(item) === "Rejected" || item.folder === "rejected") {
-      return `${API_URL}/uploads/items/rejected/${item.item_image}`;
-    }
-
-    if (item.folder === "approved" || getItemStatus(item) === "Listed") {
-      return `${API_URL}/uploads/items/approved/${item.item_image}`;
-    }
-
-    return `${API_URL}/uploads/items/pending/${item.item_image}`;
   };
 
   const renderActionButtons = (item: any) => {
@@ -485,7 +676,7 @@ export default function MyItems() {
 
   const renderItem = ({ item }: any) => {
     const status = getItemStatus(item);
-    const uniqueKey = `${item.folder}-${item.id}-${status}`;
+    const uniqueKey = `${item.id}-${status}`;
 
     return (
       <View>
@@ -495,7 +686,7 @@ export default function MyItems() {
             setSelectedItem(selectedItem === uniqueKey ? null : uniqueKey)
           }
         >
-          <Image source={{ uri: getImageUrl(item) }} style={styles.itemImage} />
+          <Image source={getItemImageSource(item)} style={styles.itemImage} />
 
           <View style={styles.itemInfo}>
             <Text style={styles.itemTitle}>{item.item_name}</Text>
@@ -577,16 +768,14 @@ export default function MyItems() {
                   {status}
                 </Text>
               </TouchableOpacity>
-            ),
+            )
           )}
         </ScrollView>
       </View>
 
       <FlatList
         data={filteredItems}
-        keyExtractor={(item) =>
-          `${item.folder}-${item.id}-${getItemStatus(item)}`
-        }
+        keyExtractor={(item) => `${item.id}-${getItemStatus(item)}`}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -622,10 +811,76 @@ export default function MyItems() {
 
                 {editingItem && (
                   <>
-                    <Image
-                      source={{ uri: getImageUrl(editingItem) }}
-                      style={styles.modalImage}
-                    />
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() =>
+                        openImagePreview(
+                          getItemImageSource(editingItem),
+                          "Item Photo"
+                        )
+                      }
+                    >
+                      <Image
+                        source={getItemImageSource(editingItem)}
+                        style={styles.modalImage}
+                      />
+                    </TouchableOpacity>
+
+                    <Text style={styles.imageHint}>
+                      Tap the image to view the whole photo.
+                    </Text>
+
+                    <Text style={styles.modalLabel}>Submitted Issue Photos</Text>
+
+                    {loadingIssuePhotos ? (
+                      <View style={styles.issuePhotosEmptyBox}>
+                        <Text style={styles.issuePhotosEmptyText}>
+                          Loading issue photos...
+                        </Text>
+                      </View>
+                    ) : modalIssuePhotos.length > 0 ? (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.issuePhotosScroll}
+                      >
+                        {modalIssuePhotos.map((photo, index) => {
+                          const source = getIssuePhotoImageSource(photo);
+
+                          return (
+                            <TouchableOpacity
+                              key={`issue-photo-${photo.id || index}`}
+                              style={styles.issuePhotoPreviewCard}
+                              activeOpacity={0.85}
+                              onPress={() =>
+                                openImagePreview(
+                                  source,
+                                  photo.issue_name || `Issue Photo ${index + 1}`
+                                )
+                              }
+                            >
+                              <Image
+                                source={source}
+                                style={styles.issuePhotoPreviewImage}
+                              />
+
+                              <Text
+                                style={styles.issuePhotoPreviewTitle}
+                                numberOfLines={2}
+                              >
+                                {photo.issue_name || `Issue Photo ${index + 1}`}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    ) : (
+                      <View style={styles.issuePhotosEmptyBox}>
+                        <Text style={styles.issuePhotosEmptyText}>
+                          No issue photos submitted for this item.
+                        </Text>
+                      </View>
+                    )}
 
                     <Text style={styles.modalLabel}>Item Name</Text>
                     <Text style={styles.readOnlyText}>
@@ -662,9 +917,11 @@ export default function MyItems() {
                         <Text style={styles.modalLabel}>
                           Reason for Rejection
                         </Text>
+
                         <View style={styles.rejectionBox}>
                           <Text style={styles.rejectionText}>
-                            {editingItem.rejection_reason ||
+                            {editingItem.reject_reason ||
+                              editingItem.rejection_reason ||
                               editingItem.reason ||
                               "No reason provided"}
                           </Text>
@@ -700,6 +957,7 @@ export default function MyItems() {
                     onPress={() => {
                       Keyboard.dismiss();
                       setEditVisible(false);
+                      setModalIssuePhotos([]);
                     }}
                   >
                     <Text style={styles.cancelText}>
@@ -724,15 +982,56 @@ export default function MyItems() {
         </View>
       </Modal>
 
+      <Modal
+        visible={previewVisible}
+        transparent={false}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        onRequestClose={closeImagePreview}
+      >
+        <View style={styles.fullImageScreen}>
+          <View style={styles.fullImageHeader}>
+            <Text style={styles.fullImageTitle} numberOfLines={1}>
+              {previewTitle || "Image Preview"}
+            </Text>
+
+            <TouchableOpacity
+              onPress={closeImagePreview}
+              style={styles.fullImageCloseIcon}
+            >
+              <Text style={styles.fullImageCloseIconText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.fullImageBody}>
+            {previewImageSource && (
+              <Image
+                source={previewImageSource}
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.fullImageCloseButton}
+            onPress={closeImagePreview}
+          >
+            <Text style={styles.fullImageCloseButtonText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard")}
+          onPress={() => goToPage("/user_dashboard")}
         >
           <Image
             source={require("../../assets/icons/home.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -745,12 +1044,13 @@ export default function MyItems() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_scan")}
+          onPress={() => goToPage("/user_dashboard/user_scan")}
         >
           <Image
             source={require("../../assets/icons/scan.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -763,12 +1063,13 @@ export default function MyItems() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_map")}
+          onPress={() => goToPage("/user_dashboard/user_map")}
         >
           <Image
             source={require("../../assets/icons/map.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -781,23 +1082,32 @@ export default function MyItems() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/messages")}
+          onPress={() => goToPage("/user_dashboard/messages")}
         >
           <Image
             source={require("../../assets/icons/chatting.png")}
             style={styles.navImage}
           />
-          <Text style={styles.navLabel}>Messages</Text>
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/messages" && styles.navActive,
+            ]}
+          >
+            Messages
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/profile")}
+          onPress={() => goToPage("/user_dashboard/profile")}
         >
           <Image
             source={require("../../assets/icons/user.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -810,12 +1120,13 @@ export default function MyItems() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/settings")}
+          onPress={() => goToPage("/user_dashboard/settings")}
         >
           <Image
             source={require("../../assets/icons/setting_1.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -919,6 +1230,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 8,
+    backgroundColor: "#e0e0e0",
   },
 
   itemInfo: {
@@ -957,7 +1269,7 @@ const styles = StyleSheet.create({
   },
 
   pending: {
-    color: "orange",
+    color: "#fbc02d",
   },
 
   approved: {
@@ -1051,8 +1363,16 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 240,
     borderRadius: 12,
-    marginBottom: 15,
+    marginBottom: 5,
     resizeMode: "cover",
+    backgroundColor: "#e0e0e0",
+  },
+
+  imageHint: {
+    fontSize: 12,
+    color: "#777",
+    textAlign: "center",
+    marginBottom: 8,
   },
 
   modalTitle: {
@@ -1085,6 +1405,52 @@ const styles = StyleSheet.create({
   rejectionText: {
     color: "red",
     fontWeight: "bold",
+  },
+
+  issuePhotosScroll: {
+    marginTop: 8,
+    marginBottom: 8,
+  },
+
+  issuePhotoPreviewCard: {
+    width: 120,
+    marginRight: 10,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+
+  issuePhotoPreviewImage: {
+    width: "100%",
+    height: 90,
+    borderRadius: 8,
+    backgroundColor: "#ddd",
+    resizeMode: "cover",
+  },
+
+  issuePhotoPreviewTitle: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#333",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+
+  issuePhotosEmptyBox: {
+    marginTop: 8,
+    backgroundColor: "#f5f5f5",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+
+  issuePhotosEmptyText: {
+    color: "#777",
+    fontSize: 13,
+    textAlign: "center",
   },
 
   input: {
@@ -1134,6 +1500,71 @@ const styles = StyleSheet.create({
   saveText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+
+  fullImageScreen: {
+    flex: 1,
+    backgroundColor: "#000",
+    paddingTop: Platform.OS === "ios" ? 55 : 35,
+    paddingBottom: 25,
+  },
+
+  fullImageHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  fullImageTitle: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "bold",
+  },
+
+  fullImageCloseIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
+  },
+
+  fullImageCloseIconText: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+
+  fullImageBody: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 8,
+  },
+
+  fullImage: {
+    width: screenWidth,
+    height: screenHeight * 0.75,
+  },
+
+  fullImageCloseButton: {
+    backgroundColor: "#1b5e20",
+    padding: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 12,
+  },
+
+  fullImageCloseButtonText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 15,
   },
 
   bottomNav: {

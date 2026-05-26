@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -13,8 +14,8 @@ import {
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
-import { API_URL } from "../config";
 import signinStyles from "./styles/signin";
+import { supabase } from "../utils/supabase";
 
 export default function Signin() {
   const router = useRouter();
@@ -22,11 +23,15 @@ export default function Signin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       Toast.show({
         type: "error",
         text1: "Missing Fields",
@@ -36,81 +41,156 @@ export default function Signin() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/signin.php`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password: password.trim(),
-        }),
-      });
+      setIsSigningIn(true);
 
-      const text = await response.text();
-      console.log("RAW RESPONSE:", text);
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select(
+          `
+          id,
+          name,
+          username,
+          email,
+          password,
+          role,
+          address,
+          location,
+          contact_num,
+          profile_image,
+          status,
+          reject_reason,
+          username_changed_at
+        `
+        )
+        .eq("email", cleanEmail)
+        .maybeSingle();
 
-      let data;
+      console.log("SUPABASE SIGNIN PROFILE:", profile);
+      console.log("SUPABASE SIGNIN ERROR:", error);
 
-      try {
-        data = JSON.parse(text);
-      } catch {
-        console.log("NOT JSON → wrong API URL or PHP error");
+      if (error) {
         Toast.show({
           type: "error",
-          text1: "Server Error",
-          text2: "Server did not return valid JSON.",
+          text1: "Login Failed",
+          text2: error.message,
         });
         return;
       }
 
-      console.log("PARSED:", data);
-
-      if (data.status === "success" && data.approved === true) {
-        const userData = {
-          id: data.user?.id || data.id || "",
-          name: data.user?.name || data.name || "",
-          username: data.user?.username || data.username || "",
-          email: data.user?.email || data.email || email.trim(),
-          address: data.user?.address || data.address || "",
-          profile_image: data.user?.profile_image || data.profile_image || "",
-          username_changed_at:
-            data.user?.username_changed_at || data.username_changed_at || "",
-          role: data.user?.role || data.role || "",
-        };
-
-        console.log("SAVED USER DATA:", userData);
-
-        await AsyncStorage.setItem("user", JSON.stringify(userData));
-
-        Toast.show({
-          type: "success",
-          text1: "Welcome Back!",
-          text2: "Login successful!",
-        });
-
-        if (userData.role === "individual") {
-          router.replace("/user_dashboard" as any);
-        } else if (userData.role === "facility") {
-          router.replace("/facility_dashboard" as any);
-        } else {
-          router.replace("/user_dashboard" as any);
-        }
-      } else {
+      if (!profile) {
         Toast.show({
           type: "error",
           text1: "Login Failed",
-          text2: data.message || "Invalid credentials",
+          text2: "Account not found.",
         });
+        return;
       }
-    } catch (error) {
-      console.log("ERROR:", error);
+
+      const databasePassword = String(profile.password || "").trim();
+      const databaseStatus = String(profile.status || "").trim().toLowerCase();
+      const databaseRole = String(profile.role || "").trim().toLowerCase();
+
+      console.log("NORMALIZED STATUS:", databaseStatus);
+      console.log("NORMALIZED ROLE:", databaseRole);
+
+      if (databasePassword !== cleanPassword) {
+        Toast.show({
+          type: "error",
+          text1: "Login Failed",
+          text2: "Incorrect password.",
+        });
+        return;
+      }
+
+      if (databaseStatus === "pending") {
+        Toast.show({
+          type: "error",
+          text1: "Account Pending",
+          text2: "Please wait for admin approval before signing in.",
+        });
+        return;
+      }
+
+      if (databaseStatus === "rejected") {
+        Toast.show({
+          type: "error",
+          text1: "Account Rejected",
+          text2:
+            profile.reject_reason ||
+            "Your account registration was rejected by the admin.",
+        });
+        return;
+      }
+
+      if (databaseStatus === "deleted") {
+        Toast.show({
+          type: "error",
+          text1: "Account Deleted",
+          text2: "This account has already been deleted.",
+        });
+        return;
+      }
+
+      if (databaseStatus !== "approved") {
+        Toast.show({
+          type: "error",
+          text1: "Login Failed",
+          text2: "Your account is not approved yet.",
+        });
+        return;
+      }
+
+      const userData = {
+        id: String(profile.id || ""),
+        name: profile.name || "",
+        username: profile.username || "",
+        email: profile.email || cleanEmail,
+        address: profile.address || profile.location || "",
+        location: profile.location || profile.address || "",
+        contact_num: profile.contact_num || "",
+        profile_image: profile.profile_image || "",
+        profileImage: profile.profile_image || "",
+        username_changed_at: profile.username_changed_at || "",
+        usernameChangedAt: profile.username_changed_at || "",
+        role: databaseRole,
+        status: databaseStatus,
+      };
+
+      console.log("SAVED USER DATA:", userData);
+
+      await AsyncStorage.setItem("user", JSON.stringify(userData));
+
+      Toast.show({
+        type: "success",
+        text1: "Welcome Back!",
+        text2: "Login successful!",
+      });
+
+      if (databaseRole === "user") {
+        router.replace("/user_dashboard" as any);
+        return;
+      }
+
+      if (databaseRole === "facility") {
+        router.replace("/facility_dashboard" as any);
+        return;
+      }
+
+      Toast.show({
+        type: "error",
+        text1: "Login Failed",
+        text2: "Unknown account role.",
+      });
+    } catch (error: any) {
+      console.log("SUPABASE SIGNIN ERROR:", error);
 
       Toast.show({
         type: "error",
         text1: "Connection Error",
-        text2: "Server not reachable.",
+        text2: error?.message || "Unable to connect to Supabase.",
       });
+    } finally {
+      setIsSigningIn(false);
     }
   };
 
@@ -135,7 +215,7 @@ export default function Signin() {
           </ImageBackground>
 
           <Pressable
-            onPress={() => router.push("/")}
+            onPress={() => router.push("/" as any)}
             style={signinStyles.backButton}
           >
             <Image
@@ -166,7 +246,7 @@ export default function Signin() {
             <TextInput
               value={email}
               onChangeText={setEmail}
-              placeholder="Enter your Gmail address"
+              placeholder="Enter your email address"
               placeholderTextColor="#888"
               style={signinStyles.input}
               keyboardType="email-address"
@@ -189,13 +269,14 @@ export default function Signin() {
               placeholder="Enter Password"
               placeholderTextColor="#888"
               secureTextEntry={secure}
-              style={signinStyles.input}
+              style={[signinStyles.input, { flex: 1 }]}
             />
 
             <Pressable onPress={() => setSecure(!secure)}>
-              <Image
-                source={require("../assets/icons/view.png")}
-                style={signinStyles.eyeIcon}
+              <Ionicons
+                name={secure ? "eye-off" : "eye"}
+                size={22}
+                color="#666"
               />
             </Pressable>
           </View>
@@ -204,8 +285,19 @@ export default function Signin() {
             <Text style={signinStyles.forgot}>Forgot your Password?</Text>
           </Pressable>
 
-          <Pressable onPress={handleSignIn} style={signinStyles.button}>
-            <Text style={signinStyles.buttonText}>Sign In</Text>
+          <Pressable
+            onPress={handleSignIn}
+            style={[
+              signinStyles.button,
+              {
+                opacity: isSigningIn ? 0.6 : 1,
+              },
+            ]}
+            disabled={isSigningIn}
+          >
+            <Text style={signinStyles.buttonText}>
+              {isSigningIn ? "Signing In..." : "Sign In"}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

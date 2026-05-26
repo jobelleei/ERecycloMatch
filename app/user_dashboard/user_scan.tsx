@@ -35,30 +35,41 @@ export default function ScanScreen() {
     }
   }, [permission]);
 
-  if (!permission) {
-    return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>Loading camera permission...</Text>
-      </View>
-    );
-  }
+  const pingBackend = async () => {
+    const controller = new AbortController();
 
-  if (!permission.granted) {
-    return (
-      <SafeAreaView style={styles.permissionContainer}>
-        <Text style={styles.permissionText}>
-          Camera permission is required to scan e-waste.
-        </Text>
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, 5000);
 
-        <TouchableOpacity
-          style={styles.permissionButton}
-          onPress={requestPermission}
-        >
-          <Text style={styles.permissionButtonText}>Allow Camera</Text>
-        </TouchableOpacity>
-      </SafeAreaView>
-    );
-  }
+    try {
+      console.log("PING YOLO BACKEND:", YOLO_URL);
+
+      const response = await fetch(YOLO_URL, {
+        method: "GET",
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeout);
+
+      console.log("PING STATUS:", response.status);
+
+      if (!response.ok) {
+        throw new Error(`Backend returned status ${response.status}`);
+      }
+
+      return true;
+    } catch (error: any) {
+      clearTimeout(timeout);
+
+      console.log("PING BACKEND ERROR:", error);
+
+      throw new Error(
+        "Cannot reach YOLO backend from your phone. Open this on your phone browser first: " +
+          YOLO_URL
+      );
+    }
+  };
 
   const getDetectedLabel = (data: any) => {
     if (data?.label) return data.label;
@@ -85,10 +96,70 @@ export default function ScanScreen() {
     return "Unknown";
   };
 
-  const takePicture = async () => {
-    try {
-      if (scanning) return;
+  const uploadToYolo = (photoUri: string): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      const detectUrl = `${YOLO_URL}/detect`;
 
+      console.log("YOLO DETECT URL:", detectUrl);
+
+      const formData = new FormData();
+
+      formData.append("file", {
+        uri: photoUri,
+        name: "scan.jpg",
+        type: "image/jpeg",
+      } as any);
+
+      const xhr = new XMLHttpRequest();
+
+      xhr.open("POST", detectUrl);
+      xhr.timeout = 30000;
+
+      xhr.onload = () => {
+        console.log("YOLO STATUS:", xhr.status);
+        console.log("YOLO RAW RESPONSE:", xhr.responseText);
+
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(
+            new Error(
+              `YOLO backend returned status ${xhr.status}. Check your backend terminal.`
+            )
+          );
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          resolve(parsed);
+        } catch (error) {
+          reject(new Error("YOLO backend responded but did not return valid JSON."));
+        }
+      };
+
+      xhr.onerror = () => {
+        reject(
+          new Error(
+            "Network error. Your phone cannot reach the YOLO backend. Check Wi-Fi, Mac firewall, and Local Network permission."
+          )
+        );
+      };
+
+      xhr.ontimeout = () => {
+        reject(
+          new Error(
+            "Scan timeout. The YOLO backend did not respond within 30 seconds."
+          )
+        );
+      };
+
+      xhr.send(formData);
+    });
+  };
+
+  const takePicture = async () => {
+    if (scanning) return;
+
+    try {
       if (!cameraRef.current) {
         Alert.alert("Camera Error", "Camera is not ready yet.");
         return;
@@ -96,8 +167,14 @@ export default function ScanScreen() {
 
       setScanning(true);
 
+      console.log("START SCANNING...");
+      console.log("YOLO URL:", YOLO_URL);
+
+      await pingBackend();
+
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
+        skipProcessing: false,
       });
 
       setFlash("off");
@@ -107,52 +184,23 @@ export default function ScanScreen() {
         return;
       }
 
-      const formData = new FormData();
-
-      formData.append("file", {
-        uri: photo.uri,
-        name: "scan.jpg",
-        type: "image/jpeg",
-      } as any);
-
-      console.log("YOLO URL:", `${YOLO_URL}/detect`);
       console.log("PHOTO URI:", photo.uri);
 
-      const response = await fetch(`${YOLO_URL}/detect`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const rawText = await response.text();
-
-      console.log("YOLO STATUS:", response.status);
-      console.log("YOLO RAW RESPONSE:", rawText);
-
-      let data: any = {};
-
-      try {
-        data = JSON.parse(rawText);
-      } catch (parseError) {
-        console.log("YOLO JSON PARSE ERROR:", parseError);
-
-        /*
-          If the backend responds but the response is not valid JSON,
-          we will still allow the user to continue as Unknown.
-        */
-        data = {
-          success: false,
-          message: "invalid json",
-          label: "Unknown",
-          confidence: 0,
-          detections: [],
-        };
-      }
+      const data = await uploadToYolo(photo.uri);
 
       console.log("YOLO PARSED RESPONSE:", data);
 
+      if (data?.success === false) {
+        Alert.alert(
+          "Scan Failed",
+          data?.message || "YOLO backend could not detect the item."
+        );
+        return;
+      }
+
       let detected = getDetectedLabel(data);
 
-      if (!detected || detected.trim() === "") {
+      if (!detected || String(detected).trim() === "") {
         detected = "Unknown";
       }
 
@@ -161,37 +209,69 @@ export default function ScanScreen() {
           ? String(data.confidence)
           : "0";
 
+      const processingTime =
+        data?.processing_time !== undefined && data?.processing_time !== null
+          ? String(data.processing_time)
+          : "0";
+
+      const totalTime =
+        data?.total_time !== undefined && data?.total_time !== null
+          ? String(data.total_time)
+          : "0";
+
       console.log("DETECTED ITEM:", detected);
       console.log("CONFIDENCE:", confidence);
+      console.log("PROCESSING TIME:", processingTime);
+      console.log("TOTAL TIME:", totalTime);
 
-      /*
-        IMPORTANT:
-        Even if detected is Unknown, the user can still proceed
-        to the result page and submit it for admin verification.
-      */
       router.push({
         pathname: "/user_dashboard/user_result" as any,
         params: {
           image: photo.uri,
           label: detected,
           confidence: confidence,
+          processing_time: processingTime,
+          total_time: totalTime,
         },
       });
-    } catch (error) {
+    } catch (error: any) {
       console.log("SCAN ERROR:", error);
 
-      /*
-        This catch only happens if the app cannot connect to YOLO backend
-        or the request completely fails.
-      */
       Alert.alert(
         "Scan Failed",
-        "The YOLO backend could not be reached. Please check if the backend is running and if YOLO_URL is correct."
+        error?.message ||
+          "The YOLO backend could not be reached. Please check if backend is running and YOLO_URL is correct."
       );
     } finally {
+      console.log("STOP SCANNING...");
       setScanning(false);
     }
   };
+
+  if (!permission) {
+    return (
+      <View style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>Loading camera permission...</Text>
+      </View>
+    );
+  }
+
+  if (!permission.granted) {
+    return (
+      <SafeAreaView style={styles.permissionContainer}>
+        <Text style={styles.permissionText}>
+          Camera permission is required to scan e-waste.
+        </Text>
+
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={requestPermission}
+        >
+          <Text style={styles.permissionButtonText}>Allow Camera</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
@@ -215,6 +295,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.flashButton}
           onPress={() => setFlash((prev) => (prev === "off" ? "on" : "off"))}
+          disabled={scanning}
         >
           <Text style={styles.flashText}>
             {flash === "on" ? "Flash On" : "Flash Off"}
@@ -226,6 +307,7 @@ export default function ScanScreen() {
           onPress={() =>
             setFacing((prev) => (prev === "back" ? "front" : "back"))
           }
+          disabled={scanning}
         >
           <Text style={styles.flipText}>Flip</Text>
         </TouchableOpacity>
@@ -236,7 +318,9 @@ export default function ScanScreen() {
             style={styles.cameraIcon}
           />
 
-          <Text style={styles.scanText}>Point camera at e-waste</Text>
+          <Text style={styles.scanText}>
+            {scanning ? "Scanning item..." : "Point camera at e-waste"}
+          </Text>
         </View>
       </View>
 
@@ -259,6 +343,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/home.png")}
@@ -278,6 +363,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/user_scan")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/scan.png")}
@@ -297,6 +383,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/user_map")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/map.png")}
@@ -316,6 +403,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/messages")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/chatting.png")}
@@ -335,6 +423,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/profile")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/user.png")}
@@ -354,6 +443,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.navItem}
           onPress={() => router.push("/user_dashboard/settings")}
+          disabled={scanning}
         >
           <Image
             source={require("../../assets/icons/setting_1.png")}

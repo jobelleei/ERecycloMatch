@@ -1,25 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_URL } from "../../config";
+import { supabase } from "../../utils/supabase";
 
 export default function Profile() {
   const router = useRouter();
@@ -30,34 +23,212 @@ export default function Profile() {
     name: "",
     username: "",
     address: "",
+    email: "",
     profileImage: "",
   });
 
   const [items, setItems] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [averageRating, setAverageRating] = useState(0);
+  const [activeSection, setActiveSection] = useState<"listed" | "feedbacks">(
+    "listed",
+  );
+
+  const [feedbackSort, setFeedbackSort] = useState<
+    "newest" | "oldest" | "highest" | "lowest"
+  >("newest");
+
   const [refreshing, setRefreshing] = useState(false);
 
-  const [usernameModal, setUsernameModal] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [remainingDays, setRemainingDays] = useState(0);
+  const [postIssuePhotos, setPostIssuePhotos] = useState<{
+    [itemId: string]: any[];
+  }>({});
 
-  const [editVisible, setEditVisible] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [editedDescription, setEditedDescription] = useState("");
+  const [postImageIndexes, setPostImageIndexes] = useState<{
+    [itemId: string]: number;
+  }>({});
+
+  const sortedFeedbacks = useMemo(() => {
+    return [...feedbacks].sort((a, b) => {
+      if (feedbackSort === "newest") {
+        return (
+          new Date(b.created_at || 0).getTime() -
+          new Date(a.created_at || 0).getTime()
+        );
+      }
+
+      if (feedbackSort === "oldest") {
+        return (
+          new Date(a.created_at || 0).getTime() -
+          new Date(b.created_at || 0).getTime()
+        );
+      }
+
+      if (feedbackSort === "highest") {
+        return Number(b.rating || 0) - Number(a.rating || 0);
+      }
+
+      if (feedbackSort === "lowest") {
+        return Number(a.rating || 0) - Number(b.rating || 0);
+      }
+
+      return 0;
+    });
+  }, [feedbacks, feedbackSort]);
+
+  const goToPage = (path: string) => {
+    router.push(path as any);
+  };
+
+  const getPublicImageUrl = (bucket: string, path: string) => {
+    if (!path || String(path).trim() === "") return "";
+
+    const cleanPath = String(path).trim();
+
+    if (cleanPath.startsWith("http")) {
+      return cleanPath;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
+
+    return data?.publicUrl || "";
+  };
 
   const getProfileImageUrl = (image: string) => {
-    if (!image) return "";
-    if (image.startsWith("http")) return image;
+    if (!image || String(image).trim() === "") return "";
 
-    const cleanImage = image
-      .replace("uploads/profile/user_profile/", "")
-      .replace("uploads/profile/", "")
-      .replace(/^\/+/, "");
+    return getPublicImageUrl("profile-images", image);
+  };
 
-    return `${API_URL}/uploads/profile/user_profile/${cleanImage}`;
+  const getCityOnlyFromAddress = (addressValue: any) => {
+    const fullAddress = String(addressValue || "").trim();
+
+    if (!fullAddress || fullAddress === "No location added") {
+      return "No location added";
+    }
+
+    const parts = fullAddress
+      .split(",")
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+
+    if (parts.length === 0) {
+      return fullAddress;
+    }
+
+    const cityKeywords = ["city", "municipality", "bayan"];
+
+    const cityPart = parts.find((part) => {
+      const lowerPart = part.toLowerCase();
+
+      return cityKeywords.some((keyword) => lowerPart.includes(keyword));
+    });
+
+    if (cityPart) {
+      return cityPart;
+    }
+
+    if (parts.length >= 2) {
+      return parts[1];
+    }
+
+    return parts[0];
   };
 
   const getPostStatus = (item: any) => {
     return item.match_status || item.matchStatus || item.status || "Listed";
+  };
+
+  const getItemName = (item: any) => {
+    return String(
+      item?.item_name || item?.item_type || item?.item || "Unnamed Item",
+    );
+  };
+
+  const getItemImagePath = (item: any) => {
+    return String(
+      item?.item_image ||
+        item?.image ||
+        item?.image_path ||
+        item?.item_image_url ||
+        item?.image_url ||
+        item?.photo ||
+        item?.photo_url ||
+        "",
+    );
+  };
+
+  const getItemImageUrl = (item: any) => {
+    const imagePath = getItemImagePath(item);
+
+    if (!imagePath || String(imagePath).trim() === "") {
+      return "https://via.placeholder.com/300";
+    }
+
+    return getPublicImageUrl("item-images", imagePath);
+  };
+
+  const getIssuePhotoUrl = (photo: any) => {
+    const imagePath =
+      photo?.image_url ||
+      photo?.image_path ||
+      photo?.photo_url ||
+      photo?.photo ||
+      "";
+
+    if (!imagePath || String(imagePath).trim() === "") {
+      return "";
+    }
+
+    if (String(imagePath).startsWith("http")) {
+      return String(imagePath).trim();
+    }
+
+    return getPublicImageUrl("item-issue-photos", String(imagePath));
+  };
+
+  const getPostImages = (item: any) => {
+    const itemId = String(item.id);
+    const mainImage = getItemImageUrl(item);
+
+    const issueImages = (postIssuePhotos[itemId] || [])
+      .map((photo) => getIssuePhotoUrl(photo))
+      .filter((url) => String(url || "").trim() !== "");
+
+    const allImages = [mainImage, ...issueImages].filter(
+      (url) => String(url || "").trim() !== "",
+    );
+
+    if (allImages.length === 0) {
+      return ["https://via.placeholder.com/300"];
+    }
+
+    return allImages;
+  };
+
+  const nextPostImage = (itemId: string, totalImages: number) => {
+    setPostImageIndexes((prev) => {
+      const currentIndex = prev[itemId] || 0;
+      const nextIndex = currentIndex + 1 >= totalImages ? 0 : currentIndex + 1;
+
+      return {
+        ...prev,
+        [itemId]: nextIndex,
+      };
+    });
+  };
+
+  const previousPostImage = (itemId: string, totalImages: number) => {
+    setPostImageIndexes((prev) => {
+      const currentIndex = prev[itemId] || 0;
+      const previousIndex =
+        currentIndex - 1 < 0 ? totalImages - 1 : currentIndex - 1;
+
+      return {
+        ...prev,
+        [itemId]: previousIndex,
+      };
+    });
   };
 
   const getItemTimeValue = (item: any) => {
@@ -78,11 +249,36 @@ export default function Profile() {
     }
 
     const numberValue = Number(dateValue);
+
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
   const sortByLatest = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
+  };
+
+  const cleanIssues = (issues: string) => {
+    if (!issues || String(issues).trim() === "") return [];
+
+    return String(issues)
+      .split(",")
+      .map((issue) =>
+        issue
+          .replace(/\s*\([^)]*\)/g, "")
+          .replace(/\s*recyclability/gi, "")
+          .replace(/\s*hazard/gi, "")
+          .trim(),
+      )
+      .filter((issue) => issue.length > 0 && issue.toLowerCase() !== "none");
+  };
+
+  const renderStars = (rating: number) => {
+    const cleanRating = Math.max(
+      0,
+      Math.min(5, Math.round(Number(rating || 0))),
+    );
+
+    return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
   };
 
   useEffect(() => {
@@ -96,68 +292,56 @@ export default function Profile() {
   );
 
   useEffect(() => {
-    if (user.id || user.name || user.username) {
+    if (user.id) {
       fetchListings();
+      fetchFeedbacks();
     }
-  }, [user.id, user.name, user.username]);
+  }, [user.id]);
 
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
+
       if (!stored) return;
 
       const parsed = JSON.parse(stored);
+      const actualUser = parsed.user || parsed.data || parsed;
 
       const userId =
+        actualUser?.id ||
+        actualUser?.user_id ||
         parsed?.id ||
         parsed?.user_id ||
-        parsed?.user?.id ||
-        parsed?.data?.id ||
         "";
 
       const profileImage =
+        actualUser?.profileImage ||
+        actualUser?.profile_image ||
         parsed?.profileImage ||
         parsed?.profile_image ||
-        parsed?.user?.profileImage ||
-        parsed?.user?.profile_image ||
-        parsed?.data?.profileImage ||
-        parsed?.data?.profile_image ||
         "";
 
-      const finalProfileImage = getProfileImageUrl(profileImage);
+      const fullAddress =
+        actualUser?.address ||
+        actualUser?.location ||
+        parsed?.address ||
+        parsed?.location ||
+        "No location added";
 
-      const lastChanged =
-        parsed?.usernameChangedAt ||
-        parsed?.username_changed_at ||
-        parsed?.user?.username_changed_at ||
-        parsed?.data?.username_changed_at ||
-        "";
-
-      if (lastChanged) {
-        const daysPassed = Math.floor(
-          (Date.now() - new Date(lastChanged).getTime()) /
-            (1000 * 60 * 60 * 24),
-        );
-
-        const daysLeft = 7 - daysPassed;
-        setRemainingDays(daysLeft > 0 ? daysLeft : 0);
-      }
+      const finalProfileImage = getProfileImageUrl(String(profileImage || ""));
+      const cityOnlyAddress = getCityOnlyFromAddress(fullAddress);
 
       setUser({
         id: String(userId),
-        name:
-          parsed?.name || parsed?.user?.name || parsed?.data?.name || "User",
+        name: actualUser?.name || parsed?.name || "User",
         username:
+          actualUser?.username ||
           parsed?.username ||
-          parsed?.user?.username ||
-          parsed?.data?.username ||
+          actualUser?.name ||
+          parsed?.name ||
           "username",
-        address:
-          parsed?.address ||
-          parsed?.location ||
-          parsed?.user?.address ||
-          parsed?.data?.address ||
-          "No location added",
+        address: cityOnlyAddress,
+        email: actualUser?.email || parsed?.email || "",
         profileImage: finalProfileImage,
       });
     } catch (error) {
@@ -165,40 +349,165 @@ export default function Profile() {
     }
   };
 
+  const fetchIssuePhotosForListings = async (listedItems: any[]) => {
+    try {
+      if (!listedItems || listedItems.length === 0) {
+        setPostIssuePhotos({});
+        return;
+      }
+
+      const itemIds = listedItems
+        .map((item) => item.id)
+        .filter((id) => id !== null && id !== undefined);
+
+      if (itemIds.length === 0) {
+        setPostIssuePhotos({});
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("item_issue_photos")
+        .select("*")
+        .in("item_id", itemIds)
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.log("FETCH PROFILE ISSUE PHOTOS ERROR:", error);
+        setPostIssuePhotos({});
+        return;
+      }
+
+      const groupedPhotos: { [itemId: string]: any[] } = {};
+
+      (data || []).forEach((photo: any) => {
+        const itemId = String(photo.item_id);
+
+        if (!groupedPhotos[itemId]) {
+          groupedPhotos[itemId] = [];
+        }
+
+        groupedPhotos[itemId].push(photo);
+      });
+
+      setPostIssuePhotos(groupedPhotos);
+    } catch (error) {
+      console.log("FETCH PROFILE ISSUE PHOTOS ERROR:", error);
+      setPostIssuePhotos({});
+    }
+  };
+
   const fetchListings = async () => {
     try {
-      const encodedUserId = encodeURIComponent(String(user.id || ""));
-      const encodedName = encodeURIComponent(
-        String(user.name || user.username || ""),
-      );
-
-      const response = await fetch(
-        `${API_URL}/get_my_listings.php?user_id=${encodedUserId}&submitter_name=${encodedName}`,
-      );
-
-      const text = await response.text();
-      console.log("PROFILE POSTS RESPONSE:", text);
-
-      const result = JSON.parse(text);
-
-      if (result.success && Array.isArray(result.items)) {
-        const listedPostsOnly = result.items.filter((item: any) => {
-          const status = getPostStatus(item);
-
-          return (
-            status === "Listed" ||
-            status === "Pending Match" ||
-            status === "Matched"
-          );
-        });
-
-        setItems(sortByLatest(listedPostsOnly));
-      } else {
+      if (!user.id) {
         setItems([]);
+        return;
       }
+
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("user_id", String(user.id))
+        .order("listed_at", { ascending: false });
+
+      if (error) {
+        console.log("FETCH PROFILE POSTS ERROR:", error);
+
+        const fallbackResult = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", String(user.id));
+
+        if (fallbackResult.error) {
+          console.log(
+            "FETCH PROFILE POSTS FALLBACK ERROR:",
+            fallbackResult.error,
+          );
+          setItems([]);
+          return;
+        }
+
+        const fallbackListedPostsOnly = (fallbackResult.data || []).filter(
+          (item: any) => {
+            const status = getPostStatus(item);
+            const normalizedStatus = String(status || "")
+              .trim()
+              .toLowerCase();
+
+            return (
+              normalizedStatus === "listed" ||
+              normalizedStatus === "pending match" ||
+              normalizedStatus === "matched"
+            );
+          },
+        );
+
+        const sortedFallbackPosts = sortByLatest(fallbackListedPostsOnly);
+        setItems(sortedFallbackPosts);
+        await fetchIssuePhotosForListings(sortedFallbackPosts);
+        return;
+      }
+
+      const listedPostsOnly = (data || []).filter((item: any) => {
+        const status = getPostStatus(item);
+        const normalizedStatus = String(status || "")
+          .trim()
+          .toLowerCase();
+
+        return (
+          normalizedStatus === "listed" ||
+          normalizedStatus === "pending match" ||
+          normalizedStatus === "matched"
+        );
+      });
+
+      const sortedPosts = sortByLatest(listedPostsOnly);
+      setItems(sortedPosts);
+      await fetchIssuePhotosForListings(sortedPosts);
     } catch (error) {
       console.log("FETCH PROFILE POSTS ERROR:", error);
       setItems([]);
+    }
+  };
+
+  const fetchFeedbacks = async () => {
+    try {
+      if (!user.id) {
+        setFeedbacks([]);
+        setAverageRating(0);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("match_feedbacks")
+        .select("*")
+        .eq("rated_id", Number(user.id))
+        .eq("rated_role", "user")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.log("FETCH USER FEEDBACKS ERROR:", error);
+        setFeedbacks([]);
+        setAverageRating(0);
+        return;
+      }
+
+      const finalData = data || [];
+      setFeedbacks(finalData);
+
+      if (finalData.length > 0) {
+        const total = finalData.reduce(
+          (sum: number, item: any) => sum + Number(item.rating || 0),
+          0,
+        );
+
+        setAverageRating(total / finalData.length);
+      } else {
+        setAverageRating(0);
+      }
+    } catch (error) {
+      console.log("FETCH USER FEEDBACKS ERROR:", error);
+      setFeedbacks([]);
+      setAverageRating(0);
     }
   };
 
@@ -206,165 +515,8 @@ export default function Profile() {
     setRefreshing(true);
     await loadUser();
     await fetchListings();
+    await fetchFeedbacks();
     setRefreshing(false);
-  };
-
-  const changeProfilePhoto = async () => {
-    try {
-      if (!user.id) {
-        Alert.alert("User Error", "User ID not found. Please log in again.");
-        return;
-      }
-
-      const permission =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert("Permission Denied", "Please allow access to your photos.");
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
-      });
-
-      if (result.canceled) return;
-
-      const imageUri = result.assets[0].uri;
-      const imageName = imageUri.split("/").pop() || "profile.jpg";
-
-      const formData = new FormData();
-      formData.append("user_id", String(user.id));
-
-      formData.append("profile_image", {
-        uri: Platform.OS === "ios" ? imageUri.replace("file://", "") : imageUri,
-        name: imageName,
-        type: "image/jpeg",
-      } as any);
-
-      const response = await fetch(`${API_URL}/update_profile.php`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const text = await response.text();
-      console.log("PROFILE IMAGE RESPONSE:", text);
-
-      const data = JSON.parse(text);
-
-      if (!data.success) {
-        Alert.alert("Upload Failed", data.message || "Failed to upload image.");
-        return;
-      }
-
-      const uploadedImageUrl = getProfileImageUrl(data.profile_image);
-
-      const stored = await AsyncStorage.getItem("user");
-
-      if (stored) {
-        const parsed = JSON.parse(stored);
-
-        const updatedUser = {
-          ...parsed,
-          profileImage: uploadedImageUrl,
-          profile_image: data.profile_image,
-        };
-
-        await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-      }
-
-      setUser((prev) => ({
-        ...prev,
-        profileImage: uploadedImageUrl,
-      }));
-
-      Alert.alert("Success", "Profile photo updated.");
-    } catch (error) {
-      console.log("PROFILE IMAGE ERROR:", error);
-      Alert.alert("Error", "Failed to upload profile image.");
-    }
-  };
-
-  const updateUsername = async () => {
-    if (!newUsername.trim()) {
-      Alert.alert("Username Required", "Please enter a username.");
-      return;
-    }
-
-    if (remainingDays > 0) { 
-      Alert.alert(
-        "Username Cooldown",
-        `You can change your username again in ${remainingDays} day(s).`,
-      );
-      return;
-    }
-
-    if (!user.id) {
-      Alert.alert("User Error", "User ID not found. Please log in again.");
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append("user_id", String(user.id));
-      formData.append("username", newUsername.trim());
-
-      const response = await fetch(`${API_URL}/update_profile.php`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const text = await response.text();
-      console.log("USERNAME RESPONSE:", text);
-
-      const data = JSON.parse(text);
-
-      if (!data.success) {
-        Alert.alert(
-          "Update Failed",
-          data.message || "Failed to update username.",
-        );
-        return;
-      }
-
-      const stored = await AsyncStorage.getItem("user");
-
-      if (stored) {
-        const parsed = JSON.parse(stored);
-
-        const updatedUser = {
-          ...parsed,
-          username: newUsername.trim(),
-          usernameChangedAt: new Date().toISOString(),
-          username_changed_at: new Date().toISOString(),
-        };
-
-        await AsyncStorage.setItem("user", JSON.stringify(updatedUser));
-      }
-
-      setUser((prev) => ({
-        ...prev,
-        username: newUsername.trim(),
-      }));
-
-      setRemainingDays(7);
-      setUsernameModal(false);
-      setNewUsername("");
-
-      Alert.alert("Success", "Username updated.");
-    } catch (error) {
-      console.log("USERNAME UPDATE ERROR:", error);
-      Alert.alert("Error", "Failed to update username.");
-    }
-  };
-
-  const getImageUrl = (item: any) => {
-    if (!item.item_image) return "https://via.placeholder.com/300";
-
-    return `${API_URL}/uploads/items/approved/${item.item_image}`;
   };
 
   const formatListedDate = (item: any) => {
@@ -393,341 +545,296 @@ export default function Profile() {
     });
   };
 
-  const cleanIssues = (issues: string) => {
-    if (!issues) return "None";
+  const formatShortDate = (value: string) => {
+    if (!value) return "";
 
-    return issues
-      .replace(/\s*\([^)]*\)/g, "")
-      .replace(/\s*recyclability/gi, "")
-      .replace(/\s*hazard/gi, "")
-      .trim();
-  };
+    const date = new Date(value);
 
-  const openUpdateModal = (item: any) => {
-    setEditingItem(item);
-    setEditedDescription(item.description || "");
-    setEditVisible(true);
-  };
-
-  const updateDescription = async () => {
-    if (!editingItem) return;
-
-    Keyboard.dismiss();
-
-    const formData = new FormData();
-    formData.append(
-      "id",
-      String(editingItem.approved_item_id || editingItem.id),
-    );
-    formData.append("folder", "approved");
-    formData.append("description", editedDescription);
-
-    try {
-      const response = await fetch(`${API_URL}/update_item_description.php`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const text = await response.text();
-      console.log("UPDATE PROFILE POST RESPONSE:", text);
-
-      const result = JSON.parse(text);
-
-      Alert.alert("Update Post", result.message);
-
-      if (result.success) {
-        setEditVisible(false);
-        fetchListings();
-      }
-    } catch (error) {
-      console.log("UPDATE PROFILE POST ERROR:", error);
-      Alert.alert("Error", "Failed to update post.");
+    if (isNaN(date.getTime())) {
+      return value;
     }
-  };
 
-  const confirmDeletePost = (item: any) => {
-    Alert.alert("Delete Post", "Are you sure you want to delete this item?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => deletePost(item),
-      },
-    ]);
-  };
-
-  const deletePost = async (item: any) => {
-    try {
-      const formData = new FormData();
-      formData.append("id", String(item.id));
-      formData.append("folder", "listed");
-      formData.append("user_id", String(user.id));
-      formData.append("approved_item_id", String(item.approved_item_id || ""));
-
-      const response = await fetch(`${API_URL}/delete_item.php`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const text = await response.text();
-      console.log("DELETE PROFILE POST RESPONSE:", text);
-
-      const result = JSON.parse(text);
-
-      Alert.alert("Delete Post", result.message || "Post deleted.");
-
-      if (result.success) {
-        setItems((prev) => prev.filter((post) => post.id !== item.id));
-        fetchListings();
-      }
-    } catch (error) {
-      console.log("DELETE PROFILE POST ERROR:", error);
-      Alert.alert("Error", "Failed to delete post.");
-    }
+    return date.toLocaleDateString("en-PH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
   };
 
   const renderPost = ({ item }: any) => {
+    const itemId = String(item.id);
+    const images = getPostImages(item);
+    const currentIndex = postImageIndexes[itemId] || 0;
+    const safeIndex = currentIndex >= images.length ? 0 : currentIndex;
+    const currentImage = images[safeIndex];
+
+    const issuesList = cleanIssues(item.issues);
+
     return (
       <View style={styles.postCard}>
-        <Image source={{ uri: getImageUrl(item) }} style={styles.postImage} />
+        <View style={styles.imageCarouselWrapper}>
+          <Image source={{ uri: currentImage }} style={styles.postImage} />
 
-        <Text style={styles.postedBy}>
-          Posted By: {item.submitter_name || item.submitterName || user.name}
-        </Text>
+          {images.length > 1 && (
+            <>
+              <TouchableOpacity
+                style={[styles.carouselButton, styles.carouselLeftButton]}
+                onPress={() => previousPostImage(itemId, images.length)}
+              >
+                <Text style={styles.carouselButtonText}>‹</Text>
+              </TouchableOpacity>
 
-        <Text style={styles.postTitle}>{item.item_name || "Unnamed Item"}</Text>
+              <TouchableOpacity
+                style={[styles.carouselButton, styles.carouselRightButton]}
+                onPress={() => nextPostImage(itemId, images.length)}
+              >
+                <Text style={styles.carouselButtonText}>›</Text>
+              </TouchableOpacity>
+
+              <View style={styles.imageCounter}>
+                <Text style={styles.imageCounterText}>
+                  {safeIndex + 1}/{images.length}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        <Text style={styles.postTitle}>{getItemName(item)}</Text>
 
         <Text style={styles.description}>
           {item.description || "No description added."}
         </Text>
 
+        {issuesList.length > 0 && (
+          <View style={styles.issuesBox}>
+            <Text style={styles.issuesTitle}>Issues:</Text>
+
+            {issuesList.map((issue, index) => (
+              <Text key={`${itemId}-issue-${index}`} style={styles.issueText}>
+                • {issue}
+              </Text>
+            ))}
+          </View>
+        )}
+
         <View style={styles.postMetaRow}>
-          <View style={styles.locationRow}>
-            <Image
-              source={require("../../assets/icons/location.png")}
-              style={styles.metaIcon}
-            />
+          <Image
+            source={require("../../assets/icons/location.png")}
+            style={styles.metaIcon}
+          />
+
+          <View style={styles.metaTextColumn}>
             <Text style={styles.metaText}>
               {item.location || item.address || user.address}
             </Text>
+
+            <Text style={styles.dateText}>{formatListedDate(item)}</Text>
           </View>
-
-          <Text style={styles.dateText}>{formatListedDate(item)}</Text>
-        </View>
-
-        <View style={styles.divider} />
-
-        <View style={styles.postButtonRow}>
-          <TouchableOpacity
-            style={styles.editPostButton}
-            onPress={() => openUpdateModal(item)}
-          >
-            <Text style={styles.editPostText}>Edit Post</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.deletePostButton}
-            onPress={() => confirmDeletePost(item)}
-          >
-            <Text style={styles.deletePostText}>Delete</Text>
-          </TouchableOpacity>
         </View>
       </View>
     );
   };
 
+  const renderFeedback = ({ item }: any) => {
+    return (
+      <View style={styles.feedbackCard}>
+        <View style={styles.feedbackHeader}>
+          <Text style={styles.feedbackName}>
+            {item.rater_name || "Anonymous Facility"}
+          </Text>
+
+          <Text style={styles.feedbackDate}>
+            {formatShortDate(item.created_at)}
+          </Text>
+        </View>
+
+        <Text style={styles.feedbackStars}>
+          {renderStars(Number(item.rating || 0))}
+        </Text>
+
+        {item.comment ? (
+          <Text style={styles.feedbackMessage}>{item.comment}</Text>
+        ) : (
+          <Text style={styles.feedbackMuted}>No comment provided.</Text>
+        )}
+      </View>
+    );
+  };
+
+  const renderFeedbackSort = () => {
+    if (activeSection !== "feedbacks") return null;
+
+    const options: {
+      label: string;
+      value: "newest" | "oldest" | "highest" | "lowest";
+    }[] = [
+      { label: "Newest", value: "newest" },
+      { label: "Oldest", value: "oldest" },
+      { label: "Highest", value: "highest" },
+      { label: "Lowest", value: "lowest" },
+    ];
+
+    return (
+      <View style={styles.filterWrapper}>
+        <Text style={styles.filterTitle}>Sort Feedbacks</Text>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {options.map((option) => (
+            <TouchableOpacity
+              key={option.value}
+              style={[
+                styles.filterChip,
+                feedbackSort === option.value && styles.activeFilterChip,
+              ]}
+              onPress={() => setFeedbackSort(option.value)}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  feedbackSort === option.value && styles.activeFilterChipText,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+  const listData = activeSection === "listed" ? items : sortedFeedbacks;
+
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
-        data={items}
-        keyExtractor={(item) => `profile-listed-${item.id}`}
-        renderItem={renderPost}
+        data={listData}
+        keyExtractor={(item, index) =>
+          activeSection === "listed"
+            ? `profile-listed-${item.id || index}`
+            : `profile-feedback-${item.id || index}`
+        }
+        renderItem={activeSection === "listed" ? renderPost : renderFeedback}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
         ListHeaderComponent={
-          <View style={styles.profileHeader}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.backText}>←</Text>
-            </TouchableOpacity>
+          <View>
+            <View style={styles.profileHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+              >
+                <Text style={styles.backText}>←</Text>
+              </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.avatarWrapper}
-              onPress={changeProfilePhoto}
-            >
-              <Image
-                source={
-                  user.profileImage
-                    ? { uri: user.profileImage }
-                    : require("../../assets/icons/avatar.png")
-                }
-                style={styles.avatar}
-              />
-            </TouchableOpacity>
+              <View style={styles.avatarWrapper}>
+                <Image
+                  source={
+                    user.profileImage
+                      ? { uri: user.profileImage }
+                      : require("../../assets/icons/avatar.png")
+                  }
+                  style={styles.avatar}
+                />
+              </View>
 
-            <Text style={styles.tapHint}>Tap photo to change</Text>
+              <Text style={styles.name}>{user.name || "User"}</Text>
 
-            <Text style={styles.name}>{user.name || "User"}</Text>
-
-            <TouchableOpacity
-              style={styles.usernameEditBox}
-              onPress={() => {
-                setNewUsername(user.username);
-                setUsernameModal(true);
-              }}
-            >
               <Text style={styles.username}>
                 @{user.username || "username"}
               </Text>
-              <Text style={styles.usernameEditText}>Tap to edit username</Text>
-            </TouchableOpacity>
 
-            <View style={styles.headerLocationRow}>
-              <Image
-                source={require("../../assets/icons/location.png")}
-                style={styles.headerLocationIcon}
-              />
-              <Text style={styles.headerAddress}>{user.address}</Text>
+              <View style={styles.headerLocationRow}>
+                <Image
+                  source={require("../../assets/icons/location.png")}
+                  style={styles.headerLocationIcon}
+                />
+
+                <Text style={styles.headerAddress}>{user.address}</Text>
+              </View>
+
+              <View style={styles.ratingSummaryBox}>
+                <Text style={styles.ratingSummaryStars}>
+                  {renderStars(Math.round(averageRating))}
+                </Text>
+
+                <Text style={styles.ratingSummaryText}>
+                  {feedbacks.length > 0
+                    ? `${averageRating.toFixed(1)} out of 5 • ${
+                        feedbacks.length
+                      } feedback${feedbacks.length === 1 ? "" : "s"}`
+                    : "No feedback yet"}
+                </Text>
+              </View>
             </View>
+
+            <View style={styles.sectionTabs}>
+              <TouchableOpacity
+                style={[
+                  styles.sectionTabButton,
+                  activeSection === "listed" && styles.activeSectionTab,
+                ]}
+                onPress={() => setActiveSection("listed")}
+              >
+                <Text
+                  style={[
+                    styles.sectionTabText,
+                    activeSection === "listed" && styles.activeSectionTabText,
+                  ]}
+                >
+                  Listed Items
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.sectionTabButton,
+                  activeSection === "feedbacks" && styles.activeSectionTab,
+                ]}
+                onPress={() => setActiveSection("feedbacks")}
+              >
+                <Text
+                  style={[
+                    styles.sectionTabText,
+                    activeSection === "feedbacks" &&
+                      styles.activeSectionTabText,
+                  ]}
+                >
+                  Feedbacks
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {renderFeedbackSort()}
           </View>
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No listed posts yet.</Text>
+          <Text style={styles.emptyText}>
+            {activeSection === "listed"
+              ? "No listed posts yet."
+              : "No feedbacks yet."}
+          </Text>
         }
       />
-
-      <Modal visible={usernameModal} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <View style={styles.usernameModalBox}>
-            <Text style={styles.modalTitle}>Change Username</Text>
-
-            <TextInput
-              placeholder="Enter new username"
-              value={newUsername}
-              onChangeText={setNewUsername}
-              style={styles.input}
-              autoCapitalize="none"
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setUsernameModal(false);
-                  setNewUsername("");
-                }}
-              >
-                <Text style={styles.cancelText}>Cancel</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={updateUsername}
-              >
-                <Text style={styles.saveText}>Save</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={editVisible} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.keyboardView}
-          >
-            <View style={styles.editModalBox}>
-              <ScrollView
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.editModalContent}
-              >
-                <Text style={styles.modalTitle}>Edit Post</Text>
-
-                {editingItem && (
-                  <>
-                    <Text style={styles.modalLabel}>Posted By</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.submitter_name ||
-                        editingItem.submitterName ||
-                        user.name}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Item Name</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.item_name}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Issues</Text>
-                    <Text style={styles.readOnlyText}>
-                      {cleanIssues(editingItem.issues)}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Hazard Status</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.hazard_status}%
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Recyclability</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.recyclability}%
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Status</Text>
-                    <Text style={[styles.readOnlyText, styles.listedText]}>
-                      {getPostStatus(editingItem)}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Description</Text>
-                    <TextInput
-                      value={editedDescription}
-                      onChangeText={setEditedDescription}
-                      style={styles.descriptionInput}
-                      multiline
-                      textAlignVertical="top"
-                    />
-
-                    <View style={styles.modalButtons}>
-                      <TouchableOpacity
-                        style={styles.cancelButton}
-                        onPress={() => {
-                          Keyboard.dismiss();
-                          setEditVisible(false);
-                        }}
-                      >
-                        <Text style={styles.cancelText}>Cancel</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.saveButton}
-                        onPress={updateDescription}
-                      >
-                        <Text style={styles.saveText}>Save</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </>
-                )}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
 
       <View style={styles.bottomNav}>
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard")}
+          onPress={() => goToPage("/user_dashboard")}
         >
           <Image
             source={require("../../assets/icons/home.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -740,12 +847,13 @@ export default function Profile() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_scan")}
+          onPress={() => goToPage("/user_dashboard/user_scan")}
         >
           <Image
             source={require("../../assets/icons/scan.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -758,12 +866,13 @@ export default function Profile() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_map")}
+          onPress={() => goToPage("/user_dashboard/user_map")}
         >
           <Image
             source={require("../../assets/icons/map.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -776,23 +885,32 @@ export default function Profile() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/messages")}
+          onPress={() => goToPage("/user_dashboard/messages")}
         >
           <Image
             source={require("../../assets/icons/chatting.png")}
             style={styles.navImage}
           />
-          <Text style={styles.navLabel}>Messages</Text>
+
+          <Text
+            style={[
+              styles.navLabel,
+              pathname === "/user_dashboard/messages" && styles.navActive,
+            ]}
+          >
+            Messages
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/profile")}
+          onPress={() => goToPage("/user_dashboard/profile")}
         >
           <Image
             source={require("../../assets/icons/user.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -805,12 +923,13 @@ export default function Profile() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/settings")}
+          onPress={() => goToPage("/user_dashboard/settings")}
         >
           <Image
             source={require("../../assets/icons/setting_1.png")}
             style={styles.navImage}
           />
+
           <Text
             style={[
               styles.navLabel,
@@ -828,7 +947,7 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#f2f2f2",
   },
 
   listContent: {
@@ -836,324 +955,362 @@ const styles = StyleSheet.create({
   },
 
   profileHeader: {
-    backgroundColor: "#197900",
+    backgroundColor: "#1b5e20",
     alignItems: "center",
-    paddingTop: 15,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 25,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
   },
 
   backButton: {
     position: "absolute",
     left: 20,
-    top: 20,
-    zIndex: 5,
+    top: 18,
+    zIndex: 10,
   },
 
   backText: {
-    fontSize: 32,
-    color: "#000",
+    color: "#fff",
+    fontSize: 26,
   },
 
   avatarWrapper: {
-    marginTop: 5,
+    marginTop: 25,
   },
 
   avatar: {
-    width: 135,
-    height: 135,
-    borderRadius: 70,
+    width: 95,
+    height: 95,
+    borderRadius: 48,
     backgroundColor: "#ddd",
-  },
-
-  tapHint: {
-    color: "#e8f5e9",
-    fontSize: 12,
-    marginTop: 6,
   },
 
   name: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "bold",
-    marginTop: 8,
-  },
-
-  usernameEditBox: {
-    alignItems: "center",
-    marginTop: 2,
-    marginBottom: 10,
+    marginTop: 10,
   },
 
   username: {
-    color: "#fff",
-    fontSize: 18,
-  },
-
-  usernameEditText: {
-    color: "#d7ffd9",
-    fontSize: 12,
-    marginTop: 2,
+    color: "#e8f5e9",
+    fontSize: 15,
+    marginTop: 4,
   },
 
   headerLocationRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2,
+    justifyContent: "center",
+    alignSelf: "center",
+    marginTop: 8,
+    paddingHorizontal: 20,
+    maxWidth: "90%",
   },
 
   headerLocationIcon: {
-    width: 15,
-    height: 15,
+    width: 14,
+    height: 14,
     marginRight: 5,
     tintColor: "#fff",
   },
 
   headerAddress: {
-    color: "#e8f5e9",
+    color: "#fff",
     fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+    flexShrink: 1,
+  },
+
+  ratingSummaryBox: {
+    marginTop: 8,
+    alignItems: "center",
+  },
+
+  ratingSummaryStars: {
+    fontSize: 18,
+    color: "#fbc02d",
+    fontWeight: "bold",
+  },
+
+  ratingSummaryText: {
+    fontSize: 12,
+    color: "#fff",
+    marginTop: 2,
+  },
+
+  sectionTabs: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    marginHorizontal: 15,
+    marginTop: 15,
+    borderRadius: 14,
+    padding: 5,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+  },
+
+  sectionTabButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  activeSectionTab: {
+    backgroundColor: "#1b5e20",
+  },
+
+  sectionTabText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1b5e20",
+  },
+
+  activeSectionTabText: {
+    color: "#fff",
+  },
+
+  filterWrapper: {
+    backgroundColor: "#fff",
+    marginHorizontal: 15,
+    marginTop: 12,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+  },
+
+  filterTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 8,
+  },
+
+  filterScrollContent: {
+    gap: 8,
+  },
+
+  filterChip: {
+    borderWidth: 1,
+    borderColor: "#1b5e20",
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+  },
+
+  activeFilterChip: {
+    backgroundColor: "#1b5e20",
+  },
+
+  filterChipText: {
+    color: "#1b5e20",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  activeFilterChipText: {
+    color: "#fff",
   },
 
   postCard: {
     backgroundColor: "#fff",
-    marginHorizontal: 26,
+    marginHorizontal: 15,
     marginTop: 15,
-    padding: 14,
-    elevation: 4,
+    borderRadius: 15,
+    padding: 12,
+    elevation: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.08,
     shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+  },
+
+  imageCarouselWrapper: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#ddd",
+    position: "relative",
   },
 
   postImage: {
     width: "100%",
-    height: 185,
-    resizeMode: "cover",
-    backgroundColor: "#eee",
+    height: "100%",
+    backgroundColor: "#ddd",
   },
 
-  postedBy: {
+  carouselButton: {
+    position: "absolute",
+    top: "40%",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  carouselLeftButton: {
+    left: 10,
+  },
+
+  carouselRightButton: {
+    right: 10,
+  },
+
+  carouselButtonText: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "bold",
+    marginTop: -2,
+  },
+
+  imageCounter: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  imageCounterText: {
+    color: "#fff",
     fontSize: 12,
-    color: "#555",
-    marginTop: 8,
     fontWeight: "600",
   },
 
   postTitle: {
-    fontSize: 20,
+    marginTop: 10,
+    fontSize: 18,
     fontWeight: "bold",
-    marginTop: 5,
-    color: "#000",
+    color: "#222",
   },
 
   description: {
-    color: "#000",
-    fontSize: 12,
-    marginTop: 6,
-    lineHeight: 16,
+    marginTop: 5,
+    color: "#555",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  issuesBox: {
+    marginTop: 10,
+    backgroundColor: "#f6f6f6",
+    padding: 10,
+    borderRadius: 10,
+  },
+
+  issuesTitle: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#222",
+    marginBottom: 4,
+  },
+
+  issueText: {
+    fontSize: 13,
+    color: "#555",
+    lineHeight: 20,
   },
 
   postMetaRow: {
+    marginTop: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 13,
-  },
-
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
+    alignItems: "flex-start",
   },
 
   metaIcon: {
     width: 14,
     height: 14,
     marginRight: 5,
+    marginTop: 2,
+  },
+
+  metaTextColumn: {
+    flex: 1,
   },
 
   metaText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#222",
+    fontSize: 13,
+    color: "#555",
+    lineHeight: 18,
   },
 
   dateText: {
-    fontSize: 11,
-    color: "#777",
-    marginLeft: 10,
-    maxWidth: 150,
-    textAlign: "right",
+    fontSize: 12,
+    color: "#888",
+    marginTop: 4,
+    lineHeight: 17,
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: "#888",
-    marginTop: 12,
-    marginBottom: 12,
+  feedbackCard: {
+    backgroundColor: "#fff",
+    marginHorizontal: 15,
+    marginTop: 15,
+    borderRadius: 15,
+    padding: 15,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
   },
 
-  postButtonRow: {
+  feedbackHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 12,
-  },
-
-  editPostButton: {
-    flex: 1,
-    backgroundColor: "#2d7c1f",
-    paddingVertical: 12,
-    borderRadius: 10,
     alignItems: "center",
-    justifyContent: "center",
   },
 
-  editPostText: {
-    color: "#fff",
-    fontSize: 16,
+  feedbackName: {
+    fontSize: 15,
     fontWeight: "bold",
-  },
-
-  deletePostButton: {
+    color: "#222",
     flex: 1,
-    backgroundColor: "#fff",
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: "#e53935",
-    alignItems: "center",
-    justifyContent: "center",
   },
 
-  deletePostText: {
-    color: "#e53935",
-    fontSize: 16,
-    fontWeight: "bold",
+  feedbackDate: {
+    fontSize: 12,
+    color: "#888",
+    marginLeft: 8,
+  },
+
+  feedbackStars: {
+    marginTop: 8,
+    fontSize: 18,
+    color: "#fbc02d",
+  },
+
+  feedbackMessage: {
+    marginTop: 8,
+    color: "#555",
+    fontSize: 14,
+    lineHeight: 20,
+  },
+
+  feedbackMuted: {
+    marginTop: 8,
+    color: "#999",
+    fontSize: 14,
+    fontStyle: "italic",
   },
 
   emptyText: {
     textAlign: "center",
-    color: "gray",
-    marginTop: 35,
-    fontSize: 15,
-  },
-
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-
-  keyboardView: {
-    width: "100%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  usernameModalBox: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-  },
-
-  editModalBox: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 18,
-    maxHeight: "85%",
-  },
-
-  editModalContent: {
-    paddingBottom: 10,
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#000",
-  },
-
-  modalLabel: {
-    fontWeight: "bold",
-    marginTop: 10,
-    color: "#000",
-  },
-
-  readOnlyText: {
-    backgroundColor: "#eee",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 5,
-    fontSize: 14,
-    color: "#000",
-  },
-
-  listedText: {
-    color: "#1b5e20",
-    fontWeight: "bold",
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    padding: 12,
-  },
-
-  descriptionInput: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 10,
-    borderRadius: 8,
-    marginTop: 5,
-    minHeight: 80,
-    fontSize: 14,
-    textAlignVertical: "top",
-  },
-
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 20,
-    gap: 12,
-  },
-
-  cancelButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "gray",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-
-  saveButton: {
-    flex: 1,
-    backgroundColor: "#197900",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-
-  cancelText: {
-    color: "gray",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-
-  saveText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
+    color: "#777",
+    marginTop: 40,
   },
 
   bottomNav: {
@@ -1168,7 +1325,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderColor: "#ddd",
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
 
   navItem: {

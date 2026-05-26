@@ -1,19 +1,14 @@
-from cProfile import label
-
-from fastapi import FastAPI, UploadFile, File, WebSocket
+from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-import mysql.connector
 from ultralytics import YOLO
-import shutil
 import os
+import shutil
 import uuid
-import asyncio
+import time
+import traceback
 
 app = FastAPI()
 
-
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,264 +17,107 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# MYSQL
-db = mysql.connector.connect(
-    unix_socket="/Applications/XAMPP/xamppfiles/var/mysql/mysql.sock",
-    user="root",
-    password="",
-    database="capstone_db"
-)
+MODEL_PATH = "runs/detect/train-14/weights/best.pt"
 
-# YOLO MODEL
-model = YOLO("runs/detect/train-4/weights/best.pt")
-
-UPLOAD_DIR = "uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
-
-# REALTIME CONNECTIONS
-active_connections = []
+print("Loading YOLO model...")
+model = YOLO(MODEL_PATH)
+print("YOLO model loaded successfully.")
 
 
-@app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    active_connections.append(websocket)
-
-    print("Client connected")
-
-    try:
-        while True:
-            await websocket.receive_text()
-
-    except Exception:
-        if websocket in active_connections:
-            active_connections.remove(websocket)
-
-        print("Client disconnected")
+@app.get("/")
+def home():
+    return {
+        "success": True,
+        "message": "YOLO backend is running",
+        "model_path": MODEL_PATH,
+    }
 
 
-async def send_notification(data):
-    disconnected = []
-
-    for connection in active_connections:
-        try:
-            await connection.send_json(data)
-
-        except Exception:
-            disconnected.append(connection)
-
-    for connection in disconnected:
-        if connection in active_connections:
-            active_connections.remove(connection)
-
-
-# YOLO DETECT API
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
+    start_time = time.time()
+
+    temp_dir = "temp_uploads"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    file_extension = os.path.splitext(file.filename or "")[1] or ".jpg"
+    file_name = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(temp_dir, file_name)
+
     try:
-        file_extension = file.filename.split(".")[-1]
-        file_name = f"{uuid.uuid4()}.{file_extension}"
-        file_path = os.path.join(UPLOAD_DIR, file_name)
+        print("DETECT REQUEST RECEIVED")
 
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        results = model(file_path, conf=0.10)
+        file_size_mb = round(os.path.getsize(file_path) / (1024 * 1024), 2)
 
-        detections = []
+        print("IMAGE SAVED:", {
+            "file_path": file_path,
+            "file_size_mb": file_size_mb,
+        })
 
-        for result in results:
-            for box in result.boxes:
-                class_id = int(box.cls[0])
-                confidence = float(box.conf[0])
-                label = model.names[class_id]
+        predict_start = time.time()
 
-                detections.append({
-                    "label": label,
-                    "confidence": confidence
-                })
-
-        if len(detections) == 0:
-            return {
-                "message": "object not found",
-                "label": "Unknown",
-                "detections": []
-            }
-
-        detections = sorted(
-            detections,
-            key=lambda item: item["confidence"],
-            reverse=True
+        results = model.predict(
+            source=file_path,
+            imgsz=416,
+            conf=0.25,
+            device="cpu",
+            verbose=False,
+            max_det=1,
         )
 
-        return {
-            "message": "object detected",
-            "label": detections[0]["label"],
-            "confidence": detections[0]["confidence"],
-            "detections": detections
-        }
+        predict_time = round(time.time() - predict_start, 2)
 
-    except Exception as e:
-        return {
-            "message": "scan error",
-            "label": "Unknown",
-            "error": str(e),
-            "detections": []
-        }
+        detected_label = "Unknown"
+        confidence = 0.0
 
+        if results and len(results) > 0:
+            boxes = results[0].boxes
 
-# MATCH FACILITY API
-@app.get("/match-facility/{label}")
-async def match_facility(
-    label: str,
-    description: str = ""
-):
-    try:
-        cursor = db.cursor(
-            dictionary=True
-        )
+            if boxes is not None and len(boxes) > 0:
+                best_box = boxes[0]
+                class_id = int(best_box.cls[0])
+                confidence = float(best_box.conf[0])
+                detected_label = model.names[class_id]
 
-        # GET ALL ACTIVE FACILITY POSTS
-        cursor.execute("""
-            SELECT
-                fp.*,
-                af.profile_image,
-                af.name
-                    AS facility_name,
-                af.location
-                    AS facility_location
-            FROM
-                facility_postings fp
-            LEFT JOIN
-                approved_facilities af
-            ON
-                fp.facility_id = af.id
-            WHERE
-                fp.status = 'Posted'
-        """)
+        total_time = round(time.time() - start_time, 2)
 
-        facilities = cursor.fetchall()
-
-        matches = []
-
-        label_clean = (
-            label.strip()
-            .lower()
-        )
-
-        description_clean = (
-            description.strip()
-            .lower()
-        )
-
-        for facility in facilities:
-
-            item_needed = (
-                facility.get(
-                    "item_needed",
-                    ""
-                )
-                .strip()
-                .lower()
-            )
-
-            # =================
-            # PRIORITY 1:
-            # LABEL MATCH
-            # CASE INSENSITIVE
-            # =================
-            if (
-                label_clean !=
-                "unknown"
-                and
-                label_clean ==
-                item_needed
-            ):
-                matches.append(
-                    facility
-                )
-                continue
-
-            # =================
-            # PRIORITY 2:
-            # UNKNOWN ITEM
-            # USE DESCRIPTION
-            # =================
-            if (
-                label_clean ==
-                "unknown"
-                and
-                item_needed
-                and
-                item_needed in
-                description_clean
-            ):
-                matches.append(
-                    facility
-                )
-
-        # REALTIME MATCH
-        if matches:
-
-            facility = matches[0]
-
-            await send_notification({
-                "type":
-                    "match_found",
-
-                "facility_id":
-                    facility[
-                        "facility_id"
-                    ],
-
-                "facility_name":
-                    facility[
-                        "facility_name"
-                    ],
-
-                "facility_location":
-                    facility[
-                        "facility_location"
-                    ],
-
-                "profile_image":
-                    facility[
-                        "profile_image"
-                    ]
-            })
-
-        cursor.close()
+        print("YOLO RESULT:", {
+            "label": detected_label,
+            "confidence": confidence,
+            "predict_time": predict_time,
+            "total_time": total_time,
+        })
 
         return {
             "success": True,
-            "matches": matches
+            "label": detected_label,
+            "confidence": confidence,
+            "processing_time": predict_time,
+            "total_time": total_time,
+            "file_size_mb": file_size_mb,
         }
 
     except Exception as e:
+        print("YOLO DETECT ERROR:", str(e))
+        print(traceback.format_exc())
 
         return {
             "success": False,
-            "message":
-                str(e)
+            "message": str(e),
+            "label": "Unknown",
+            "confidence": 0,
+            "processing_time": 0,
+            "total_time": round(time.time() - start_time, 2),
         }
 
-
-# FACILITY REALTIME UPDATE
-@app.get("/facility-updated")
-async def facility_updated():
-    await send_notification({
-        "type": "facility_updated"
-    })
-
-    return {"success": True}
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
-# HOME
-@app.get("/")
-def home():
-    return {
-        "message": "YOLO backend with realtime is running"
-    }
-
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    return await detect(file)

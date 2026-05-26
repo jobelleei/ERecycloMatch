@@ -19,31 +19,29 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
 
-export default function UserChat() {
+export default function FacilityChat() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
   const flatListRef = useRef<FlatList<any>>(null);
 
   const conversationId = String(params.conversationId || "");
-  const facilityIdParam = String(params.facility_id || "");
-  const facilityNameParam = String(params.facility_name || "Facility");
-  const facilityProfileImageParam = String(params.profile_image || "");
+  const userIdParam = String(params.user_id || "");
+  const userNameParam = String(params.user_name || "User");
+  const userProfileImageParam = String(params.user_profile_image || "");
   const itemIdParam = String(params.item_id || params.itemId || "");
   const itemNameParam = String(params.item_name || params.itemName || "");
-  const itemImageParam = String(
-    params.item_photo || params.item_image || params.itemImage || ""
-  );
+  const itemImageParam = String(params.item_image || params.itemImage || "");
 
-  const [user, setUser] = useState<any>(null);
+  const [facility, setFacility] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
 
-  const [facilityProfile, setFacilityProfile] = useState({
-    name: "Facility",
+  const [userProfile, setUserProfile] = useState({
+    name: "User",
     profileImage: "",
   });
 
@@ -53,7 +51,7 @@ export default function UserChat() {
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
-    loadUser();
+    loadFacility();
   }, []);
 
   useEffect(() => {
@@ -78,14 +76,12 @@ export default function UserChat() {
   }, [conversation?.id, conversation?.status, conversation?.request_status]);
 
   useEffect(() => {
-    const currentFacilityId = String(
-      conversation?.facility_id || facilityIdParam || ""
-    );
+    const currentUserId = String(conversation?.user_id || userIdParam || "");
 
-    if (currentFacilityId) {
-      fetchFacilityProfile(currentFacilityId);
+    if (currentUserId) {
+      fetchUserProfile(currentUserId);
     }
-  }, [conversation?.facility_id, facilityIdParam]);
+  }, [conversation?.user_id, userIdParam]);
 
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
@@ -102,6 +98,12 @@ export default function UserChat() {
   }, [conversation?.item_id, itemIdParam, itemNameParam, itemImageParam]);
 
   useEffect(() => {
+    if (conversation?.status === "match_pending" && conversation?.id) {
+      ensureMatchRequestMessage(String(conversation.id));
+    }
+  }, [conversation?.id, conversation?.status, conversation?.item_id]);
+
+  useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -109,12 +111,12 @@ export default function UserChat() {
     }
   }, [messages]);
 
-  const loadUser = async () => {
+  const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
 
       if (!stored) {
-        Alert.alert("User Error", "Please log in again.");
+        Alert.alert("Facility Error", "Please log in again.");
         router.replace("/signin" as any);
         return;
       }
@@ -122,29 +124,31 @@ export default function UserChat() {
       const parsed = JSON.parse(stored);
       const actualUser = parsed.user || parsed.data || parsed;
 
-      const userId =
+      const facilityId =
         actualUser?.id ||
+        actualUser?.facility_id ||
         actualUser?.user_id ||
         parsed?.id ||
+        parsed?.facility_id ||
         parsed?.user_id ||
         "";
 
-      const userName =
+      const facilityName =
         actualUser?.name ||
+        actualUser?.facility_name ||
         actualUser?.username ||
-        actualUser?.fullname ||
-        actualUser?.full_name ||
         parsed?.name ||
+        parsed?.facility_name ||
         parsed?.username ||
-        "User";
+        "Facility";
 
-      setUser({
+      setFacility({
         ...actualUser,
-        id: String(userId),
-        name: String(userName),
+        id: String(facilityId),
+        name: String(facilityName),
       });
     } catch (error) {
-      console.log("LOAD USER CHAT ERROR:", error);
+      console.log("LOAD FACILITY ERROR:", error);
     }
   };
 
@@ -175,44 +179,42 @@ export default function UserChat() {
     }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
-
     return data?.publicUrl || "";
   };
 
-  const fetchFacilityProfile = async (targetFacilityId: string) => {
+  const fetchUserProfile = async (targetUserId: string) => {
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", String(targetFacilityId))
+        .eq("id", String(targetUserId))
         .maybeSingle();
 
       if (error || !data) {
-        setFacilityProfile({
-          name: facilityNameParam || conversation?.facility_name || "Facility",
+        setUserProfile({
+          name: userNameParam || conversation?.user_name || "User",
           profileImage:
-            facilityProfileImageParam ||
-            conversation?.facility_profile_image ||
-            "",
+            userProfileImageParam || conversation?.user_profile_image || "",
         });
         return;
       }
 
       const finalName =
         data.name ||
-        data.facility_name ||
         data.username ||
-        facilityNameParam ||
-        conversation?.facility_name ||
-        "Facility";
+        data.fullname ||
+        data.full_name ||
+        userNameParam ||
+        conversation?.user_name ||
+        "User";
 
       const finalProfileImage =
         data.profile_image ||
-        facilityProfileImageParam ||
-        conversation?.facility_profile_image ||
+        userProfileImageParam ||
+        conversation?.user_profile_image ||
         "";
 
-      setFacilityProfile({
+      setUserProfile({
         name: finalName,
         profileImage: finalProfileImage,
       });
@@ -221,21 +223,21 @@ export default function UserChat() {
         await supabase
           .from("conversations")
           .update({
-            facility_name: finalName,
-            facility_profile_image: finalProfileImage,
+            user_name: finalName,
+            user_profile_image: finalProfileImage,
           })
           .eq("id", conversation.id);
       }
     } catch (error) {
-      console.log("FETCH FACILITY PROFILE ERROR:", error);
+      console.log("FETCH USER PROFILE ERROR:", error);
     }
   };
 
-  const getFacilityImage = () => {
+  const getUserImage = () => {
     const imagePath =
-      facilityProfile.profileImage ||
-      conversation?.facility_profile_image ||
-      facilityProfileImageParam ||
+      userProfile.profileImage ||
+      conversation?.user_profile_image ||
+      userProfileImageParam ||
       "";
 
     if (!imagePath) {
@@ -302,10 +304,7 @@ export default function UserChat() {
       };
     }
 
-    const imageUrl =
-      getPublicImageUrl("item-images", String(imagePath)) ||
-      getPublicImageUrl("items", String(imagePath)) ||
-      getPublicImageUrl("issue-images", String(imagePath));
+    const imageUrl = getPublicImageUrl("item-images", String(imagePath));
 
     if (!imageUrl) {
       return require("../../assets/icons/icon.png");
@@ -380,9 +379,11 @@ export default function UserChat() {
   const isMatchRequestMessage = (item: any) => {
     const message = String(item?.message || "").trim().toLowerCase();
     const messageType = String(item?.message_type || "").trim().toLowerCase();
+    const type = String(item?.type || "").trim().toLowerCase();
 
     return (
       messageType === "match_request" ||
+      type === "match_request" ||
       message === "match request sent" ||
       message === "request sent" ||
       message.startsWith("request sent for ")
@@ -401,8 +402,7 @@ export default function UserChat() {
       messageType === "match_request" ||
       type === "match_request" ||
       senderType === "request_card" ||
-      senderType === "user" ||
-      senderType === "facility"
+      senderType === "user"
     );
   };
 
@@ -421,7 +421,6 @@ export default function UserChat() {
       message.startsWith("request sent for ")
     );
   };
-
 
   const isMatchAcceptedMessage = (item: any) => {
     const message = String(item?.message || "").trim().toLowerCase();
@@ -482,7 +481,7 @@ export default function UserChat() {
         .maybeSingle();
 
       if (error) {
-        console.log("FETCH USER CONVERSATION ERROR:", error);
+        console.log("FETCH FACILITY CONVERSATION ERROR:", error);
         return;
       }
 
@@ -490,7 +489,7 @@ export default function UserChat() {
         setConversation(data);
       }
     } catch (error) {
-      console.log("FETCH USER CONVERSATION ERROR:", error);
+      console.log("FETCH FACILITY CONVERSATION ERROR:", error);
     }
   };
 
@@ -505,7 +504,7 @@ export default function UserChat() {
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.log("FETCH USER MESSAGES ERROR:", error);
+        console.log("FETCH FACILITY MESSAGES ERROR:", error);
         setMessages([]);
         return;
       }
@@ -527,8 +526,50 @@ export default function UserChat() {
 
       setMessages(cleanedMessages);
     } catch (error) {
-      console.log("FETCH USER MESSAGES ERROR:", error);
+      console.log("FETCH FACILITY MESSAGES ERROR:", error);
       setMessages([]);
+    }
+  };
+
+  const ensureMatchRequestMessage = async (targetConversationId: string) => {
+    try {
+      const { data: existingRequestMessages, error: findError } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", String(targetConversationId))
+        .or("message.eq.Match request sent,message_type.eq.match_request,type.eq.match_request")
+        .limit(1);
+
+      if (findError) {
+        console.log("FIND MATCH REQUEST MESSAGE ERROR:", findError);
+      }
+
+      if (existingRequestMessages && existingRequestMessages.length > 0) {
+        return;
+      }
+
+      const { error } = await supabase.from("messages").insert([
+        {
+          conversation_id: String(targetConversationId),
+          sender_id: null,
+          sender_name: "System",
+          sender_role: "system",
+          sender_type: "system",
+          receiver_id: null,
+          type: "system",
+          message_type: "match_request",
+          message: "Match request sent",
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (error) {
+        console.log("ADD MATCH REQUEST MESSAGE ERROR:", error);
+      }
+
+      fetchMessages();
+    } catch (error) {
+      console.log("ENSURE MATCH REQUEST MESSAGE ERROR:", error);
     }
   };
 
@@ -565,7 +606,7 @@ export default function UserChat() {
       ]);
 
       if (messageError) {
-        console.log("USER SYSTEM MESSAGE ERROR:", messageError);
+        console.log("FACILITY SYSTEM MESSAGE ERROR:", messageError);
       }
 
       const { error: updateError } = await supabase
@@ -577,13 +618,13 @@ export default function UserChat() {
         .eq("id", String(conversationId));
 
       if (updateError) {
-        console.log("UPDATE USER SYSTEM CONVERSATION ERROR:", updateError);
+        console.log("UPDATE FACILITY SYSTEM CONVERSATION ERROR:", updateError);
       }
 
       fetchMessages();
       fetchConversation();
     } catch (error) {
-      console.log("ADD USER SYSTEM MESSAGE ERROR:", error);
+      console.log("ADD FACILITY SYSTEM MESSAGE ERROR:", error);
     }
   };
 
@@ -592,8 +633,8 @@ export default function UserChat() {
       const warningMessage =
         "You still have a pending match here. Finish it first before requesting another one.";
 
-      const currentUserId = String(conversation?.user_id || user?.id || "");
-      const currentFacilityId = String(conversation?.facility_id || facilityIdParam || "");
+      const currentUserId = String(conversation?.user_id || userIdParam || "");
+      const currentFacilityId = String(conversation?.facility_id || facility?.id || "");
 
       if (!conversationId || !currentUserId || !currentFacilityId) return;
 
@@ -635,17 +676,8 @@ export default function UserChat() {
 
 
 
-  const getRequestSender = () => {
-    return String(
-      conversation?.requested_by ||
-        conversation?.request_sender_role ||
-        conversation?.request_from ||
-        ""
-    ).toLowerCase();
-  };
-
   const acceptMatch = async () => {
-    Alert.alert("Accept Request", "Are you sure you want to accept this match request?", [
+    Alert.alert("Accept Match", "Are you sure you want to accept this match request?", [
       {
         text: "No",
         style: "cancel",
@@ -654,8 +686,6 @@ export default function UserChat() {
         text: "Yes, Accept",
         onPress: async () => {
           try {
-            const now = new Date().toISOString();
-
             await updateConversation({
               status: "matched",
               request_status: "accepted",
@@ -668,7 +698,7 @@ export default function UserChat() {
                 .update({
                   status: "Listed",
                   match_status: "Matched",
-                  updated_at: now,
+                  updated_at: new Date().toISOString(),
                 })
                 .eq("id", String(conversation.item_id));
             }
@@ -698,7 +728,6 @@ export default function UserChat() {
           try {
             await updateConversation({
               status: "rejected",
-              request_status: "rejected",
               last_message: "Match rejected",
             });
 
@@ -732,18 +761,18 @@ export default function UserChat() {
     const userAlreadyFinished = Boolean(conversation?.user_finished);
     const facilityAlreadyFinished = Boolean(conversation?.facility_finished);
 
-    if (facilityAlreadyFinished) {
+    if (userAlreadyFinished) {
       Alert.alert(
         "Cancel Not Allowed",
-        "You cannot cancel this match because the facility already clicked the Finish this match button."
+        "You cannot cancel this match because the user already clicked the Finish this match button."
       );
       return;
     }
 
-    if (userAlreadyFinished) {
+    if (facilityAlreadyFinished) {
       Alert.alert(
         "Cancel Not Allowed",
-        "You cannot cancel this match because you already clicked the Finish this match button."
+        "You cannot cancel this match because your facility already clicked the Finish this match button."
       );
       return;
     }
@@ -823,20 +852,14 @@ export default function UserChat() {
       const { error } = await supabase.from("recycling_history").insert([
         {
           conversation_id: String(conversationId),
-          user_id: String(conversation?.user_id || user?.id || ""),
-          user_name: String(conversation?.user_name || user?.name || "User"),
-          facility_id: String(conversation?.facility_id || facilityIdParam || ""),
+          user_id: String(conversation?.user_id || userIdParam || ""),
+          user_name: String(conversation?.user_name || userProfile.name || "User"),
+          facility_id: String(conversation?.facility_id || facility?.id || ""),
           facility_name: String(
-            conversation?.facility_name ||
-              facilityProfile.name ||
-              facilityNameParam ||
-              "Facility"
+            conversation?.facility_name || facility?.name || "Facility"
           ),
           matched_with: String(
-            conversation?.facility_name ||
-              facilityProfile.name ||
-              facilityNameParam ||
-              "Facility"
+            conversation?.facility_name || facility?.name || "Facility"
           ),
           item_id: String(conversation?.item_id || ""),
           item_name: String(
@@ -883,13 +906,11 @@ export default function UserChat() {
           onPress: async () => {
             try {
               const now = new Date().toISOString();
-              const facilityAlreadyFinished = Boolean(
-                conversation?.facility_finished
-              );
+              const userAlreadyFinished = Boolean(conversation?.user_finished);
 
-              if (facilityAlreadyFinished) {
+              if (userAlreadyFinished) {
                 await updateConversation({
-                  user_finished: true,
+                  facility_finished: true,
                   status: "finished",
                   last_message: "Match finished. Please provide feedback.",
                   finished_at: now,
@@ -913,16 +934,17 @@ export default function UserChat() {
                   "Both sides finished this match. Please provide feedback."
                 );
               } else {
-                const displayName = user?.name || conversation?.user_name || "User";
+                const displayName =
+                  facility?.name || conversation?.facility_name || "Facility";
 
                 await updateConversation({
-                  user_finished: true,
+                  facility_finished: true,
                   status: "finish_pending",
                   last_message: `${displayName} clicked Finish this match. Waiting for you to click the button too.`,
                 });
 
                 await addSystemMessage(
-                  `${displayName} clicked Finish this match. Waiting for facility to finish this match.`
+                  `${displayName} clicked Finish this match. Waiting for you to click the button too.`
                 );
               }
 
@@ -944,8 +966,8 @@ export default function UserChat() {
     try {
       Keyboard.dismiss();
 
-      if (!conversation || !user?.id) {
-        Alert.alert("Feedback Failed", "Missing user or conversation data.");
+      if (!conversation || !facility?.id) {
+        Alert.alert("Feedback Failed", "Missing facility or conversation data.");
         return;
       }
 
@@ -956,27 +978,26 @@ export default function UserChat() {
         return;
       }
 
-      const ratedId = Number(conversation.facility_id || facilityIdParam);
+      const ratedId = Number(conversation.user_id || userIdParam);
 
       if (!ratedId || isNaN(ratedId)) {
-        Alert.alert("Feedback Failed", "Facility ID is missing or invalid.");
+        Alert.alert("Feedback Failed", "User ID is missing or invalid.");
         return;
       }
 
       setSubmittingFeedback(true);
 
-      const ratedName =
-        facilityProfile.name || conversation.facility_name || "Facility";
+      const ratedName = userProfile.name || conversation.user_name || "User";
 
       const { error } = await supabase.from("match_feedbacks").insert([
         {
           conversation_id: String(conversationId),
-          rater_id: Number(user.id),
-          rater_name: user.name || "User",
-          rater_role: "user",
+          rater_id: Number(facility.id),
+          rater_name: facility.name || "Facility",
+          rater_role: "facility",
           rated_id: ratedId,
           rated_name: ratedName,
-          rated_role: "facility",
+          rated_role: "user",
           rating: cleanRating,
           comment: feedbackComment.trim() || null,
           created_at: new Date().toISOString(),
@@ -984,17 +1005,17 @@ export default function UserChat() {
       ]);
 
       if (error) {
-        console.log("USER FEEDBACK INSERT ERROR:", error);
+        console.log("FACILITY FEEDBACK INSERT ERROR:", error);
         Alert.alert("Feedback Failed", error.message);
         return;
       }
 
       await updateConversation({
-        user_feedback_given: true,
-        last_message: "User submitted feedback.",
+        facility_feedback_given: true,
+        last_message: "Facility submitted feedback.",
       });
 
-      await addSystemMessage("User submitted feedback.");
+      await addSystemMessage("Facility submitted feedback.");
 
       setFeedbackModalVisible(false);
       setSelectedRating(0);
@@ -1004,7 +1025,7 @@ export default function UserChat() {
 
       Alert.alert("Thank You", "Your feedback has been submitted.");
     } catch (error: any) {
-      console.log("SUBMIT USER FEEDBACK ERROR:", error);
+      console.log("SUBMIT FACILITY FEEDBACK ERROR:", error);
       Alert.alert(
         "Feedback Failed",
         error?.message || "Unable to submit feedback."
@@ -1070,27 +1091,27 @@ export default function UserChat() {
     const sender = getCurrentRequestSender();
     const receiver = getCurrentRequestReceiver();
 
-    if (["user", "individual", "owner", "sender"].includes(sender)) {
+    if (["facility", "recycling facility", "sender"].includes(sender)) {
       return true;
     }
 
-    if (["facility", "recycling facility"].includes(sender)) {
-      return false;
-    }
-
-    if (["user", "individual", "owner"].includes(receiver)) {
+    if (["user", "individual", "owner"].includes(sender)) {
       return false;
     }
 
     if (["facility", "recycling facility"].includes(receiver)) {
+      return false;
+    }
+
+    if (["user", "individual", "owner"].includes(receiver)) {
       return true;
     }
 
-    return String(conversation?.user_id || "") === String(user?.id || "");
+    return String(conversation?.facility_id || "") === String(facility?.id || "");
   };
 
   const hasCurrentAccountSentOffer = () => {
-    if (!user?.id) return false;
+    if (!facility?.id) return false;
 
     return messages.some((message: any) => {
       const messageType = String(message?.message_type || message?.type || "")
@@ -1108,8 +1129,8 @@ export default function UserChat() {
 
       return (
         isOfferMessage &&
-        (String(message?.sender_id || "") === String(user?.id) ||
-          senderRole === "user")
+        (String(message?.sender_id || "") === String(facility?.id) ||
+          senderRole === "facility")
       );
     });
   };
@@ -1141,8 +1162,8 @@ export default function UserChat() {
   const sendMessage = async () => {
     if (!messageText.trim()) return;
 
-    if (!user?.id) {
-      Alert.alert("User Error", "Please log in again.");
+    if (!facility?.id) {
+      Alert.alert("Facility Error", "Please log in again.");
       return;
     }
 
@@ -1164,15 +1185,15 @@ export default function UserChat() {
     try {
       setSending(true);
 
-      const receiverId = String(conversation?.facility_id || facilityIdParam || "");
+      const receiverId = String(conversation?.user_id || userIdParam || "");
 
       const { error } = await supabase.from("messages").insert([
         {
           conversation_id: String(conversationId),
-          sender_id: Number(user?.id),
-          sender_name: user.name || "User",
-          sender_role: "user",
-          sender_type: "user",
+          sender_id: Number(facility?.id),
+          sender_name: facility.name || "Facility",
+          sender_role: "facility",
+          sender_type: "facility",
           receiver_id: receiverId ? Number(receiverId) : null,
           type: sendingOffer ? "offer" : "text",
           message_type: sendingOffer ? "offer" : "text",
@@ -1193,7 +1214,7 @@ export default function UserChat() {
       fetchMessages();
       fetchConversation();
     } catch (error) {
-      console.log("SEND USER MESSAGE ERROR:", error);
+      console.log("SEND FACILITY MESSAGE ERROR:", error);
       Alert.alert("Send Failed", "Unable to send message.");
     } finally {
       setSending(false);
@@ -1219,39 +1240,40 @@ export default function UserChat() {
     const status = conversation?.status || "match_pending";
     const facilityFinished = Boolean(conversation?.facility_finished);
     const userFinished = Boolean(conversation?.user_finished);
-    const userFeedbackGiven = Boolean(conversation?.user_feedback_given);
-    const requestSender = getCurrentRequestSender();
+    const facilityFeedbackGiven = Boolean(conversation?.facility_feedback_given);
 
-    const isUserRequester =
-      isCurrentAccountRequester() || requestSender === "user";
+    const requestSenderRole = getCurrentRequestSender();
 
     const isFacilityRequester =
-      !isUserRequester &&
-      (requestSender === "facility" || isPendingMatch());
+      isCurrentAccountRequester() || requestSenderRole === "facility";
+
+    const isFacilityReceiver =
+      !isFacilityRequester &&
+      (requestSenderRole === "user" || isPendingMatch());
 
     if (status === "match_pending") {
-      if (isUserRequester) {
+      if (isFacilityRequester) {
         return (
           <View style={styles.matchActionBox}>
             <TouchableOpacity
               style={styles.cancelMatchButton}
               onPress={cancelMatch}
             >
-              <Text style={styles.cancelMatchText}>Cancel request</Text>
+              <Text style={styles.cancelMatchText}>Cancel match</Text>
             </TouchableOpacity>
           </View>
         );
       }
 
-      if (isFacilityRequester) {
+      if (isFacilityReceiver) {
         return (
           <View style={styles.matchActionBox}>
             <TouchableOpacity style={styles.finishButton} onPress={acceptMatch}>
-              <Text style={styles.finishText}>Accept request</Text>
+              <Text style={styles.finishText}>Accept match</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.cancelButton} onPress={rejectMatch}>
-              <Text style={styles.cancelText}>Reject request</Text>
+              <Text style={styles.cancelText}>Reject match</Text>
             </TouchableOpacity>
           </View>
         );
@@ -1273,17 +1295,17 @@ export default function UserChat() {
     }
 
     if (status === "finish_pending") {
-      if (userFinished) {
+      if (facilityFinished) {
         return (
           <View style={styles.statusBox}>
             <Text style={styles.statusText}>
-              Waiting for facility to finish this match.
+              Waiting for user to finish this match.
             </Text>
           </View>
         );
       }
 
-      if (facilityFinished) {
+      if (userFinished) {
         return (
           <View style={styles.matchActionBox}>
             <TouchableOpacity style={styles.finishButton} onPress={finishMatch}>
@@ -1304,13 +1326,13 @@ export default function UserChat() {
           <TouchableOpacity
             style={[
               styles.feedbackButton,
-              userFeedbackGiven && styles.disabledFeedbackButton,
+              facilityFeedbackGiven && styles.disabledFeedbackButton,
             ]}
-            disabled={userFeedbackGiven}
+            disabled={facilityFeedbackGiven}
             onPress={() => setFeedbackModalVisible(true)}
           >
             <Text style={styles.feedbackText}>
-              {userFeedbackGiven ? "Feedback submitted" : "Provide feedback"}
+              {facilityFeedbackGiven ? "Feedback submitted" : "Provide feedback"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1353,37 +1375,34 @@ export default function UserChat() {
   };
 
   const renderMessage = ({ item }: any) => {
-    const messageTextValue = String(item?.message || "").trim();
-    const messageLower = messageTextValue.toLowerCase();
-    const requestMessage = isMatchRequestMessage(item);
+    if (isOldEmptyRequestBubble(item)) {
+      return null;
+    }
+
+    if (shouldHideNormalRequestText(item)) {
+      return null;
+    }
+
+    const cleanMessage = String(item?.message || "").trim();
+
+    if (!cleanMessage && !isMatchRequestMessage(item)) {
+      return null;
+    }
 
     const isMine =
-      item.sender_id !== null && String(item.sender_id) === String(user?.id);
+      item.sender_id !== null && String(item.sender_id) === String(facility?.id);
 
     const isSystem =
       item.type === "system" ||
       item.sender_type === "system" ||
-      requestMessage ||
-      String(item?.message_type || "").toLowerCase() === "match_request";
+      isMatchRequestMessage(item);
 
     const timeText = formatMessageTime(item.created_at);
+    const requestMessage = isMatchRequestMessage(item);
     const acceptedMessage = isMatchAcceptedMessage(item);
     const rejectedMessage = isMatchRejectedMessage(item);
     const cancelledMessage = isMatchCancelledMessage(item);
     const finishClickedMessage = isFinishClickedMessage(item);
-
-    if (!isSystem && !messageTextValue) {
-      return null;
-    }
-
-    if (
-      !isSystem &&
-      (messageLower === "request sent" ||
-        messageLower === "match request sent" ||
-        messageLower.startsWith("request sent for "))
-    ) {
-      return null;
-    }
 
     if (isSystem) {
       return (
@@ -1429,7 +1448,7 @@ export default function UserChat() {
         ]}
       >
         <Text style={[styles.senderName, isMine && styles.mySenderName]}>
-          {isMine ? "You" : item.sender_name || facilityProfile.name || "Facility"}
+          {isMine ? "You" : item.sender_name || "User"}
         </Text>
 
         <Text style={isMine ? styles.myMessageText : styles.otherMessageText}>
@@ -1446,24 +1465,22 @@ export default function UserChat() {
   };
 
   const headerName =
-    facilityProfile.name ||
-    conversation?.facility_name ||
-    facilityNameParam ||
-    "Facility";
+    userProfile.name || conversation?.user_name || userNameParam || "User";
 
   const chatLocked = !canSendMessage();
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.replace("/user_dashboard/messages" as any)}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Text style={styles.back}>‹</Text>
         </TouchableOpacity>
 
-        <Image source={getFacilityImage()} style={styles.avatarImage} />
+        <Image source={getUserImage()} style={styles.avatarImage} />
 
         <View style={{ marginLeft: 12, flex: 1 }}>
           <Text style={styles.title}>{headerName}</Text>
+
           <Text style={styles.subtitle}>{getSubtitle()}</Text>
         </View>
       </View>
@@ -1476,10 +1493,14 @@ export default function UserChat() {
         keyExtractor={(item, index) => String(item.id || index)}
         renderItem={renderMessage}
         contentContainerStyle={styles.messagesList}
-        ListEmptyComponent={<Text style={styles.emptyText}>No messages yet.</Text>}
+        ListEmptyComponent={
+          <Text style={styles.emptyText}>No messages yet.</Text>
+        }
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={styles.inputRow}>
           <TextInput
             value={messageText}
@@ -1520,7 +1541,7 @@ export default function UserChat() {
             >
               <TouchableWithoutFeedback>
                 <View style={styles.feedbackBox}>
-                  <Text style={styles.feedbackTitle}>Rate Facility</Text>
+                  <Text style={styles.feedbackTitle}>Rate User</Text>
 
                   <Text style={styles.feedbackSubtitle}>
                     How was your match with {headerName}?

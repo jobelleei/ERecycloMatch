@@ -9,17 +9,23 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Keyboard,
+  RefreshControl,
 } from "react-native";
 import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, usePathname, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { API_URL } from "../../config";
+import { supabase } from "../../utils/supabase";
 
 export default function UserDashboard() {
   const [userName, setUserName] = useState("");
   const [submitterName, setSubmitterName] = useState("");
+  const [userId, setUserId] = useState("");
+  const [userEmail, setUserEmail] = useState("");
   const [recentItems, setRecentItems] = useState<any[]>([]);
+  const [partneredFacilities, setPartneredFacilities] = useState<any[]>([]);
+  const [loadingFacilities, setLoadingFacilities] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [searchText, setSearchText] = useState("");
   const [searchedFacilities, setSearchedFacilities] = useState<any[]>([]);
@@ -31,6 +37,7 @@ export default function UserDashboard() {
 
   useEffect(() => {
     loadUser();
+    fetchApprovedFacilities();
   }, []);
 
   useFocusEffect(
@@ -40,10 +47,24 @@ export default function UserDashboard() {
   );
 
   useEffect(() => {
-    if (submitterName) {
-      fetchRecentItems();
-    }
-  }, [submitterName]);
+    if (!userId) return;
+
+    fetchRecentItems(userId);
+
+    const interval = setInterval(() => {
+      fetchRecentItems(userId);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [userId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (userId) {
+        fetchRecentItems(userId);
+      }
+    }, [userId])
+  );
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -62,60 +83,207 @@ export default function UserDashboard() {
     try {
       const storedUser = await AsyncStorage.getItem("user");
 
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
+      if (!storedUser) {
+        setUserId("");
+        setUserEmail("");
+        setUserName("User");
+        setSubmitterName("");
+        setRecentItems([]);
+        return;
+      }
 
-        const name =
-          parsed?.name ||
-          parsed?.user?.name ||
-          parsed?.data?.name ||
-          parsed?.fullname ||
-          parsed?.full_name ||
-          parsed?.username ||
-          parsed?.user?.username ||
-          parsed?.data?.username ||
-          "User";
+      const parsed = JSON.parse(storedUser);
+      const actualUser = parsed.user || parsed.data || parsed;
 
-        setUserName(name);
-        setSubmitterName(String(name).trim());
+      const id =
+        actualUser?.id ||
+        actualUser?.user_id ||
+        parsed?.id ||
+        parsed?.user_id ||
+        "";
+
+      const email =
+        actualUser?.email ||
+        parsed?.email ||
+        actualUser?.user_email ||
+        parsed?.user_email ||
+        "";
+
+      const name =
+        actualUser?.name ||
+        parsed?.name ||
+        actualUser?.fullname ||
+        parsed?.fullname ||
+        actualUser?.full_name ||
+        parsed?.full_name ||
+        actualUser?.username ||
+        parsed?.username ||
+        "User";
+
+      setUserId(String(id || ""));
+      setUserEmail(String(email || ""));
+      setUserName(String(name || "User"));
+      setSubmitterName(String(name || "").trim());
+
+      if (id) {
+        fetchRecentItems(String(id));
       }
     } catch (error) {
       console.log("LOAD USER ERROR:", error);
     }
   };
 
-  const fetchRecentItems = async () => {
+  const getItemStatus = (item: any) => {
+    const status = String(
+      item?.status ||
+        item?.item_status ||
+        item?.approval_status ||
+        item?.match_status ||
+        ""
+    )
+      .trim()
+      .toLowerCase();
+
+    const matchStatus = String(item?.match_status || "")
+      .trim()
+      .toLowerCase();
+
+    if (matchStatus === "pending match") return "Pending Match";
+    if (matchStatus === "match pending") return "Pending Match";
+    if (matchStatus === "matched") return "Matched";
+    if (matchStatus === "finished") return "Finished";
+    if (matchStatus === "recycled") return "Finished";
+    if (matchStatus === "completed") return "Completed";
+
+    if (status === "rejected") return "Rejected";
+    if (status === "approved") return "Approved";
+    if (status === "listed") return "Listed";
+    if (status === "pending") return "Pending";
+    if (status === "matched") return "Matched";
+    if (status === "finished") return "Finished";
+    if (status === "completed") return "Completed";
+    if (status === "recycled") return "Finished";
+
+    return "Pending";
+  };
+
+  const getItemTimeValue = (item: any) => {
+    const dateValue =
+      item.updated_at ||
+      item.listed_at ||
+      item.matched_at ||
+      item.finished_at ||
+      item.approved_at ||
+      item.rejected_at ||
+      item.submitted_at ||
+      item.created_at ||
+      item.date_created ||
+      item.date_submitted ||
+      item.id ||
+      0;
+
+    const date = new Date(dateValue);
+
+    if (!isNaN(date.getTime())) {
+      return date.getTime();
+    }
+
+    const numberValue = Number(dateValue);
+    return isNaN(numberValue) ? 0 : numberValue;
+  };
+
+  const sortByLatestSubmitted = (list: any[]) => {
+    return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
+  };
+
+  const fetchRecentItems = async (currentUserId = userId) => {
     try {
-      const encodedName = encodeURIComponent(submitterName);
-
-      const response = await fetch(
-        `${API_URL}/get_my_items.php?submitter_name=${encodedName}`
-      );
-
-      const text = await response.text();
-      console.log("DASHBOARD RECENT ITEMS RESPONSE:", text);
-
-      let result;
-
-      try {
-        result = JSON.parse(text);
-      } catch (parseError) {
-        console.log("RECENT ITEMS JSON PARSE ERROR:", parseError);
-        console.log("RAW RECENT ITEMS RESPONSE:", text);
+      if (!currentUserId) {
         setRecentItems([]);
         return;
       }
 
-      if (result.success && Array.isArray(result.items)) {
-        const limitedItems = result.items.slice(0, 3);
-        setRecentItems(limitedItems);
-      } else {
-        setRecentItems([]);
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .eq("user_id", String(currentUserId))
+        .order("updated_at", { ascending: false });
+
+      if (error) {
+        console.log("DASHBOARD RECENT ITEMS SUPABASE ERROR:", error);
+
+        const fallback = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", String(currentUserId))
+          .order("created_at", { ascending: false });
+
+        if (fallback.error) {
+          console.log("DASHBOARD RECENT ITEMS FALLBACK ERROR:", fallback.error);
+          setRecentItems([]);
+          return;
+        }
+
+        setRecentItems(sortByLatestSubmitted(fallback.data || []).slice(0, 3));
+        return;
       }
+
+      setRecentItems(sortByLatestSubmitted(data || []).slice(0, 3));
     } catch (error) {
       console.log("FETCH RECENT ITEMS ERROR:", error);
       setRecentItems([]);
     }
+  };
+
+  const fetchApprovedFacilities = async () => {
+    try {
+      setLoadingFacilities(true);
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          `
+          id,
+          name,
+          role,
+          status,
+          address,
+          location,
+          profile_image,
+          updated_at
+        `
+        )
+        .ilike("role", "facility")
+        .ilike("status", "approved")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.log("DASHBOARD APPROVED FACILITIES ERROR:", error);
+        setPartneredFacilities([]);
+        return;
+      }
+
+      setPartneredFacilities(data || []);
+    } catch (error) {
+      console.log("FETCH APPROVED FACILITIES ERROR:", error);
+      setPartneredFacilities([]);
+    } finally {
+      setLoadingFacilities(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+
+    await loadUser();
+
+    if (userId) {
+      await fetchRecentItems(userId);
+    }
+
+    await fetchApprovedFacilities();
+
+    setRefreshing(false);
   };
 
   const searchApprovedFacilities = async (keyword: string) => {
@@ -123,31 +291,36 @@ export default function UserDashboard() {
       setIsSearching(true);
       setShowSearchResults(true);
 
-      const encodedKeyword = encodeURIComponent(keyword);
+      const cleanKeyword = `%${keyword}%`;
 
-      const response = await fetch(
-        `${API_URL}/search_approved_facilities.php?search=${encodedKeyword}`
-      );
+      const { data, error } = await supabase
+        .from("profiles")
+        .select(
+          `
+          id,
+          name,
+          role,
+          status,
+          address,
+          location,
+          profile_image,
+          updated_at
+        `
+        )
+        .ilike("role", "facility")
+        .ilike("status", "approved")
+        .or(
+          `name.ilike.${cleanKeyword},address.ilike.${cleanKeyword},location.ilike.${cleanKeyword}`
+        )
+        .order("id", { ascending: false });
 
-      const text = await response.text();
-      console.log("SEARCH FACILITIES RESPONSE:", text);
-
-      let result;
-
-      try {
-        result = JSON.parse(text);
-      } catch (parseError) {
-        console.log("FACILITY SEARCH JSON PARSE ERROR:", parseError);
-        console.log("RAW FACILITY SEARCH RESPONSE:", text);
+      if (error) {
+        console.log("SEARCH APPROVED FACILITIES ERROR:", error);
         setSearchedFacilities([]);
         return;
       }
 
-      if (result.success && Array.isArray(result.facilities)) {
-        setSearchedFacilities(result.facilities);
-      } else {
-        setSearchedFacilities([]);
-      }
+      setSearchedFacilities(data || []);
     } catch (error) {
       console.log("SEARCH FACILITIES ERROR:", error);
       setSearchedFacilities([]);
@@ -163,34 +336,85 @@ export default function UserDashboard() {
     Keyboard.dismiss();
   };
 
-  const getImageUrl = (item: any) => {
-    if (!item.item_image) {
-      return `${API_URL}/assets/icons/no-image.png`;
+  const normalizeStoragePath = (path: string, bucket: string) => {
+    if (!path || String(path).trim() === "") return "";
+
+    let cleanPath = String(path).trim();
+
+    if (cleanPath.startsWith("http")) {
+      return cleanPath;
     }
 
-    if (item.folder === "approved") {
-      return `${API_URL}/uploads/items/approved/${item.item_image}`;
-    }
+    cleanPath = cleanPath.replace(/^\/+/, "");
+    cleanPath = cleanPath.replace(`${bucket}/`, "");
+    cleanPath = cleanPath.replace(`public/${bucket}/`, "");
+    cleanPath = cleanPath.replace(`storage/v1/object/public/${bucket}/`, "");
 
-    if (item.folder === "rejected") {
-      return `${API_URL}/uploads/items/rejected/${item.item_image}`;
-    }
-
-    return `${API_URL}/uploads/items/pending/${item.item_image}`;
+    return cleanPath;
   };
 
-  const getFacilityProfileUrl = (facility: any) => {
-    if (facility.profile_image_url && String(facility.profile_image_url).trim() !== "") {
-      return facility.profile_image_url;
+  const getPublicImageUrl = (bucket: string, path: string) => {
+    if (!path || String(path).trim() === "") return "";
+
+    const cleanPath = normalizeStoragePath(path, bucket);
+
+    if (cleanPath.startsWith("http")) {
+      return encodeURI(cleanPath);
     }
 
-    if (facility.profile_image && String(facility.profile_image).trim() !== "") {
-      return `${API_URL}/uploads/profile/facility_profile/${encodeURIComponent(
-        facility.profile_image
-      )}`;
+    const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
+
+    return data?.publicUrl ? encodeURI(data.publicUrl) : "";
+  };
+
+  const getItemImageSource = (item: any) => {
+    const imagePath =
+      item?.item_image ||
+      item?.image ||
+      item?.image_path ||
+      item?.item_image_url ||
+      item?.image_url ||
+      item?.photo ||
+      item?.photo_url ||
+      "";
+
+    if (!imagePath || String(imagePath).trim() === "") {
+      return require("../../assets/icons/icon.png");
     }
 
-    return `${API_URL}/assets/icons/avatar.png`;
+    const imageUrl = getPublicImageUrl("item-images", String(imagePath));
+
+    if (!imageUrl) {
+      return require("../../assets/icons/icon.png");
+    }
+
+    return {
+      uri: `${imageUrl}?v=${item?.updated_at || item?.created_at || Date.now()}`,
+    };
+  };
+
+  const getFacilityProfileImageSource = (facility: any) => {
+    const profileImage = facility.profile_image || "";
+
+    if (!profileImage || String(profileImage).trim() === "") {
+      return require("../../assets/icons/avatar.png");
+    }
+
+    if (String(profileImage).startsWith("http")) {
+      return {
+        uri: `${profileImage}?v=${facility.updated_at || Date.now()}`,
+      };
+    }
+
+    const publicUrl = getPublicImageUrl("profile-images", profileImage);
+
+    if (publicUrl) {
+      return {
+        uri: `${publicUrl}?v=${facility.updated_at || Date.now()}`,
+      };
+    }
+
+    return require("../../assets/icons/avatar.png");
   };
 
   const getFacilityLocation = (facility: any) => {
@@ -206,10 +430,27 @@ export default function UserDashboard() {
   };
 
   const getStatusStyle = (status: string) => {
-    if (status === "Listed") return styles.statusGreen;
-    if (status === "Approved") return styles.statusBlue;
-    if (status === "Rejected") return styles.statusRed;
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+
+    if (normalizedStatus === "listed") return styles.statusGreen;
+    if (normalizedStatus === "approved") return styles.statusBlue;
+    if (normalizedStatus === "matched") return styles.statusBlue;
+    if (normalizedStatus === "pending match") return styles.statusOrange;
+    if (normalizedStatus === "pending") return styles.statusOrange;
+    if (normalizedStatus === "rejected") return styles.statusRed;
+    if (normalizedStatus === "finished") return styles.statusGreen;
+    if (normalizedStatus === "completed") return styles.statusGreen;
+
     return styles.statusGray;
+  };
+
+  const openFacilityProfile = (facility: any) => {
+    router.push({
+      pathname: "/user_dashboard/facility_view_profile" as any,
+      params: {
+        facility_id: String(facility.id || ""),
+      },
+    });
   };
 
   return (
@@ -219,8 +460,11 @@ export default function UserDashboard() {
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         >
-          {/* HEADER */}
           <View style={styles.header}>
             <Text style={styles.welcome}>
               Welcome Back{userName ? `, ${userName}` : ""}!
@@ -232,7 +476,6 @@ export default function UserDashboard() {
             />
           </View>
 
-          {/* SEARCH */}
           <View style={styles.searchArea}>
             <View style={styles.searchBox}>
               <TextInput
@@ -263,7 +506,6 @@ export default function UserDashboard() {
                 {isSearching ? (
                   <View style={styles.searchLoading}>
                     <ActivityIndicator size="small" color="#2f7d1f" />
-
                     <Text style={styles.searchLoadingText}>Searching...</Text>
                   </View>
                 ) : searchedFacilities.length > 0 ? (
@@ -274,31 +516,18 @@ export default function UserDashboard() {
                   >
                     {searchedFacilities.map((facility) => (
                       <TouchableOpacity
-                        key={`facility-${facility.id}`}
+                        key={`facility-search-${facility.id}`}
                         style={styles.facilitySearchItem}
                         activeOpacity={0.8}
                         onPress={() => {
                           Keyboard.dismiss();
                           setShowSearchResults(false);
-
-                          router.push({
-                            pathname:
-                              "/user_dashboard/facility_view_profile" as any,
-                            params: {
-                              facility_id: facility.id,
-                            },
-                          });
+                          openFacilityProfile(facility);
                         }}
                       >
                         <Image
-                          source={{ uri: getFacilityProfileUrl(facility) }}
+                          source={getFacilityProfileImageSource(facility)}
                           style={styles.searchFacilityImage}
-                          onError={(e) => {
-                            console.log(
-                              "FACILITY IMAGE ERROR:",
-                              e.nativeEvent
-                            );
-                          }}
                         />
 
                         <View style={styles.searchFacilityInfo}>
@@ -306,7 +535,10 @@ export default function UserDashboard() {
                             {facility.name || "No facility name"}
                           </Text>
 
-                          <Text style={styles.searchFacilityLocation}>
+                          <Text
+                            style={styles.searchFacilityLocation}
+                            numberOfLines={1}
+                          >
                             {getFacilityLocation(facility)}
                           </Text>
                         </View>
@@ -324,7 +556,6 @@ export default function UserDashboard() {
             )}
           </View>
 
-          {/* BANNER */}
           <ImageBackground
             source={require("../../assets/images/banner.jpg")}
             style={styles.banner}
@@ -341,7 +572,6 @@ export default function UserDashboard() {
             </Text>
           </ImageBackground>
 
-          {/* RECENT ITEMS */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Items</Text>
 
@@ -353,60 +583,91 @@ export default function UserDashboard() {
           </View>
 
           {recentItems.length > 0 ? (
-            recentItems.map((item) => (
-              <View key={`${item.folder}-${item.id}`} style={styles.itemCard}>
-                <Image
-                  source={{ uri: getImageUrl(item) }}
-                  style={styles.itemImage}
-                />
+            recentItems.map((item) => {
+              const currentStatus = getItemStatus(item);
 
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.itemTitle}>
-                    {item.item_name || "No item name"}
-                  </Text>
+              return (
+                <View
+                  key={`recent-item-${item.id}-${currentStatus}-${item.updated_at || item.created_at || ""}`}
+                  style={styles.itemCard}
+                >
+                  <Image
+                    source={getItemImageSource(item)}
+                    style={styles.itemImage}
+                  />
 
-                  <Text style={styles.itemSub}>
-                    {item.description || "No description"}
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.itemTitle}>
+                      {item.item_name || item.item_type || "No item name"}
+                    </Text>
+
+                    <Text style={styles.itemSub} numberOfLines={1}>
+                      {item.description || "No description"}
+                    </Text>
+                  </View>
+
+                  <Text style={getStatusStyle(currentStatus)}>
+                    {currentStatus}
                   </Text>
                 </View>
-
-                <Text style={getStatusStyle(item.status)}>
-                  {item.status || "Pending"}
-                </Text>
-              </View>
-            ))
+              );
+            })
           ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>No recent items yet.</Text>
             </View>
           )}
 
-          {/* FACILITIES */}
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Partnered Recycling Facilities</Text>
-            <Text style={styles.viewAll}>View More</Text>
+            <Text style={styles.sectionTitle}>
+              Partnered Recycling Facilities
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => router.push("/user_dashboard/user_map" as any)}
+            >
+              <Text style={styles.viewAll}>View More</Text>
+            </TouchableOpacity>
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.facilityCard}>
-              <Image
-                source={require("../../assets/images/dyma.webp")}
-                style={styles.facilityImage}
-              />
-              <Text style={styles.facilityName}>Dyma Trading & Junk Shop</Text>
+          {loadingFacilities ? (
+            <View style={styles.emptyCard}>
+              <ActivityIndicator size="small" color="#2f7d1f" />
+              <Text style={styles.emptyText}>Loading facilities...</Text>
             </View>
+          ) : partneredFacilities.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {partneredFacilities.map((facility) => (
+                <TouchableOpacity
+                  key={`partnered-facility-${facility.id}`}
+                  style={styles.facilityCard}
+                  activeOpacity={0.85}
+                  onPress={() => openFacilityProfile(facility)}
+                >
+                  <Image
+                    source={getFacilityProfileImageSource(facility)}
+                    style={styles.facilityImage}
+                  />
 
-            <View style={styles.facilityCard}>
-              <Image
-                source={require("../../assets/images/villa.webp")}
-                style={styles.facilityImage}
-              />
-              <Text style={styles.facilityName}>Villa Fe Junk Shop</Text>
+                  <Text style={styles.facilityName} numberOfLines={2}>
+                    {facility.name || "Unnamed Facility"}
+                  </Text>
+
+                  <Text style={styles.facilityLocation} numberOfLines={2}>
+                    {getFacilityLocation(facility)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyText}>
+                No approved partnered facilities yet.
+              </Text>
             </View>
-          </ScrollView>
+          )}
         </ScrollView>
 
-        {/* NAVBAR */}
         <View style={styles.bottomNav}>
           <TouchableOpacity
             style={styles.navItem}
@@ -439,8 +700,7 @@ export default function UserDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/user_dashboard/user_scan" &&
-                  styles.navActive,
+                pathname === "/user_dashboard/user_scan" && styles.navActive,
               ]}
             >
               Scan
@@ -459,8 +719,7 @@ export default function UserDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/user_dashboard/user_map" &&
-                  styles.navActive,
+                pathname === "/user_dashboard/user_map" && styles.navActive,
               ]}
             >
               Map
@@ -549,6 +808,8 @@ const styles = StyleSheet.create({
   welcome: {
     fontSize: 18,
     fontWeight: "600",
+    flex: 1,
+    marginRight: 10,
   },
 
   avatar: {
@@ -719,6 +980,7 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 10,
+    backgroundColor: "#eee",
   },
 
   itemTitle: {
@@ -737,6 +999,11 @@ const styles = StyleSheet.create({
 
   statusBlue: {
     color: "#1976d2",
+    fontWeight: "600",
+  },
+
+  statusOrange: {
+    color: "orange",
     fontWeight: "600",
   },
 
@@ -761,23 +1028,37 @@ const styles = StyleSheet.create({
   emptyText: {
     color: "gray",
     fontSize: 14,
+    marginTop: 5,
   },
 
   facilityCard: {
+    width: 165,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 10,
     marginRight: 15,
     marginTop: 10,
   },
 
   facilityImage: {
-    width: 160,
-    height: 140,
-    borderRadius: 15,
+    width: "100%",
+    height: 115,
+    borderRadius: 12,
+    backgroundColor: "#e0e0e0",
   },
 
   facilityName: {
-    marginTop: 5,
-    fontWeight: "600",
-    width: 160,
+    marginTop: 8,
+    fontWeight: "700",
+    fontSize: 14,
+    color: "#222",
+  },
+
+  facilityLocation: {
+    marginTop: 3,
+    fontSize: 12,
+    color: "#777",
+    lineHeight: 15,
   },
 
   bottomNav: {
