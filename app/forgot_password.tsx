@@ -19,173 +19,123 @@ import { supabase } from "../utils/supabase";
 export default function ForgotPassword() {
   const router = useRouter();
 
-  const [email, setEmail] =
-    useState("");
+  const [email, setEmail] = useState("");
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const sendResetEmail =
-    async () => {
-      if (!email.trim()) {
-        Toast.show({
-          type: "error",
-          text1:
-            "Email Required",
-          text2:
-            "Please enter your registered email",
-        });
-        return;
-      }
+  const sendResetEmail = async () => {
+    if (!email.trim()) {
+      Toast.show({
+        type: "error",
+        text1: "Email Required",
+        text2: "Please enter your registered email",
+      });
+      return;
+    }
 
-      setLoading(true);
+    setLoading(true);
 
-      try {
-        const { error } =
-          await supabase.auth.resetPasswordForEmail(
-            email.trim(),
-            {
-              redirectTo:
-                "erecyclomatch://reset_password",
-            }
-          );
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        {
+          redirectTo: "exp://192.168.254.144:8081/--/reset_password",
+        },
+      );
 
-        if (error) {
-          setLoading(false);
-
-          Toast.show({
-            type: "error",
-            text1:
-              "Failed",
-            text2:
-              error.message,
-          });
-
-          return;
-        }
-
-        Toast.show({
-          type: "success",
-          text1:
-            "Reset Link Sent",
-          text2:
-            "Check your registered email",
-        });
-
-        setTimeout(() => {
-          setLoading(false);
-          router.replace(
-            "/signin"
-          );
-        }, 2500);
-      } catch (error) {
-        console.log(error);
-
+      if (error) {
         setLoading(false);
 
         Toast.show({
           type: "error",
-          text1:
-            "Server Error",
-          text2:
-            "Please try again",
+          text1: "Failed",
+          text2: error.message,
         });
+
+        return;
       }
-    };
+
+      Toast.show({
+        type: "success",
+        text1: "Reset Link Sent",
+        text2: "Check your registered email",
+      });
+
+      setTimeout(() => {
+        setLoading(false);
+        router.replace("/signin");
+      }, 2500);
+    } catch (error) {
+      console.log(error);
+
+      setLoading(false);
+
+      Toast.show({
+        type: "error",
+        text1: "Server Error",
+        text2: "Please try again",
+      });
+    }
+  };
 
   return (
     <SafeAreaView
       style={{
         flex: 1,
-        backgroundColor:
-          "#DDEFD3",
+        backgroundColor: "#DDEFD3",
       }}
     >
       <KeyboardAvoidingView
         style={{
           flex: 1,
         }}
-        behavior={
-          Platform.OS ===
-          "ios"
-            ? "padding"
-            : undefined
-        }
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
-            justifyContent:
-              "center",
+            justifyContent: "center",
             padding: 20,
           }}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={
-            false
-          }
+          showsVerticalScrollIndicator={false}
         >
           {/* Top Buttons */}
           <View
             style={{
-              position:
-                "absolute",
+              position: "absolute",
               top: 60,
               left: 20,
               right: 20,
-              flexDirection:
-                "row",
-              justifyContent:
-                "space-between",
-              alignItems:
-                "center",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
               zIndex: 10,
             }}
           >
-            <Pressable
-              onPress={() =>
-                router.back()
-              }
-            >
-              <Ionicons
-                name="arrow-back"
-                size={26}
-                color="#1B5E20"
-              />
+            <Pressable onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={26} color="#1B5E20" />
             </Pressable>
 
-            <Pressable
-              onPress={() =>
-                router.replace(
-                  "/signin"
-                )
-              }
-            >
-              <Ionicons
-                name="close"
-                size={30}
-                color="#1B5E20"
-              />
+            <Pressable onPress={() => router.replace("/signin")}>
+              <Ionicons name="close" size={30} color="#1B5E20" />
             </Pressable>
           </View>
 
           {/* Image */}
           <View
             style={{
-              alignItems:
-                "center",
+              alignItems: "center",
               marginTop: 10,
               marginBottom: -10,
             }}
           >
             <Image
-              source={require(
-                "../assets/images/forgot-person.png"
-              )}
+              source={require("../assets/images/forgot-person.png")}
               style={{
                 width: 320,
                 height: 320,
-                resizeMode:
-                  "contain",
+                resizeMode: "contain",
               }}
             />
           </View>
@@ -194,10 +144,8 @@ export default function ForgotPassword() {
           <Text
             style={{
               fontSize: 32,
-              fontWeight:
-                "bold",
-              textAlign:
-                "center",
+              fontWeight: "bold",
+              textAlign: "center",
               marginTop: -10,
               marginBottom: 10,
             }}
@@ -208,68 +156,48 @@ export default function ForgotPassword() {
           {/* Description */}
           <Text
             style={{
-              textAlign:
-                "center",
-              color:
-                "#666",
+              textAlign: "center",
+              color: "#666",
               fontSize: 16,
               lineHeight: 24,
               marginBottom: 25,
               paddingHorizontal: 20,
             }}
           >
-            A reset link will
-            be sent to your
-            registered email
-            where you can
-            securely create a
-            new password.
+            A reset link will be sent to your registered email where you can
+            securely create a new password.
           </Text>
 
           {/* Email Card */}
           <View
             style={{
-              backgroundColor:
-                "#FFFFFF",
-              borderRadius:
-                18,
+              backgroundColor: "#FFFFFF",
+              borderRadius: 18,
               padding: 18,
-              marginBottom:
-                25,
+              marginBottom: 25,
               elevation: 3,
             }}
           >
             <Text
               style={{
-                color:
-                  "#777",
-                marginBottom:
-                  14,
-                textAlign:
-                  "center",
+                color: "#777",
+                marginBottom: 14,
+                textAlign: "center",
               }}
             >
-              Enter your
-              registered email
-              below
+              Enter your registered email below
             </Text>
 
             <TextInput
               value={email}
-              onChangeText={
-                setEmail
-              }
+              onChangeText={setEmail}
               placeholder="sample.email@gmail.com"
               keyboardType="email-address"
               autoCapitalize="none"
-              autoCorrect={
-                false
-              }
+              autoCorrect={false}
               style={{
-                backgroundColor:
-                  "#F4F4F4",
-                borderRadius:
-                  14,
+                backgroundColor: "#F4F4F4",
+                borderRadius: 14,
                 padding: 15,
                 fontSize: 15,
               }}
@@ -278,41 +206,27 @@ export default function ForgotPassword() {
 
           {/* Button */}
           <Pressable
-            onPress={
-              sendResetEmail
-            }
+            onPress={sendResetEmail}
             disabled={loading}
             style={{
-              backgroundColor:
-                "#1B5E20",
+              backgroundColor: "#1B5E20",
               padding: 18,
-              borderRadius:
-                18,
-              opacity:
-                loading
-                  ? 0.8
-                  : 1,
+              borderRadius: 18,
+              opacity: loading ? 0.8 : 1,
             }}
           >
             {loading ? (
-              <ActivityIndicator
-                size="small"
-                color="#fff"
-              />
+              <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text
                 style={{
-                  color:
-                    "#fff",
-                  textAlign:
-                    "center",
-                  fontWeight:
-                    "bold",
+                  color: "#fff",
+                  textAlign: "center",
+                  fontWeight: "bold",
                   fontSize: 16,
                 }}
               >
-                Send Reset
-                Link
+                Send Reset Link
               </Text>
             )}
           </Pressable>

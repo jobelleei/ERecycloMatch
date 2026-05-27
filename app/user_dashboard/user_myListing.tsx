@@ -114,7 +114,9 @@ export default function MyListing() {
     const status =
       item.match_status || item.matchStatus || item.status || "Listed";
 
-    const cleanStatus = String(status || "").trim().toLowerCase();
+    const cleanStatus = String(status || "")
+      .trim()
+      .toLowerCase();
 
     if (cleanStatus === "matched") return "Matched";
     if (cleanStatus === "pending match") return "Pending Match";
@@ -150,7 +152,7 @@ export default function MyListing() {
   useFocusEffect(
     useCallback(() => {
       loadUser();
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -220,7 +222,9 @@ export default function MyListing() {
       }
 
       const listedOnly = (data || []).filter((item: any) => {
-        const status = String(item.status || "").trim().toLowerCase();
+        const status = String(item.status || "")
+          .trim()
+          .toLowerCase();
         const matchStatus = String(item.match_status || "")
           .trim()
           .toLowerCase();
@@ -485,8 +489,8 @@ export default function MyListing() {
           "problem",
           "problems",
           "condition",
-        ])
-      )
+        ]),
+      ),
     );
   };
 
@@ -548,7 +552,7 @@ export default function MyListing() {
         "created_by",
         "created_by_id",
         "account_id",
-      ])
+      ]),
     ).trim();
   };
 
@@ -636,7 +640,7 @@ export default function MyListing() {
 
   const isPostActive = (post: any) => {
     const status = normalizeText(
-      getValueFromKeys(post, ["status", "post_status", "state"]) || "active"
+      getValueFromKeys(post, ["status", "post_status", "state"]) || "active",
     );
 
     if (!status) return true;
@@ -659,6 +663,48 @@ export default function MyListing() {
     return role.includes("facility");
   };
 
+  //filtering keywords to help determine condition type and potential matches
+  const BROKEN_KEYWORDS = [
+    "broken",
+    "damaged",
+    "defective",
+    "repair",
+    "for repair",
+    "scrap",
+    "parts",
+    "not working",
+    "destroyed",
+    "cracked",
+    "basag",
+    "guba",
+    "defect",
+  ];
+
+  const WORKING_KEYWORDS = [
+    "working",
+    "reusable",
+    "functional",
+    "good condition",
+    "usable",
+    "slightly used",
+    "still works",
+    "okay",
+    "good",
+  ];
+
+  const detectConditionType = (text: string) => {
+    const cleanText = String(text || "").toLowerCase();
+
+    const isBroken = BROKEN_KEYWORDS.some((word) => cleanText.includes(word));
+
+    const isWorking = WORKING_KEYWORDS.some((word) => cleanText.includes(word));
+
+    if (isBroken) return "broken";
+    if (isWorking) return "working";
+
+    return "unknown";
+  };
+
   const calculateMatchScore = (item: any, post: any) => {
     const itemName = getItemNameText(item);
     const itemDescription = getItemDescriptionText(item);
@@ -667,6 +713,73 @@ export default function MyListing() {
     const postItemNeeded = getPostItemNeededText(post);
     const postDescription = getPostDescriptionText(post);
     const postIssues = getPostIssuesText(post);
+
+    //detect condition type for item and facility based on description and issues to prevent matching working items with broken facilities and vice versa
+    const itemCondition = detectConditionType(
+      `${itemDescription} ${itemIssues}`,
+    );
+
+    const facilityCondition = detectConditionType(
+      `${postDescription} ${postIssues}`,
+    );
+
+    // Get accepted/rejected conditions
+    const acceptedConditions = String(
+      post.conditions_accepted || "",
+    ).toLowerCase();
+
+    const rejectedConditions = String(
+      post.conditions_rejected || "",
+    ).toLowerCase();
+
+    // Detect if user item looks broken
+    const itemLooksBroken = itemCondition === "broken";
+
+    // Detect if user item looks working
+    const itemLooksWorking = itemCondition === "working";
+
+  
+    // Facility accepts BROKEN only, Hide working items
+    if (acceptedConditions.includes("broken") && itemLooksWorking) {
+      console.log("MATCH FILTERED: facility accepts broken only");
+
+      return {
+        isMatched: false,
+        score: 0,
+        nameScore: 0,
+        descriptionScore: 0,
+        issueScore: 0,
+        matchedIssues: [],
+      };
+    }
+
+    // Facility rejects broken items
+    if (rejectedConditions.includes("broken") && itemLooksBroken) {
+      console.log("MATCH FILTERED: broken item rejected by facility");
+
+      return {
+        isMatched: false,
+        score: 0,
+        nameScore: 0,
+        descriptionScore: 0,
+        issueScore: 0,
+        matchedIssues: [],
+      };
+    }
+
+    //  filtering
+    if (itemCondition === "working" && facilityCondition === "broken") {
+      console.log("MATCH FILTERED: working item cannot match broken facility");
+
+      return {
+        isMatched: false,
+        score: 0,
+        nameScore: 0,
+        descriptionScore: 0,
+        issueScore: 0,
+        matchedIssues: [],
+      };
+    }
 
     const itemNameIsUnknown = isUnknownLabel(itemName);
     const postNeededIsUnknown = isUnknownLabel(postItemNeeded);
@@ -704,12 +817,12 @@ export default function MyListing() {
 
       matchedDescriptionTokens = getMatchedTokens(
         `${itemDescription} ${itemIssues}`,
-        `${postDescription} ${postIssues}`
+        `${postDescription} ${postIssues}`,
       );
 
       descriptionScore = getTokenScore(
         `${itemDescription} ${itemIssues}`,
-        `${postDescription} ${postIssues}`
+        `${postDescription} ${postIssues}`,
       );
 
       isMatched = true;
@@ -726,14 +839,14 @@ export default function MyListing() {
 
       matchedDescriptionTokens = getMatchedTokens(
         itemFallbackText,
-        postFallbackText
+        postFallbackText,
       );
 
       descriptionScore = getTokenScore(itemFallbackText, postFallbackText);
 
       const fallbackSubstringMatch = hasSubstringMatch(
         itemFallbackText,
-        postFallbackText
+        postFallbackText,
       );
 
       isMatched =
@@ -1070,13 +1183,13 @@ export default function MyListing() {
 
               Alert.alert(
                 "Listing Removed",
-                "This item was removed from your listings and returned to My Items."
+                "This item was removed from your listings and returned to My Items.",
               );
 
               setItems((prevItems) =>
                 prevItems.filter(
-                  (currentItem) => String(currentItem.id) !== String(item.id)
-                )
+                  (currentItem) => String(currentItem.id) !== String(item.id),
+                ),
               );
 
               setSelectedItem(null);
@@ -1087,7 +1200,7 @@ export default function MyListing() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -1117,8 +1230,8 @@ export default function MyListing() {
                 match_status: "Pending Match",
                 updated_at: new Date().toISOString(),
               }
-            : item
-        )
+            : item,
+        ),
       );
     } catch (error) {
       console.log("MARK PENDING MATCH ERROR:", error);
@@ -1218,7 +1331,7 @@ export default function MyListing() {
 
       Alert.alert(
         "Request Sent",
-        "Your request has been sent to this facility."
+        "Your request has been sent to this facility.",
       );
 
       router.push({
@@ -1233,7 +1346,9 @@ export default function MyListing() {
               : "",
           item_id: cleanItemId,
           item_name:
-            selectedMatchedItem.item_name || selectedMatchedItem.item_type || "",
+            selectedMatchedItem.item_name ||
+            selectedMatchedItem.item_type ||
+            "",
         },
       });
     } catch (error) {
@@ -1305,7 +1420,7 @@ export default function MyListing() {
 
     if (postFacilityId) {
       const exactIdProfile = profiles.find(
-        (profile: any) => String(profile.id) === String(postFacilityId)
+        (profile: any) => String(profile.id) === String(postFacilityId),
       );
 
       if (exactIdProfile) {
@@ -1356,7 +1471,7 @@ export default function MyListing() {
         return profileNames.some(
           (name) =>
             name.includes(cleanPostFacilityName) ||
-            cleanPostFacilityName.includes(name)
+            cleanPostFacilityName.includes(name),
         );
       });
 
@@ -1428,7 +1543,7 @@ export default function MyListing() {
       if (!canFindMatchForItem(item)) {
         Alert.alert(
           "Match Unavailable",
-          "This item already has a match request or has already been matched."
+          "This item already has a match request or has already been matched.",
         );
         return;
       }
@@ -1449,7 +1564,7 @@ export default function MyListing() {
       const facilityProfiles = await fetchAllFacilityProfiles();
 
       const activePosts = (facilityPosts || []).filter((post: any) =>
-        isPostActive(post)
+        isPostActive(post),
       );
 
       console.log("ACTIVE FACILITY POSTS:", activePosts.length);
@@ -1486,7 +1601,7 @@ export default function MyListing() {
             getFacilityIdFromPost(post) ||
             normalizeText(getFacilityNameFromPost(post)) ||
             post.id ||
-            ""
+            "",
         );
 
         if (!facilityKey) return;
@@ -1714,7 +1829,7 @@ export default function MyListing() {
                       onPress={() =>
                         openImagePreview(
                           getItemImageSource(editingItem),
-                          "Item Photo"
+                          "Item Photo",
                         )
                       }
                     >
@@ -1728,7 +1843,9 @@ export default function MyListing() {
                       Tap the image to view the whole photo.
                     </Text>
 
-                    <Text style={styles.modalLabel}>Submitted Issue Photos</Text>
+                    <Text style={styles.modalLabel}>
+                      Submitted Issue Photos
+                    </Text>
 
                     {loadingIssuePhotos ? (
                       <View style={styles.issuePhotosEmptyBox}>
@@ -1753,7 +1870,8 @@ export default function MyListing() {
                               onPress={() =>
                                 openImagePreview(
                                   source,
-                                  photo.issue_name || `Issue Photo ${index + 1}`
+                                  photo.issue_name ||
+                                    `Issue Photo ${index + 1}`,
                                 )
                               }
                             >
@@ -1845,7 +1963,8 @@ export default function MyListing() {
                             </Text>
                             <Text style={styles.matchedDetailText}>
                               {formatDateTime(
-                                matchedDetail.updated_at || matchedDetail.created_at
+                                matchedDetail.updated_at ||
+                                  matchedDetail.created_at,
                               )}
                             </Text>
 
@@ -1972,7 +2091,10 @@ export default function MyListing() {
               >
                 {matchedFacilities.map((facility, index) => (
                   <View key={index} style={styles.facilityMatchCard}>
-                    <Image source={facility.image} style={styles.facilityImage} />
+                    <Image
+                      source={facility.image}
+                      style={styles.facilityImage}
+                    />
 
                     <Text style={styles.facilityName}>{facility.name}</Text>
 
