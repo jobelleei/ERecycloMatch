@@ -73,7 +73,7 @@ export default function FacilitySignup() {
   const openDropdown = (
     title: string,
     options: string[],
-    onSelect: (value: string) => void
+    onSelect: (value: string) => void,
   ) => {
     setDropdownTitle(title);
     setDropdownOptions(options);
@@ -93,10 +93,10 @@ export default function FacilitySignup() {
     newStreet = street,
     newBarangay = barangay,
     newCity = city,
-    newProvince = province
+    newProvince = province,
   ) => {
     const parts = [newProvince, newCity, newBarangay, newStreet].filter(
-      (part) => String(part).trim() !== ""
+      (part) => String(part).trim() !== "",
     );
 
     setLocation(parts.join(", "));
@@ -119,7 +119,7 @@ export default function FacilitySignup() {
       const provincesResponse = await axios.get(`${PSGC_API}/provinces`);
 
       const provinceFound = provincesResponse.data.find(
-        (p: any) => p.name.toLowerCase() === selectedProvince.toLowerCase()
+        (p: any) => p.name.toLowerCase() === selectedProvince.toLowerCase(),
       );
 
       if (!provinceFound) {
@@ -128,7 +128,7 @@ export default function FacilitySignup() {
       }
 
       const response = await axios.get(
-        `${PSGC_API}/provinces/${provinceFound.code}/cities-municipalities`
+        `${PSGC_API}/provinces/${provinceFound.code}/cities-municipalities`,
       );
 
       const cityNames = response.data.map((item: any) => item.name).sort();
@@ -145,7 +145,7 @@ export default function FacilitySignup() {
       const response = await axios.get(`${PSGC_API}/cities-municipalities`);
 
       const cityFound = response.data.find(
-        (c: any) => c.name.toLowerCase() === selectedCity.toLowerCase()
+        (c: any) => c.name.toLowerCase() === selectedCity.toLowerCase(),
       );
 
       if (!cityFound) {
@@ -154,7 +154,7 @@ export default function FacilitySignup() {
       }
 
       const barangayResponse = await axios.get(
-        `${PSGC_API}/cities-municipalities/${cityFound.code}/barangays`
+        `${PSGC_API}/cities-municipalities/${cityFound.code}/barangays`,
       );
 
       const barangayNames = barangayResponse.data
@@ -171,7 +171,7 @@ export default function FacilitySignup() {
   const moveMapToSelectedAddress = async (
     selectedProvince: string,
     selectedCity: string,
-    selectedBarangay: string
+    selectedBarangay: string,
   ) => {
     try {
       const parts = [
@@ -208,7 +208,7 @@ export default function FacilitySignup() {
             latitudeDelta: selectedBarangay ? 0.01 : 0.03,
             longitudeDelta: selectedBarangay ? 0.01 : 0.03,
           },
-          700
+          700,
         );
 
         await updateAddressFromPin(
@@ -216,7 +216,7 @@ export default function FacilitySignup() {
           lng,
           selectedProvince,
           selectedCity,
-          selectedBarangay
+          selectedBarangay,
         );
       }
     } catch (error) {
@@ -229,7 +229,7 @@ export default function FacilitySignup() {
     lng: number,
     selectedProvince = province,
     selectedCity = city,
-    selectedBarangay = barangay
+    selectedBarangay = barangay,
   ) => {
     try {
       const results = await Location.reverseGeocodeAsync({
@@ -264,13 +264,13 @@ export default function FacilitySignup() {
         exactStreet,
         selectedBarangay,
         selectedCity,
-        selectedProvince
+        selectedProvince,
       );
     } catch (error) {
       console.log("REVERSE GEOCODE ERROR:", error);
 
       const fallbackStreet = `Pinned location (${lat.toFixed(6)}, ${lng.toFixed(
-        6
+        6,
       )})`;
 
       setStreet(fallbackStreet);
@@ -279,7 +279,7 @@ export default function FacilitySignup() {
         fallbackStreet,
         selectedBarangay,
         selectedCity,
-        selectedProvince
+        selectedProvince,
       );
     }
   };
@@ -300,13 +300,7 @@ export default function FacilitySignup() {
       Keyboard.dismiss();
       setIsSearchingMap(true);
 
-      const searchParts = [
-        cleanSearch,
-        barangay,
-        city,
-        province,
-        "Philippines",
-      ]
+      const searchParts = [cleanSearch, barangay, city, province, "Philippines"]
         .filter((part) => String(part).trim() !== "")
         .join(", ");
 
@@ -338,7 +332,7 @@ export default function FacilitySignup() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
-        700
+        700,
       );
 
       await updateAddressFromPin(lat, lng);
@@ -390,7 +384,7 @@ export default function FacilitySignup() {
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
-        700
+        700,
       );
 
       await updateAddressFromPin(lat, lng);
@@ -615,7 +609,10 @@ export default function FacilitySignup() {
     const contentType = getContentType(extension);
 
     const safeName =
-      name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "") || "facility";
+      name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]/g, "") || "facility";
 
     const filePath = `facility-certifications/${safeName}-${Date.now()}.${extension}`;
 
@@ -685,7 +682,8 @@ export default function FacilitySignup() {
       Toast.show({
         type: "error",
         text1: "Exact facility location required",
-        text2: "Please tap the map, search address, or use current location to set your pin.",
+        text2:
+          "Please tap the map, search address, or use current location to set your pin.",
       });
       return;
     }
@@ -756,9 +754,31 @@ export default function FacilitySignup() {
 
         return;
       }
-
       const certificationUrl = await uploadCertificationImage();
 
+      /* CREATE AUTH USER */
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            name: name.trim(),
+            role: "facility",
+          },
+        },
+      });
+
+      if (authError) {
+        Toast.show({
+          type: "error",
+          text1: "Signup failed",
+          text2: authError.message,
+        });
+
+        return;
+      }
+
+      /* SAVE TO PROFILES */
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
@@ -780,6 +800,30 @@ export default function FacilitySignup() {
           },
         ])
         .select();
+
+      /*const certificationUrl = await uploadCertificationImage();
+
+      const { data: insertData, error: insertError } = await supabase
+        .from("profiles")
+        .insert([
+          {
+            name: name.trim(),
+            email: cleanEmail,
+            username: null,
+            password: password,
+            role: "facility",
+            address: finalLocation,
+            location: finalLocation,
+            latitude: latitude,
+            longitude: longitude,
+            contact_num: contactNum.trim(),
+            certification: certificationUrl,
+            profile_image: null,
+            status: "pending",
+            reject_reason: null,
+          },
+        ])
+        .select(); */
 
       console.log("SUPABASE FACILITY INSERT DATA:", insertData);
       console.log("SUPABASE FACILITY INSERT ERROR:", insertError);

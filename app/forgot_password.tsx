@@ -8,153 +8,316 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
+  ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
-import { API_URL } from "../config";
+import { supabase } from "../utils/supabase";
 
 export default function ForgotPassword() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const sendOTP = async () => {
-    setLoading(true);
-    if (!email.trim()) {
-      Toast.show({
-        type: "error",
-        text1: "Email Required",
-      });
+  const [email, setEmail] =
+    useState("");
 
-      return;
-    }
+  const [loading, setLoading] =
+    useState(false);
 
-    try {
-      const response = await fetch(`${API_URL}/forgot_password.php`, {
-        method: "POST",
-
-        headers: {
-          "Content-Type": "application/json",
-        },
-
-        body: JSON.stringify({
-          email: email.trim(),
-        }),
-      });
-
-      const text = await response.text();
-
-      console.log("FORGOT PASSWORD:", text);
-
-      const data = JSON.parse(text);
-
-      if (data.status === "success") {
-        Toast.show({
-          type: "success",
-
-          text1: "OTP Sent",
-
-          text2: "Check your email",
-        });
-        setLoading(false);
-
-        router.push({
-          pathname: "/verify_otp",
-
-          params: {
-            email,
-          },
-        });
-      } else {
+  const sendResetEmail =
+    async () => {
+      if (!email.trim()) {
         Toast.show({
           type: "error",
-
-          text1: data.message || "Failed to send OTP",
+          text1:
+            "Email Required",
+          text2:
+            "Please enter your registered email",
         });
-        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.log(error);
 
-      Toast.show({
-        type: "error",
+      setLoading(true);
 
-        text1: "Server Error",
-      });
-      setLoading(false);
-    }
-  };
+      try {
+        const { error } =
+          await supabase.auth.resetPasswordForEmail(
+            email.trim(),
+            {
+              redirectTo:
+                "erecyclomatch://reset_password",
+            }
+          );
+
+        if (error) {
+          setLoading(false);
+
+          Toast.show({
+            type: "error",
+            text1:
+              "Failed",
+            text2:
+              error.message,
+          });
+
+          return;
+        }
+
+        Toast.show({
+          type: "success",
+          text1:
+            "Reset Link Sent",
+          text2:
+            "Check your registered email",
+        });
+
+        setTimeout(() => {
+          setLoading(false);
+          router.replace(
+            "/signin"
+          );
+        }, 2500);
+      } catch (error) {
+        console.log(error);
+
+        setLoading(false);
+
+        Toast.show({
+          type: "error",
+          text1:
+            "Server Error",
+          text2:
+            "Please try again",
+        });
+      }
+    };
 
   return (
-    <KeyboardAvoidingView
+    <SafeAreaView
       style={{
         flex: 1,
-        justifyContent: "center",
-        padding: 20,
-        backgroundColor: "#DDEFD3",
+        backgroundColor:
+          "#DDEFD3",
       }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <Text
+      <KeyboardAvoidingView
         style={{
-          fontSize: 28,
-          fontWeight: "bold",
-          marginBottom: 8,
-          textAlign: "center",
+          flex: 1,
         }}
+        behavior={
+          Platform.OS ===
+          "ios"
+            ? "padding"
+            : undefined
+        }
       >
-        Forgot Password
-      </Text>
-
-      <Text
-        style={{
-          textAlign: "center",
-          marginBottom: 30,
-          color: "#666",
-        }}
-      >
-        Enter your registered email to receive OTP
-      </Text>
-
-      <TextInput
-        value={email}
-        onChangeText={setEmail}
-        placeholder="Enter registered email"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        style={{
-          backgroundColor: "#fff",
-          borderRadius: 12,
-          padding: 15,
-          borderWidth: 1,
-          borderColor: "#ddd",
-        }}
-      />
-
-      <Pressable
-        onPress={sendOTP}
-        disabled={loading}
-        style={{
-          backgroundColor: "#1B5E20",
-          padding: 16,
-          borderRadius: 12,
-          marginTop: 20,
-        }}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color="#fff" />
-        ) : (
-          <Text
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent:
+              "center",
+            padding: 20,
+          }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={
+            false
+          }
+        >
+          {/* Top Buttons */}
+          <View
             style={{
-              color: "#fff",
-              textAlign: "center",
-              fontWeight: "bold",
-              fontSize: 16,
+              position:
+                "absolute",
+              top: 60,
+              left: 20,
+              right: 20,
+              flexDirection:
+                "row",
+              justifyContent:
+                "space-between",
+              alignItems:
+                "center",
+              zIndex: 10,
             }}
           >
-            Send OTP
+            <Pressable
+              onPress={() =>
+                router.back()
+              }
+            >
+              <Ionicons
+                name="arrow-back"
+                size={26}
+                color="#1B5E20"
+              />
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                router.replace(
+                  "/signin"
+                )
+              }
+            >
+              <Ionicons
+                name="close"
+                size={30}
+                color="#1B5E20"
+              />
+            </Pressable>
+          </View>
+
+          {/* Image */}
+          <View
+            style={{
+              alignItems:
+                "center",
+              marginTop: 10,
+              marginBottom: -10,
+            }}
+          >
+            <Image
+              source={require(
+                "../assets/images/forgot-person.png"
+              )}
+              style={{
+                width: 320,
+                height: 320,
+                resizeMode:
+                  "contain",
+              }}
+            />
+          </View>
+
+          {/* Title */}
+          <Text
+            style={{
+              fontSize: 32,
+              fontWeight:
+                "bold",
+              textAlign:
+                "center",
+              marginTop: -10,
+              marginBottom: 10,
+            }}
+          >
+            Forgot Password?
           </Text>
-        )}
-      </Pressable>
-    </KeyboardAvoidingView>
+
+          {/* Description */}
+          <Text
+            style={{
+              textAlign:
+                "center",
+              color:
+                "#666",
+              fontSize: 16,
+              lineHeight: 24,
+              marginBottom: 25,
+              paddingHorizontal: 20,
+            }}
+          >
+            A reset link will
+            be sent to your
+            registered email
+            where you can
+            securely create a
+            new password.
+          </Text>
+
+          {/* Email Card */}
+          <View
+            style={{
+              backgroundColor:
+                "#FFFFFF",
+              borderRadius:
+                18,
+              padding: 18,
+              marginBottom:
+                25,
+              elevation: 3,
+            }}
+          >
+            <Text
+              style={{
+                color:
+                  "#777",
+                marginBottom:
+                  14,
+                textAlign:
+                  "center",
+              }}
+            >
+              Enter your
+              registered email
+              below
+            </Text>
+
+            <TextInput
+              value={email}
+              onChangeText={
+                setEmail
+              }
+              placeholder="sample.email@gmail.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={
+                false
+              }
+              style={{
+                backgroundColor:
+                  "#F4F4F4",
+                borderRadius:
+                  14,
+                padding: 15,
+                fontSize: 15,
+              }}
+            />
+          </View>
+
+          {/* Button */}
+          <Pressable
+            onPress={
+              sendResetEmail
+            }
+            disabled={loading}
+            style={{
+              backgroundColor:
+                "#1B5E20",
+              padding: 18,
+              borderRadius:
+                18,
+              opacity:
+                loading
+                  ? 0.8
+                  : 1,
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator
+                size="small"
+                color="#fff"
+              />
+            ) : (
+              <Text
+                style={{
+                  color:
+                    "#fff",
+                  textAlign:
+                    "center",
+                  fontWeight:
+                    "bold",
+                  fontSize: 16,
+                }}
+              >
+                Send Reset
+                Link
+              </Text>
+            )}
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

@@ -1,62 +1,38 @@
-import {
-  useLocalSearchParams,
-  useRouter,
-} from "expo-router";
-
-import {
-  useState,
-} from "react";
-
+import { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   Pressable,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-
+import { useRouter } from "expo-router";
 import Toast from "react-native-toast-message";
-
-import {
-  API_URL,
-} from "../config";
+import { supabase } from "../utils/supabase";
 
 export default function ResetPassword() {
-  const router =
-    useRouter();
+  const router = useRouter();
 
-  const {
-    email,
-  } =
-    useLocalSearchParams();
-
-  const [
-    password,
-    setPassword,
-  ] =
+  const [password, setPassword] =
     useState("");
 
-  const [
-    confirmPassword,
-    setConfirmPassword,
-  ] =
+  const [confirmPassword,
+    setConfirmPassword] =
     useState("");
 
-  const resetPassword =
+  const [loading, setLoading] =
+    useState(false);
+
+  const updatePassword =
     async () => {
-      if (
-        !password ||
-        !confirmPassword
-      ) {
+      if (!password.trim()) {
         Toast.show({
-          type:
-            "error",
-
+          type: "error",
           text1:
-            "Fill all fields",
+            "Password Required",
         });
-
         return;
       }
 
@@ -65,74 +41,49 @@ export default function ResetPassword() {
         confirmPassword
       ) {
         Toast.show({
-          type:
-            "error",
-
+          type: "error",
           text1:
             "Passwords do not match",
         });
-
         return;
       }
 
-      try {
-        const response =
-          await fetch(
-            `${API_URL}/reset_password.php`,
-            {
-              method:
-                "POST",
+      setLoading(true);
 
-              headers: {
-                "Content-Type":
-                  "application/json",
-              },
-
-              body:
-                JSON.stringify(
-                  {
-                    email,
-                    password,
-                  }
-                ),
-            }
-          );
-
-        const text =
-          await response.text();
-
-        console.log(
-          text
+      const { error } =
+        await supabase.auth.updateUser(
+          {
+            password:
+              password.trim(),
+          }
         );
 
-        const data =
-          JSON.parse(
-            text
-          );
+      setLoading(false);
 
-        if (
-          data.status ===
-          "success"
-        ) {
-          Toast.show({
-            type:
-              "success",
-
-            text1:
-              "Password Reset Successful",
-          });
-
-          router.replace(
-            "/signin"
-          );
-        }
-      } catch (
-        error
-      ) {
-        console.log(
-          error
-        );
+      if (error) {
+        Toast.show({
+          type: "error",
+          text1:
+            "Failed",
+          text2:
+            error.message,
+        });
+        return;
       }
+
+      Toast.show({
+        type: "success",
+        text1:
+          "Password Updated",
+        text2:
+          "You can now sign in",
+      });
+
+      setTimeout(() => {
+        router.replace(
+          "/signin"
+        );
+      }, 2000);
     };
 
   return (
@@ -154,39 +105,41 @@ export default function ResetPassword() {
     >
       <Text
         style={{
-          fontSize: 28,
+          fontSize: 30,
           fontWeight:
             "bold",
           textAlign:
             "center",
-          marginBottom:
-            20,
+          marginBottom: 10,
         }}
       >
         Reset Password
       </Text>
 
+      <Text
+        style={{
+          textAlign:
+            "center",
+          color: "#666",
+          marginBottom: 30,
+        }}
+      >
+        Create your new password
+      </Text>
+
       <TextInput
         placeholder="New Password"
         secureTextEntry
-        value={
-          password
-        }
+        value={password}
         onChangeText={
           setPassword
         }
         style={{
           backgroundColor:
             "#fff",
-          borderRadius:
-            12,
           padding: 15,
-          borderWidth:
-            1,
-          borderColor:
-            "#ddd",
-          marginBottom:
-            15,
+          borderRadius: 12,
+          marginBottom: 15,
         }}
       />
 
@@ -202,42 +155,43 @@ export default function ResetPassword() {
         style={{
           backgroundColor:
             "#fff",
-          borderRadius:
-            12,
           padding: 15,
-          borderWidth:
-            1,
-          borderColor:
-            "#ddd",
+          borderRadius: 12,
+          marginBottom: 20,
         }}
       />
 
       <Pressable
         onPress={
-          resetPassword
+          updatePassword
         }
+        disabled={loading}
         style={{
           backgroundColor:
             "#1B5E20",
-          padding: 16,
-          borderRadius:
-            12,
-          marginTop:
-            20,
+          padding: 18,
+          borderRadius: 14,
         }}
       >
-        <Text
-          style={{
-            color:
-              "#fff",
-            textAlign:
-              "center",
-            fontWeight:
-              "bold",
-          }}
-        >
-          Reset Password
-        </Text>
+        {loading ? (
+          <ActivityIndicator
+            color="#fff"
+          />
+        ) : (
+          <Text
+            style={{
+              color:
+                "#fff",
+              textAlign:
+                "center",
+              fontWeight:
+                "bold",
+              fontSize: 16,
+            }}
+          >
+            Update Password
+          </Text>
+        )}
       </Pressable>
     </KeyboardAvoidingView>
   );

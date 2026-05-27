@@ -60,7 +60,7 @@ export default function Signin() {
           status,
           reject_reason,
           username_changed_at
-        `
+        `,
         )
         .eq("email", cleanEmail)
         .maybeSingle();
@@ -87,8 +87,12 @@ export default function Signin() {
       }
 
       const databasePassword = String(profile.password || "").trim();
-      const databaseStatus = String(profile.status || "").trim().toLowerCase();
-      const databaseRole = String(profile.role || "").trim().toLowerCase();
+      const databaseStatus = String(profile.status || "")
+        .trim()
+        .toLowerCase();
+      const databaseRole = String(profile.role || "")
+        .trim()
+        .toLowerCase();
 
       console.log("NORMALIZED STATUS:", databaseStatus);
       console.log("NORMALIZED ROLE:", databaseRole);
@@ -281,7 +285,14 @@ export default function Signin() {
             </Pressable>
           </View>
 
-          <Pressable onPress={() => router.push("/forgot_password" as any)}>
+          <Pressable
+            onPress={() => router.push("/forgot_password" as any)}
+            style={{
+              alignSelf: "flex-start",
+              marginLeft: 35,
+              marginTop: 2,
+            }}
+          >
             <Text style={signinStyles.forgot}>Forgot your Password?</Text>
           </Pressable>
 
