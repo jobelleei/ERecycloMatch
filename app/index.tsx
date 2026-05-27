@@ -57,7 +57,7 @@ export default function Index() {
         onPress={() => router.push("/signin")}
       >
         <Text style={styles.secondaryText}>
-          I have already an account
+          I already have an account
         </Text>
       </TouchableOpacity>
     </View>

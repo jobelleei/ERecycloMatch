@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { supabase } from "../utils/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ForgotPassword() {
   const router = useRouter();
@@ -23,8 +24,38 @@ export default function ForgotPassword() {
 
   const [loading, setLoading] = useState(false);
 
+  const checkResetLimit = async () => {
+    try {
+      const lastReset = await AsyncStorage.getItem("last_reset_attempt");
+
+      if (!lastReset) return true;
+
+      const lastDate = new Date(lastReset);
+      const today = new Date();
+
+      const isSameDay =
+        lastDate.getDate() === today.getDate() &&
+        lastDate.getMonth() === today.getMonth() &&
+        lastDate.getFullYear() === today.getFullYear();
+
+      return !isSameDay;
+    } catch {
+      return true;
+    }
+  };
+
   const sendResetEmail = async () => {
-    if (!email.trim()) {
+    const canReset = await checkResetLimit();
+
+    if (!canReset) {
+      Toast.show({
+        type: "info",
+        text1: "Reset Limit Reached",
+        text2: "Only 1 password reset attempt is allowed per day.",
+      });
+      if (!email.trim()) {
+        return;
+      }
       Toast.show({
         type: "error",
         text1: "Email Required",
@@ -39,10 +70,9 @@ export default function ForgotPassword() {
       const { error } = await supabase.auth.resetPasswordForEmail(
         email.trim(),
         {
-          redirectTo: "exp://192.168.254.144:8081/--/reset_password",
+          redirectTo: "erecyclomatch://reset_password",
         },
       );
-
       if (error) {
         setLoading(false);
 
@@ -54,6 +84,11 @@ export default function ForgotPassword() {
 
         return;
       }
+
+      await AsyncStorage.setItem(
+        "last_reset_attempt",
+        new Date().toISOString(),
+      );
 
       Toast.show({
         type: "success",
@@ -89,36 +124,30 @@ export default function ForgotPassword() {
         style={{
           flex: 1,
         }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={20}
       >
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
             justifyContent: "center",
-            padding: 20,
+            paddingHorizontal: 20,
+            paddingBottom: 40,
           }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Top Buttons */}
+          {/* Close Button */}
           <View
             style={{
               position: "absolute",
-              top: 60,
+              top: 10,
               left: 20,
-              right: 20,
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
               zIndex: 10,
             }}
           >
-            <Pressable onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={26} color="#1B5E20" />
-            </Pressable>
-
             <Pressable onPress={() => router.replace("/signin")}>
-              <Ionicons name="close" size={30} color="#1B5E20" />
+              <Ionicons name="close" size={38} color="#1B5E20" />
             </Pressable>
           </View>
 
@@ -126,7 +155,7 @@ export default function ForgotPassword() {
           <View
             style={{
               alignItems: "center",
-              marginTop: 10,
+              marginTop: -30,
               marginBottom: -10,
             }}
           >
@@ -164,8 +193,8 @@ export default function ForgotPassword() {
               paddingHorizontal: 20,
             }}
           >
-            A reset link will be sent to your registered email where you can
-            securely create a new password.
+            A password reset link will be sent to your registered email. Open
+            the email to reset your password securely.
           </Text>
 
           {/* Email Card */}
