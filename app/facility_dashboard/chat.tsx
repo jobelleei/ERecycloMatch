@@ -68,7 +68,6 @@ export default function FacilityChat() {
     return () => clearInterval(interval);
   }, [conversationId]);
 
-
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
       addPendingMatchWarningIfNeeded();
@@ -272,7 +271,7 @@ export default function FacilityChat() {
         requestItem?.name ||
         conversation?.item_name ||
         itemNameParam ||
-        "Unnamed Item"
+        "Unnamed Item",
     );
   };
 
@@ -347,7 +346,7 @@ export default function FacilityChat() {
           id: targetItemId,
           item_name: conversation?.item_name || itemNameParam || "Unnamed Item",
           item_image: conversation?.item_image || itemImageParam || "",
-        }
+        },
       );
     } catch (error) {
       console.log("FETCH REQUEST ITEM ERROR:", error);
@@ -377,9 +376,15 @@ export default function FacilityChat() {
   };
 
   const isMatchRequestMessage = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
-    const messageType = String(item?.message_type || "").trim().toLowerCase();
-    const type = String(item?.type || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
+    const messageType = String(item?.message_type || "")
+      .trim()
+      .toLowerCase();
+    const type = String(item?.type || "")
+      .trim()
+      .toLowerCase();
 
     return (
       messageType === "match_request" ||
@@ -392,9 +397,15 @@ export default function FacilityChat() {
 
   const isOldEmptyRequestBubble = (item: any) => {
     const message = String(item?.message || "").trim();
-    const messageType = String(item?.message_type || "").trim().toLowerCase();
-    const type = String(item?.type || "").trim().toLowerCase();
-    const senderType = String(item?.sender_type || "").trim().toLowerCase();
+    const messageType = String(item?.message_type || "")
+      .trim()
+      .toLowerCase();
+    const type = String(item?.type || "")
+      .trim()
+      .toLowerCase();
+    const senderType = String(item?.sender_type || "")
+      .trim()
+      .toLowerCase();
 
     if (message) return false;
 
@@ -407,9 +418,15 @@ export default function FacilityChat() {
   };
 
   const shouldHideNormalRequestText = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
-    const type = String(item?.type || "").trim().toLowerCase();
-    const senderType = String(item?.sender_type || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
+    const type = String(item?.type || "")
+      .trim()
+      .toLowerCase();
+    const senderType = String(item?.sender_type || "")
+      .trim()
+      .toLowerCase();
 
     const isSystemLike = type === "system" || senderType === "system";
 
@@ -423,7 +440,9 @@ export default function FacilityChat() {
   };
 
   const isMatchAcceptedMessage = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
 
     return (
       message === "match accepted" ||
@@ -433,7 +452,9 @@ export default function FacilityChat() {
   };
 
   const isMatchRejectedMessage = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
 
     return (
       message === "match rejected" ||
@@ -446,7 +467,9 @@ export default function FacilityChat() {
   };
 
   const isMatchCancelledMessage = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
 
     return (
       message === "match cancelled" ||
@@ -459,7 +482,9 @@ export default function FacilityChat() {
   };
 
   const isFinishClickedMessage = (item: any) => {
-    const message = String(item?.message || "").trim().toLowerCase();
+    const message = String(item?.message || "")
+      .trim()
+      .toLowerCase();
 
     return (
       message.includes("clicked finish this match") ||
@@ -537,7 +562,9 @@ export default function FacilityChat() {
         .from("messages")
         .select("id")
         .eq("conversation_id", String(targetConversationId))
-        .or("message.eq.Match request sent,message_type.eq.match_request,type.eq.match_request")
+        .or(
+          "message.eq.Match request sent,message_type.eq.match_request,type.eq.match_request",
+        )
         .limit(1);
 
       if (findError) {
@@ -634,7 +661,9 @@ export default function FacilityChat() {
         "You still have a pending match here. Finish it first before requesting another one.";
 
       const currentUserId = String(conversation?.user_id || userIdParam || "");
-      const currentFacilityId = String(conversation?.facility_id || facility?.id || "");
+      const currentFacilityId = String(
+        conversation?.facility_id || facility?.id || "",
+      );
 
       if (!conversationId || !currentUserId || !currentFacilityId) return;
 
@@ -644,7 +673,9 @@ export default function FacilityChat() {
         .eq("user_id", currentUserId)
         .eq("facility_id", currentFacilityId)
         .neq("id", String(conversationId))
-        .or("status.eq.match_pending,status.eq.pending,status.eq.request_pending,request_status.eq.pending")
+        .or(
+          "status.eq.match_pending,status.eq.pending,status.eq.request_pending,request_status.eq.pending",
+        )
         .limit(1);
 
       if (pendingError) {
@@ -674,45 +705,50 @@ export default function FacilityChat() {
     }
   };
 
-
-
   const acceptMatch = async () => {
-    Alert.alert("Accept Match", "Are you sure you want to accept this match request?", [
-      {
-        text: "No",
-        style: "cancel",
-      },
-      {
-        text: "Yes, Accept",
-        onPress: async () => {
-          try {
-            await updateConversation({
-              status: "matched",
-              request_status: "accepted",
-              last_message: "Match accepted",
-            });
-
-            if (conversation?.item_id) {
-              await supabase
-                .from("items")
-                .update({
-                  status: "Listed",
-                  match_status: "Matched",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", String(conversation.item_id));
-            }
-
-            await addSystemMessage("Match accepted. You can now chat.");
-
-            fetchConversation();
-          } catch (error: any) {
-            console.log("ACCEPT MATCH ERROR:", error);
-            Alert.alert("Accept Failed", error?.message || "Failed to accept match.");
-          }
+    Alert.alert(
+      "Accept Match",
+      "Are you sure you want to accept this match request?",
+      [
+        {
+          text: "No",
+          style: "cancel",
         },
-      },
-    ]);
+        {
+          text: "Yes, Accept",
+          onPress: async () => {
+            try {
+              await updateConversation({
+                status: "matched",
+                request_status: "accepted",
+                last_message: "Match accepted",
+              });
+
+              if (conversation?.item_id) {
+                await supabase
+                  .from("items")
+                  .update({
+                    status: "Listed",
+                    match_status: "Matched",
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", String(conversation.item_id));
+              }
+
+              await addSystemMessage("Match accepted. You can now chat.");
+
+              fetchConversation();
+            } catch (error: any) {
+              console.log("ACCEPT MATCH ERROR:", error);
+              Alert.alert(
+                "Accept Failed",
+                error?.message || "Failed to accept match.",
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   const rejectMatch = async () => {
@@ -749,7 +785,7 @@ export default function FacilityChat() {
             console.log("REJECT MATCH ERROR:", error);
             Alert.alert(
               "Reject Failed",
-              error?.message || "Failed to reject match."
+              error?.message || "Failed to reject match.",
             );
           }
         },
@@ -764,7 +800,7 @@ export default function FacilityChat() {
     if (userAlreadyFinished) {
       Alert.alert(
         "Cancel Not Allowed",
-        "You cannot cancel this match because the user already clicked the Finish this match button."
+        "You cannot cancel this match because the user already clicked the Finish this match button.",
       );
       return;
     }
@@ -772,7 +808,7 @@ export default function FacilityChat() {
     if (facilityAlreadyFinished) {
       Alert.alert(
         "Cancel Not Allowed",
-        "You cannot cancel this match because your facility already clicked the Finish this match button."
+        "You cannot cancel this match because your facility already clicked the Finish this match button.",
       );
       return;
     }
@@ -811,7 +847,7 @@ export default function FacilityChat() {
             console.log("CANCEL MATCH ERROR:", error);
             Alert.alert(
               "Cancel Failed",
-              error?.message || "Failed to cancel match."
+              error?.message || "Failed to cancel match.",
             );
           }
         },
@@ -853,20 +889,22 @@ export default function FacilityChat() {
         {
           conversation_id: String(conversationId),
           user_id: String(conversation?.user_id || userIdParam || ""),
-          user_name: String(conversation?.user_name || userProfile.name || "User"),
+          user_name: String(
+            conversation?.user_name || userProfile.name || "User",
+          ),
           facility_id: String(conversation?.facility_id || facility?.id || ""),
           facility_name: String(
-            conversation?.facility_name || facility?.name || "Facility"
+            conversation?.facility_name || facility?.name || "Facility",
           ),
           matched_with: String(
-            conversation?.facility_name || facility?.name || "Facility"
+            conversation?.facility_name || facility?.name || "Facility",
           ),
           item_id: String(conversation?.item_id || ""),
           item_name: String(
             conversation?.item_name ||
               itemData?.item_name ||
               itemData?.item_type ||
-              "Unnamed Item"
+              "Unnamed Item",
           ),
           item_image: String(itemData?.item_image || ""),
           transaction_status: "Finished",
@@ -931,7 +969,7 @@ export default function FacilityChat() {
                 await createRecyclingHistoryRecord(now);
 
                 await addSystemMessage(
-                  "Both sides finished this match. Please provide feedback."
+                  "Both sides finished this match. Please provide feedback.",
                 );
               } else {
                 const displayName =
@@ -944,7 +982,7 @@ export default function FacilityChat() {
                 });
 
                 await addSystemMessage(
-                  `${displayName} clicked Finish this match. Waiting for you to click the button too.`
+                  `${displayName} clicked Finish this match. Waiting for you to click the button too.`,
                 );
               }
 
@@ -953,12 +991,12 @@ export default function FacilityChat() {
               console.log("FINISH MATCH ERROR:", error);
               Alert.alert(
                 "Finish Failed",
-                error?.message || "Failed to finish match."
+                error?.message || "Failed to finish match.",
               );
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -967,7 +1005,10 @@ export default function FacilityChat() {
       Keyboard.dismiss();
 
       if (!conversation || !facility?.id) {
-        Alert.alert("Feedback Failed", "Missing facility or conversation data.");
+        Alert.alert(
+          "Feedback Failed",
+          "Missing facility or conversation data.",
+        );
         return;
       }
 
@@ -1028,7 +1069,7 @@ export default function FacilityChat() {
       console.log("SUBMIT FACILITY FEEDBACK ERROR:", error);
       Alert.alert(
         "Feedback Failed",
-        error?.message || "Unable to submit feedback."
+        error?.message || "Unable to submit feedback.",
       );
     } finally {
       setSubmittingFeedback(false);
@@ -1048,7 +1089,7 @@ export default function FacilityChat() {
         conversation?.request_from ||
         conversation?.sender_role ||
         conversation?.sender_type ||
-        ""
+        "",
     )
       .trim()
       .toLowerCase();
@@ -1059,7 +1100,7 @@ export default function FacilityChat() {
       conversation?.request_receiver_role ||
         conversation?.receiver_role ||
         conversation?.receiver_type ||
-        ""
+        "",
     )
       .trim()
       .toLowerCase();
@@ -1107,7 +1148,9 @@ export default function FacilityChat() {
       return true;
     }
 
-    return String(conversation?.facility_id || "") === String(facility?.id || "");
+    return (
+      String(conversation?.facility_id || "") === String(facility?.id || "")
+    );
   };
 
   const hasCurrentAccountSentOffer = () => {
@@ -1118,7 +1161,9 @@ export default function FacilityChat() {
         .trim()
         .toLowerCase();
 
-      const senderRole = String(message?.sender_role || message?.sender_type || "")
+      const senderRole = String(
+        message?.sender_role || message?.sender_type || "",
+      )
         .trim()
         .toLowerCase();
 
@@ -1175,7 +1220,10 @@ export default function FacilityChat() {
     const sendingOffer = canSendOfferMessage();
 
     if (!canSendMessage()) {
-      Alert.alert("Chat Locked", "You can only send one offer while the request is pending. After the match is accepted, you can continue chatting.");
+      Alert.alert(
+        "Chat Locked",
+        "You can only send one offer while the request is pending. After the match is accepted, you can continue chatting.",
+      );
       return;
     }
 
@@ -1240,7 +1288,9 @@ export default function FacilityChat() {
     const status = conversation?.status || "match_pending";
     const facilityFinished = Boolean(conversation?.facility_finished);
     const userFinished = Boolean(conversation?.user_finished);
-    const facilityFeedbackGiven = Boolean(conversation?.facility_feedback_given);
+    const facilityFeedbackGiven = Boolean(
+      conversation?.facility_feedback_given,
+    );
 
     const requestSenderRole = getCurrentRequestSender();
 
@@ -1332,7 +1382,9 @@ export default function FacilityChat() {
             onPress={() => setFeedbackModalVisible(true)}
           >
             <Text style={styles.feedbackText}>
-              {facilityFeedbackGiven ? "Feedback submitted" : "Provide feedback"}
+              {facilityFeedbackGiven
+                ? "Feedback submitted"
+                : "Provide feedback"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1390,7 +1442,8 @@ export default function FacilityChat() {
     }
 
     const isMine =
-      item.sender_id !== null && String(item.sender_id) === String(facility?.id);
+      item.sender_id !== null &&
+      String(item.sender_id) === String(facility?.id);
 
     const isSystem =
       item.type === "system" ||
@@ -1470,148 +1523,157 @@ export default function FacilityChat() {
   const chatLocked = !canSendMessage();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.back}>‹</Text>
-        </TouchableOpacity>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <SafeAreaView style={styles.container}></SafeAreaView>
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text style={styles.back}>‹</Text>
+            </TouchableOpacity>
 
-        <Image source={getUserImage()} style={styles.avatarImage} />
+            <Image source={getUserImage()} style={styles.avatarImage} />
 
-        <View style={{ marginLeft: 12, flex: 1 }}>
-          <Text style={styles.title}>{headerName}</Text>
+            <View style={{ marginLeft: 12, flex: 1 }}>
+              <Text style={styles.title}>{headerName}</Text>
 
-          <Text style={styles.subtitle}>{getSubtitle()}</Text>
-        </View>
-      </View>
+              <Text style={styles.subtitle}>{getSubtitle()}</Text>
+            </View>
+          </View>
 
-      {renderTopButtons()}
+          {renderTopButtons()}
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item, index) => String(item.id || index)}
-        renderItem={renderMessage}
-        contentContainerStyle={styles.messagesList}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No messages yet.</Text>
-        }
-      />
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.inputRow}>
-          <TextInput
-            value={messageText}
-            onChangeText={setMessageText}
-            placeholder={getInputPlaceholder()}
-            placeholderTextColor="#777"
-            style={[styles.input, chatLocked && styles.disabledInput]}
-            editable={canSendMessage()}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item, index) => String(item.id || index)}
+            renderItem={renderMessage}
+            contentContainerStyle={styles.messagesList}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No messages yet.</Text>
+            }
           />
 
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (sending || !canSendMessage()) && styles.disabledButton,
-            ]}
-            onPress={sendMessage}
-            disabled={sending || !canSendMessage()}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
           >
-            <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
-          </TouchableOpacity>
-        </View>
-      </KeyboardAvoidingView>
+            <View style={styles.inputRow}>
+              <TextInput
+                value={messageText}
+                onChangeText={setMessageText}
+                placeholder={getInputPlaceholder()}
+                placeholderTextColor="#777"
+                style={[styles.input, chatLocked && styles.disabledInput]}
+                editable={canSendMessage()}
+              />
 
-      <Modal
-        visible={feedbackModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          Keyboard.dismiss();
-          setFeedbackModalVisible(false);
-        }}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-          <View style={styles.modalOverlay}>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === "ios" ? "padding" : "height"}
-              style={styles.modalKeyboardView}
-            >
-              <TouchableWithoutFeedback>
-                <View style={styles.feedbackBox}>
-                  <Text style={styles.feedbackTitle}>Rate User</Text>
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  (sending || !canSendMessage()) && styles.disabledButton,
+                ]}
+                onPress={sendMessage}
+                disabled={sending || !canSendMessage()}
+              >
+                <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
 
-                  <Text style={styles.feedbackSubtitle}>
-                    How was your match with {headerName}?
-                  </Text>
+          <Modal
+            visible={feedbackModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => {
+              Keyboard.dismiss();
+              setFeedbackModalVisible(false);
+            }}
+          >
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === "ios" ? "padding" : "height"}
+                  style={styles.modalKeyboardView}
+                >
+                  <TouchableWithoutFeedback>
+                    <View style={styles.feedbackBox}>
+                      <Text style={styles.feedbackTitle}>Rate User</Text>
 
-                  <View style={styles.starsRow}>
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <TouchableOpacity
-                        key={star}
-                        onPress={() => {
-                          Keyboard.dismiss();
-                          setSelectedRating(star);
-                        }}
-                      >
-                        <Text
-                          style={[
-                            styles.star,
-                            selectedRating >= star && styles.selectedStar,
-                          ]}
-                        >
-                          ★
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <TextInput
-                    value={feedbackComment}
-                    onChangeText={setFeedbackComment}
-                    placeholder="Optional comment..."
-                    placeholderTextColor="#777"
-                    style={styles.feedbackInput}
-                    multiline
-                    textAlignVertical="top"
-                    returnKeyType="done"
-                    blurOnSubmit={true}
-                    onSubmitEditing={Keyboard.dismiss}
-                  />
-
-                  <View style={styles.modalButtons}>
-                    <TouchableOpacity
-                      style={styles.modalCancelButton}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        setFeedbackModalVisible(false);
-                      }}
-                    >
-                      <Text style={styles.modalCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.modalSubmitButton,
-                        submittingFeedback && styles.disabledButton,
-                      ]}
-                      onPress={submitFeedback}
-                      disabled={submittingFeedback}
-                    >
-                      <Text style={styles.modalSubmitText}>
-                        {submittingFeedback ? "Submitting..." : "Submit"}
+                      <Text style={styles.feedbackSubtitle}>
+                        How was your match with {headerName}?
                       </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </TouchableWithoutFeedback>
-            </KeyboardAvoidingView>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </SafeAreaView>
+
+                      <View style={styles.starsRow}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <TouchableOpacity
+                            key={star}
+                            onPress={() => {
+                              Keyboard.dismiss();
+                              setSelectedRating(star);
+                            }}
+                          >
+                            <Text
+                              style={[
+                                styles.star,
+                                selectedRating >= star && styles.selectedStar,
+                              ]}
+                            >
+                              ★
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+
+                      <TextInput
+                        value={feedbackComment}
+                        onChangeText={setFeedbackComment}
+                        placeholder="Optional comment..."
+                        placeholderTextColor="#777"
+                        style={styles.feedbackInput}
+                        multiline
+                        textAlignVertical="top"
+                        returnKeyType="done"
+                        blurOnSubmit={true}
+                        onSubmitEditing={Keyboard.dismiss}
+                      />
+
+                      <View style={styles.modalButtons}>
+                        <TouchableOpacity
+                          style={styles.modalCancelButton}
+                          onPress={() => {
+                            Keyboard.dismiss();
+                            setFeedbackModalVisible(false);
+                          }}
+                        >
+                          <Text style={styles.modalCancelText}>Cancel</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.modalSubmitButton,
+                            submittingFeedback && styles.disabledButton,
+                          ]}
+                          onPress={submitFeedback}
+                          disabled={submittingFeedback}
+                        >
+                          <Text style={styles.modalSubmitText}>
+                            {submittingFeedback ? "Submitting..." : "Submit"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        </SafeAreaView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
   );
 }
 
