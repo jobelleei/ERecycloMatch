@@ -738,7 +738,6 @@ export default function MyListing() {
     // Detect if user item looks working
     const itemLooksWorking = itemCondition === "working";
 
-  
     // Facility accepts BROKEN only, Hide working items
     if (acceptedConditions.includes("broken") && itemLooksWorking) {
       console.log("MATCH FILTERED: facility accepts broken only");
@@ -1714,12 +1713,14 @@ export default function MyListing() {
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => openUpdateModal(item)}
-            >
-              <Text style={styles.actionText}>Update</Text>
-            </TouchableOpacity>
+            {matchStatus !== "Matched" && (
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => openUpdateModal(item)}
+              >
+                <Text style={styles.actionText}>Update</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.deleteButton}
