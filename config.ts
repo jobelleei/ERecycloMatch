@@ -1,5 +1,5 @@
 
-export const API_URL = "https://fifty-seas-wait.loca.lt/Admin_Side";
+export const API_URL = "https://giant-waves-train.loca.lt/Admin_Side";
 
 export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev";
 

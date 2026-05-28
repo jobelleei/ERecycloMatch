@@ -28,7 +28,9 @@ export default function FacilityDashboard() {
   const [facility, setFacility] = useState<any>(null);
   const [facilityName, setFacilityName] = useState("");
 
-  const [missingProfileFields, setMissingProfileFields] = useState<string[]>([]);
+  const [missingProfileFields, setMissingProfileFields] = useState<string[]>(
+    [],
+  );
   const [showProfileReminder, setShowProfileReminder] = useState(false);
 
   const [searchText, setSearchText] = useState("");
@@ -52,7 +54,7 @@ export default function FacilityDashboard() {
     useCallback(() => {
       loadFacility();
       fetchRandomListedItems();
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -70,7 +72,9 @@ export default function FacilityDashboard() {
   }, [searchText]);
 
   const isEmptyValue = (value: any) => {
-    const cleanValue = String(value ?? "").trim().toLowerCase();
+    const cleanValue = String(value ?? "")
+      .trim()
+      .toLowerCase();
 
     return (
       cleanValue === "" ||
@@ -195,7 +199,7 @@ export default function FacilityDashboard() {
       Alert.alert(
         "Complete Facility Details",
         `Please specify your ${missingFields.join(
-          ", "
+          ", ",
         )} in Edit Profile at Settings.`,
         [
           {
@@ -206,7 +210,7 @@ export default function FacilityDashboard() {
             text: "Go to Settings",
             onPress: () => router.push("/facility_dashboard/settings" as any),
           },
-        ]
+        ],
       );
     }
   };
@@ -335,10 +339,7 @@ export default function FacilityDashboard() {
 
   const getUserProfileUrl = (user: any) => {
     const imagePath =
-      user.profile_image ||
-      user.profileImage ||
-      user.profile_image_url ||
-      "";
+      user.profile_image || user.profileImage || user.profile_image_url || "";
 
     if (!imagePath) {
       return "";
@@ -373,7 +374,28 @@ export default function FacilityDashboard() {
       user.user_address ||
       "";
 
-    return String(location).trim() !== "" ? location : "No location provided";
+    const rawLocation = String(location).trim();
+
+    if (!rawLocation) {
+      return "No location provided";
+    }
+
+    const parts = rawLocation
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    const cityPart = parts.find((part) => /city|municipality/i.test(part));
+
+    if (cityPart) {
+      return cityPart;
+    }
+
+    if (parts.length >= 2) {
+      return parts[parts.length - 2];
+    }
+
+    return parts[0];
   };
 
   const getUsername = (user: any) => {
@@ -385,8 +407,12 @@ export default function FacilityDashboard() {
   };
 
   const getDisplayStatus = (item: any) => {
-    const status = String(item.status || "").trim().toLowerCase();
-    const matchStatus = String(item.match_status || "").trim().toLowerCase();
+    const status = String(item.status || "")
+      .trim()
+      .toLowerCase();
+    const matchStatus = String(item.match_status || "")
+      .trim()
+      .toLowerCase();
 
     if (matchStatus === "pending match") return "Pending Match";
     if (matchStatus === "matched") return "Matched";
@@ -407,7 +433,9 @@ export default function FacilityDashboard() {
   };
 
   const getStatusStyle = (statusValue: string) => {
-    const cleanStatus = String(statusValue || "").trim().toLowerCase();
+    const cleanStatus = String(statusValue || "")
+      .trim()
+      .toLowerCase();
 
     if (cleanStatus.includes("pending")) return styles.pending;
     if (cleanStatus.includes("approved")) return styles.approved;
@@ -491,14 +519,9 @@ export default function FacilityDashboard() {
 
   const getItemNameText = (item: any) => {
     return normalizeMatchText(
-      [
-        item.item_name,
-        item.item_type,
-        item.name,
-        item.title,
-      ]
+      [item.item_name, item.item_type, item.name, item.title]
         .filter(Boolean)
-        .join(" ")
+        .join(" "),
     );
   };
 
@@ -518,7 +541,7 @@ export default function FacilityDashboard() {
         item.description,
       ]
         .filter(Boolean)
-        .join(" ")
+        .join(" "),
     );
   };
 
@@ -557,11 +580,11 @@ export default function FacilityDashboard() {
     const itemNameMatches = countMatches(acceptedItems, itemNameText);
     const acceptedConditionMatches = countMatches(
       acceptedConditions,
-      itemConditionText
+      itemConditionText,
     );
     const rejectedConditionMatches = countMatches(
       rejectedConditions,
-      itemConditionText
+      itemConditionText,
     );
 
     let score = 0;
@@ -623,8 +646,12 @@ export default function FacilityDashboard() {
   };
 
   const isVisibleListedItem = (item: any) => {
-    const status = String(item.status || "").trim().toLowerCase();
-    const matchStatus = String(item.match_status || "").trim().toLowerCase();
+    const status = String(item.status || "")
+      .trim()
+      .toLowerCase();
+    const matchStatus = String(item.match_status || "")
+      .trim()
+      .toLowerCase();
 
     const isFinishedOrRecycled =
       status === "finished" ||
@@ -670,12 +697,12 @@ export default function FacilityDashboard() {
           profile_image,
           role,
           status
-        `
+        `,
         )
         .eq("role", "user")
         .eq("status", "approved")
         .or(
-          `name.ilike.${cleanKeyword},username.ilike.${cleanKeyword},email.ilike.${cleanKeyword},address.ilike.${cleanKeyword},location.ilike.${cleanKeyword}`
+          `name.ilike.${cleanKeyword},username.ilike.${cleanKeyword},email.ilike.${cleanKeyword},address.ilike.${cleanKeyword},location.ilike.${cleanKeyword}`,
         )
         .order("id", { ascending: false })
         .limit(8);
@@ -691,7 +718,7 @@ export default function FacilityDashboard() {
         .from("items")
         .select("*")
         .or(
-          `item_name.ilike.${cleanKeyword},description.ilike.${cleanKeyword},location.ilike.${cleanKeyword},address.ilike.${cleanKeyword},submitter_name.ilike.${cleanKeyword}`
+          `item_name.ilike.${cleanKeyword},description.ilike.${cleanKeyword},location.ilike.${cleanKeyword},address.ilike.${cleanKeyword},submitter_name.ilike.${cleanKeyword}`,
         )
         .order("created_at", { ascending: false });
 
@@ -700,7 +727,7 @@ export default function FacilityDashboard() {
         setSearchedItems([]);
       } else {
         const listedItems = (itemsData || []).filter((item: any) =>
-          isVisibleListedItem(item)
+          isVisibleListedItem(item),
         );
 
         setSearchedItems(sortListedItemsForFacility(listedItems, facility));
@@ -728,7 +755,7 @@ export default function FacilityDashboard() {
       }
 
       const listedItems = (data || []).filter((item: any) =>
-        isVisibleListedItem(item)
+        isVisibleListedItem(item),
       );
 
       const sortedItems = sortListedItemsForFacility(listedItems, profileData);
@@ -783,10 +810,7 @@ export default function FacilityDashboard() {
         "";
 
       const itemSubmitterEmail =
-        item.submitter_email ||
-        item.user_email ||
-        item.email ||
-        "";
+        item.submitter_email || item.user_email || item.email || "";
 
       if (itemUserId) {
         const { data: userProfile, error } = await supabase
@@ -1165,8 +1189,7 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/messages" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/messages" && styles.navActive,
               ]}
             >
               Messages
@@ -1185,8 +1208,7 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/profile" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/profile" && styles.navActive,
               ]}
             >
               Profile
@@ -1205,8 +1227,7 @@ export default function FacilityDashboard() {
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
+                pathname === "/facility_dashboard/settings" && styles.navActive,
               ]}
             >
               Settings

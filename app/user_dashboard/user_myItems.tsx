@@ -58,7 +58,9 @@ export default function MyItems() {
       item.match_status ||
       "";
 
-    const cleanStatus = String(status || "").trim().toLowerCase();
+    const cleanStatus = String(status || "")
+      .trim()
+      .toLowerCase();
 
     if (cleanStatus === "rejected") return "Rejected";
     if (cleanStatus === "approved") return "Approved";
@@ -106,7 +108,7 @@ export default function MyItems() {
   useFocusEffect(
     useCallback(() => {
       loadUser();
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -160,6 +162,8 @@ export default function MyItems() {
         .from("items")
         .select("*")
         .eq("user_id", String(userId))
+        .not("status", "in", '("Finished","Recycled")')
+        .not("match_status", "in", '("Finished","Recycled")')
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -236,9 +240,9 @@ export default function MyItems() {
                   match_status: "Listed",
                   listed_at: listedAt,
                 }
-              : currentItem
-          )
-        )
+              : currentItem,
+          ),
+        ),
       );
 
       setSelectedItem(null);
@@ -476,7 +480,7 @@ export default function MyItems() {
 
               const itemImagePath = extractStoragePath(
                 String(itemImageValue || ""),
-                "item-images"
+                "item-images",
               );
 
               const { data: issuePhotosData, error: issuePhotosFetchError } =
@@ -488,7 +492,7 @@ export default function MyItems() {
               if (issuePhotosFetchError) {
                 console.log(
                   "FETCH ISSUE PHOTOS BEFORE DELETE ERROR:",
-                  issuePhotosFetchError
+                  issuePhotosFetchError,
                 );
               }
 
@@ -504,11 +508,11 @@ export default function MyItems() {
 
                     return extractStoragePath(
                       String(photoValue || ""),
-                      "item-issue-photos"
+                      "item-issue-photos",
                     );
                   })
                   .filter(
-                    (path: string) => path && String(path).trim() !== ""
+                    (path: string) => path && String(path).trim() !== "",
                   ) || [];
 
               console.log("DELETE ITEM IMAGE PATH:", itemImagePath);
@@ -522,21 +526,20 @@ export default function MyItems() {
                 if (itemImageDeleteError) {
                   console.log(
                     "DELETE ITEM IMAGE STORAGE ERROR:",
-                    itemImageDeleteError
+                    itemImageDeleteError,
                   );
                 }
               }
 
               if (issuePhotoPaths.length > 0) {
-                const { error: issueImagesDeleteError } =
-                  await supabase.storage
-                    .from("item-issue-photos")
-                    .remove(issuePhotoPaths);
+                const { error: issueImagesDeleteError } = await supabase.storage
+                  .from("item-issue-photos")
+                  .remove(issuePhotoPaths);
 
                 if (issueImagesDeleteError) {
                   console.log(
                     "DELETE ISSUE PHOTOS STORAGE ERROR:",
-                    issueImagesDeleteError
+                    issueImagesDeleteError,
                   );
                 }
               }
@@ -549,7 +552,7 @@ export default function MyItems() {
               if (issueRowsDeleteError) {
                 console.log(
                   "DELETE ISSUE PHOTO ROWS ERROR:",
-                  issueRowsDeleteError
+                  issueRowsDeleteError,
                 );
               }
 
@@ -568,8 +571,8 @@ export default function MyItems() {
 
               setItems((prevItems) =>
                 prevItems.filter(
-                  (currentItem) => String(currentItem.id) !== String(item.id)
-                )
+                  (currentItem) => String(currentItem.id) !== String(item.id),
+                ),
               );
 
               setSelectedItem(null);
@@ -580,7 +583,7 @@ export default function MyItems() {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -768,7 +771,7 @@ export default function MyItems() {
                   {status}
                 </Text>
               </TouchableOpacity>
-            )
+            ),
           )}
         </ScrollView>
       </View>
@@ -816,7 +819,7 @@ export default function MyItems() {
                       onPress={() =>
                         openImagePreview(
                           getItemImageSource(editingItem),
-                          "Item Photo"
+                          "Item Photo",
                         )
                       }
                     >
@@ -830,7 +833,9 @@ export default function MyItems() {
                       Tap the image to view the whole photo.
                     </Text>
 
-                    <Text style={styles.modalLabel}>Submitted Issue Photos</Text>
+                    <Text style={styles.modalLabel}>
+                      Submitted Issue Photos
+                    </Text>
 
                     {loadingIssuePhotos ? (
                       <View style={styles.issuePhotosEmptyBox}>
@@ -855,7 +860,8 @@ export default function MyItems() {
                               onPress={() =>
                                 openImagePreview(
                                   source,
-                                  photo.issue_name || `Issue Photo ${index + 1}`
+                                  photo.issue_name ||
+                                    `Issue Photo ${index + 1}`,
                                 )
                               }
                             >
