@@ -1,7 +1,7 @@
+export const API_URL = "https://upset-days-help.loca.lt/Admin_Side";//admin side tunnel, localtunnel (lt) link
 
-export const API_URL = "https://giant-waves-train.loca.lt/Admin_Side";
+export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev"; //fastAPI tunnel, nrgok link
 
-export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev";
 
 
 //export const API_URL = "https://emcee-fence-squatted.ngrok-free.dev/Admin_Side";
