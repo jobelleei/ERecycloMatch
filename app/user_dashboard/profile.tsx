@@ -795,6 +795,24 @@ export default function Profile() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                style={styles.sectionTabButton}
+                onPress={() => goToPage("/user_dashboard/user_myItems")}
+              >
+                <Text style={styles.sectionTabText}>
+                  My Items
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.sectionTabButton}
+                onPress={() => goToPage("/user_dashboard/user_myListing")}
+              >
+                <Text style={styles.sectionTabText}>
+                  My Listings
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={[
                   styles.sectionTabButton,
                   activeSection === "feedbacks" && styles.activeSectionTab,
