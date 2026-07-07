@@ -37,17 +37,22 @@ export default function FacilityViewProfile() {
   );
 
   const [facility, setFacility] = useState({
-    id: "",
-    name: "",
-    email: "",
-    location: "",
-    address: "",
-    profileImage: "",
-    operatingHoursFrom: "",
-    operatingHoursTo: "",
-    acceptedItemTypes: "",
-    availableServices: "",
-  });
+  id: "",
+  name: "",
+  email: "",
+  location: "",
+  address: "",
+  profileImage: "",
+
+  openingDaysFrom: "",
+  openingDaysTo: "",
+
+  operatingHoursFrom: "",
+  operatingHoursTo: "",
+
+  acceptedItemTypes: "",
+  availableServices: "",
+});
 
   const [postings, setPostings] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
@@ -103,6 +108,8 @@ export default function FacilityViewProfile() {
         location: "No location provided",
         address: "No location provided",
         profileImage: "",
+        openingDaysFrom: "",
+        openingDaysTo: "",
         operatingHoursFrom: "",
         operatingHoursTo: "",
         acceptedItemTypes: "",
@@ -255,6 +262,17 @@ export default function FacilityViewProfile() {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  const formatOpeningDays = (from?: string, to?: string) => {
+  const cleanFrom = String(from || "").trim();
+  const cleanTo = String(to || "").trim();
+
+  if (!cleanFrom && !cleanTo) return "Not specified";
+  if (cleanFrom && !cleanTo) return cleanFrom;
+  if (!cleanFrom && cleanTo) return cleanTo;
+
+  return `${cleanFrom} - ${cleanTo}`;
+  };
+
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
 
@@ -321,17 +339,22 @@ export default function FacilityViewProfile() {
 
       if (error || !data) {
         setFacility({
-          id: "",
-          name: "Facility not found",
-          email: "",
-          location: "No location provided",
-          address: "No location provided",
-          profileImage: "",
-          operatingHoursFrom: "",
-          operatingHoursTo: "",
-          acceptedItemTypes: "",
-          availableServices: "",
-        });
+        id: "",
+        name: "Facility not found",
+        email: "",
+        location: "No location provided",
+        address: "No location provided",
+        profileImage: "",
+
+        openingDaysFrom: "",
+        openingDaysTo: "",
+
+        operatingHoursFrom: "",
+        operatingHoursTo: "",
+
+        acceptedItemTypes: "",
+        availableServices: "",
+      });
 
         setPostings([]);
         setFeedbacks([]);
@@ -344,7 +367,7 @@ export default function FacilityViewProfile() {
         : "";
 
       setFacility({
-        id: String(data.id || ""),
+      id: String(data.id || ""),
         name:
           data.name ||
           data.username ||
@@ -352,14 +375,30 @@ export default function FacilityViewProfile() {
           data.full_name ||
           data.facility_name ||
           "Facility",
+
         email: data.email || "",
-        location: data.location || data.address || "No location provided",
-        address: data.address || data.location || "No location provided",
+
+        location:
+          data.location ||
+          data.address ||
+          "No location provided",
+
+        address:
+          data.address ||
+          data.location ||
+          "No location provided",
+
         profileImage,
-        operatingHoursFrom: String(data.operating_hours_from || "").trim(),
-        operatingHoursTo: String(data.operating_hours_to || "").trim(),
-        acceptedItemTypes: String(data.accepted_item_types || "").trim(),
-        availableServices: String(data.available_services || "").trim(),
+
+        openingDaysFrom: data.opening_days_from || "",
+        openingDaysTo: data.opening_days_to || "",
+
+        operatingHoursFrom: data.operating_hours_from || "",
+        operatingHoursTo: data.operating_hours_to || "",
+
+        acceptedItemTypes: data.accepted_item_types || "",
+
+        availableServices: data.available_services || "",
       });
     } catch (error) {
       console.log("FETCH FACILITY PROFILE ERROR:", error);
@@ -371,8 +410,13 @@ export default function FacilityViewProfile() {
         location: "No location provided",
         address: "No location provided",
         profileImage: "",
+
+        openingDaysFrom: "",
+        openingDaysTo: "",
+
         operatingHoursFrom: "",
         operatingHoursTo: "",
+
         acceptedItemTypes: "",
         availableServices: "",
       });
@@ -843,6 +887,14 @@ export default function FacilityViewProfile() {
               </View>
 
               <View style={styles.headerInfoBox}>
+                {renderHeaderInfoRow(
+                  "Opening Days",
+                  formatOpeningDays(
+                    facility.openingDaysFrom,
+                    facility.openingDaysTo
+                  )
+                )}
+
                 {renderHeaderInfoRow(
                   "Operating Hours",
                   formatOperatingHours(

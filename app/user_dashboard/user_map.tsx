@@ -38,8 +38,13 @@ type MapPin = {
   address?: string;
   distance?: string;
   type: MapMode;
+
+  openingDaysFrom?: string;
+  openingDaysTo?: string;
+
   operatingHoursFrom?: string;
   operatingHoursTo?: string;
+
   acceptedItemTypes?: string;
   availableServices?: string;
 };
@@ -108,6 +113,7 @@ export default function UserMapScreen() {
 
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
+  const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI3ZjcxZTNkNDM1YzQxN2U4ZjNkNjgyNTA3YmJiZDk5IiwiaCI6Im11cm11cjY0In0=";
 
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
@@ -129,6 +135,8 @@ export default function UserMapScreen() {
   const [navigationTarget, setNavigationTarget] = useState<MapPin | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [remainingDistance, setRemainingDistance] = useState("");
+  const [routeCoordinates, setRouteCoordinates] = useState<Coord[]>([]);
+
 
   const [search, setSearch] = useState("");
   const [loadingPins, setLoadingPins] = useState(false);
@@ -488,6 +496,24 @@ export default function UserMapScreen() {
     return parts.join(", ");
   };
 
+  const getFacilityOpeningDaysFrom = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_from",
+      "openingDaysFrom",
+    ]) || ""
+  ).trim();
+};
+
+const getFacilityOpeningDaysTo = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_to",
+      "openingDaysTo",
+    ]) || ""
+  ).trim();
+};
+
   const getFacilityOperatingHoursFrom = (facility: any) => {
     return String(
       getValueFromKeys(facility, [
@@ -533,6 +559,25 @@ export default function UserMapScreen() {
       ]) || ""
     ).trim();
   };
+
+  const formatOpeningDays = (from?: string, to?: string) => {
+  const cleanFrom = String(from || "").trim();
+  const cleanTo = String(to || "").trim();
+
+  if (!cleanFrom && !cleanTo) {
+    return "Not specified";
+  }
+
+  if (cleanFrom && !cleanTo) {
+    return cleanFrom;
+  }
+
+  if (!cleanFrom && cleanTo) {
+    return cleanTo;
+  }
+
+  return `${cleanFrom} - ${cleanTo}`;
+};
 
   const formatOperatingHours = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
@@ -623,6 +668,8 @@ export default function UserMapScreen() {
         pin.name,
         pin.address,
         pin.location,
+        pin.openingDaysFrom,
+        pin.openingDaysTo,
         pin.operatingHoursFrom,
         pin.operatingHoursTo,
         pin.acceptedItemTypes,
@@ -749,28 +796,80 @@ export default function UserMapScreen() {
   };
 
   const getDistanceKmNumber = (a: Coord, b: Coord) => {
-    const R = 6371;
-    const dLat = (b.latitude - a.latitude) * (Math.PI / 180);
-    const dLon = (b.longitude - a.longitude) * (Math.PI / 180);
+  const R = 6371;
 
-    const lat1 = a.latitude * (Math.PI / 180);
-    const lat2 = b.latitude * (Math.PI / 180);
+  const dLat = (b.latitude - a.latitude) * (Math.PI / 180);
+  const dLon = (b.longitude - a.longitude) * (Math.PI / 180);
 
-    const aVal =
-      Math.sin(dLat / 2) ** 2 +
-      Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+  const lat1 = a.latitude * (Math.PI / 180);
+  const lat2 = b.latitude * (Math.PI / 180);
 
-    const c = 2 * Math.atan2(Math.sqrt(aVal), Math.sqrt(1 - aVal));
+  const aVal =
+    Math.sin(dLat / 2) ** 2 +
+    Math.sin(dLon / 2) ** 2 *
+      Math.cos(lat1) *
+      Math.cos(lat2);
 
-    return R * c;
-  };
+  const c =
+    2 *
+    Math.atan2(
+      Math.sqrt(aVal),
+      Math.sqrt(1 - aVal)
+    );
 
-  const getDistanceKm = (a: Coord, b: MapPin) => {
-    return getDistanceKmNumber(a, {
-      latitude: b.latitude,
-      longitude: b.longitude,
-    }).toFixed(2);
-  };
+  return R * c;
+};
+
+const getRoadRoute = async (
+  origin: Coord,
+  destination: Coord
+) => {
+  try {
+    const response = await fetch(
+      "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
+      {
+        method: "POST",
+        headers: {
+          Authorization: ORS_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          coordinates: [
+            [origin.longitude, origin.latitude],
+            [destination.longitude, destination.latitude],
+          ],
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.features?.length) {
+      console.log("No route returned");
+      return;
+    }
+
+    const coords =
+      data.features[0].geometry.coordinates.map(
+        (coord: number[]) => ({
+          latitude: coord[1],
+          longitude: coord[0],
+        })
+      );
+
+    setRouteCoordinates(coords);
+
+    const summary =
+      data.features[0].properties.summary;
+
+    setRemainingDistance(
+      (summary.distance / 1000).toFixed(2)
+    );
+
+  } catch (error) {
+    console.log(error);
+  }
+};
 
   const updateNearestList = (pinList: MapPin[], keywordValue = search) => {
     const filteredPins = filterPinsBySearch(pinList, keywordValue);
@@ -783,7 +882,7 @@ export default function UserMapScreen() {
     const sorted = filteredPins
       .map((pin) => ({
         ...pin,
-        distance: getDistanceKm(userLocation, pin),
+        distance: getDistanceKmNumber(userLocation, pin).toFixed(2),
       }))
       .sort(
         (a, b) => parseFloat(a.distance || "0") - parseFloat(b.distance || "0")
@@ -836,6 +935,9 @@ export default function UserMapScreen() {
         location: cleanedLocation || addressText,
         address: addressText,
         type: "facilities",
+
+        openingDaysFrom: getFacilityOpeningDaysFrom(facility),
+        openingDaysTo: getFacilityOpeningDaysTo(facility),
         operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
         operatingHoursTo: getFacilityOperatingHoursTo(facility),
         acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
@@ -1304,6 +1406,7 @@ export default function UserMapScreen() {
       setIsNavigating(false);
       setNavigationTarget(null);
       setRemainingDistance("");
+      setRouteCoordinates([]);
     } catch (error) {
       console.log("STOP NAVIGATION ERROR:", error);
     }
@@ -1339,12 +1442,13 @@ export default function UserMapScreen() {
 
       setUserLocation(currentCoords);
 
-      const initialDistance = getDistanceKmNumber(currentCoords, {
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-      });
-
-      setRemainingDistance(initialDistance.toFixed(2));
+        await getRoadRoute(
+            currentCoords,
+            {
+                latitude: pin.latitude,
+                longitude: pin.longitude,
+            }
+        );
 
       mapRef.current?.fitToCoordinates(
         [
@@ -1379,12 +1483,13 @@ export default function UserMapScreen() {
 
           setUserLocation(liveCoords);
 
-          const distance = getDistanceKmNumber(liveCoords, {
-            latitude: pin.latitude,
-            longitude: pin.longitude,
-          });
-
-          setRemainingDistance(distance.toFixed(2));
+          const distance = getDistanceKmNumber(
+              liveCoords,
+              {
+                  latitude: pin.latitude,
+                  longitude: pin.longitude,
+              }
+          );
 
           if (distance <= 0.05) {
             Alert.alert(
@@ -1595,21 +1700,12 @@ export default function UserMapScreen() {
 
           {isNavigating && userLocation && navigationTarget && (
             <Polyline
-              coordinates={[
-                {
-                  latitude: userLocation.latitude,
-                  longitude: userLocation.longitude,
-                },
-                {
-                  latitude: navigationTarget.latitude,
-                  longitude: navigationTarget.longitude,
-                },
-              ]}
+              coordinates={routeCoordinates}
               strokeWidth={5}
               strokeColor="#1b5e20"
             />
           )}
-        </MapView>
+          </MapView>
 
         <View style={styles.legend}>
           <Text style={styles.legendTitle}>Legend</Text>
@@ -1684,24 +1780,32 @@ export default function UserMapScreen() {
 
               {selectedPin.type === "facilities" && (
                 <View style={styles.facilityInfoBox}>
-                  {renderFacilityInfoRow(
-                    "Operating Hours",
-                    formatOperatingHours(
-                      selectedPin.operatingHoursFrom,
-                      selectedPin.operatingHoursTo
-                    )
-                  )}
+                {renderFacilityInfoRow(
+                  "Opening Days",
+                  formatOpeningDays(
+                    selectedPin.openingDaysFrom,
+                    selectedPin.openingDaysTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Accepted Items",
-                    formatCommaText(selectedPin.acceptedItemTypes)
-                  )}
+                {renderFacilityInfoRow(
+                  "Operating Hours",
+                  formatOperatingHours(
+                    selectedPin.operatingHoursFrom,
+                    selectedPin.operatingHoursTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Available Services",
-                    formatCommaText(selectedPin.availableServices)
-                  )}
-                </View>
+                {renderFacilityInfoRow(
+                  "Accepted Items",
+                  formatCommaText(selectedPin.acceptedItemTypes)
+                )}
+
+                {renderFacilityInfoRow(
+                  "Available Services",
+                  formatCommaText(selectedPin.availableServices)
+                )}
+              </View>
               )}
 
               {isNavigating && navigationTarget?.id === selectedPin.id && (

@@ -146,6 +146,16 @@ const MINUTE_OPTIONS = [
 
 const PERIOD_OPTIONS = ["AM", "PM"];
 
+const DAY_OPTIONS = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];
+
 type TimeTarget = "from" | "to";
 
 export default function FacilitySettings() {
@@ -159,11 +169,16 @@ export default function FacilitySettings() {
     location: "",
     profileImage: "",
     profileImagePath: "",
+
+    openingDaysFrom: "",
+    openingDaysTo: "",
+
     operatingHoursFrom: "",
     operatingHoursTo: "",
+
     acceptedItemTypes: "",
     availableServices: "",
-  });
+});
 
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
@@ -177,6 +192,12 @@ export default function FacilitySettings() {
   const [editOperatingHoursTo, setEditOperatingHoursTo] = useState("");
   const [editAcceptedItemTypes, setEditAcceptedItemTypes] = useState("");
   const [editAvailableServices, setEditAvailableServices] = useState("");
+
+  const [editOpeningDayFrom, setEditOpeningDayFrom] = useState("");
+const [editOpeningDayTo, setEditOpeningDayTo] = useState("");
+
+const [dayPickerVisible, setDayPickerVisible] = useState(false);
+const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
 
   const [acceptedDropdownVisible, setAcceptedDropdownVisible] = useState(false);
   const [servicesDropdownVisible, setServicesDropdownVisible] = useState(false);
@@ -433,6 +454,17 @@ export default function FacilitySettings() {
           "No location added",
         profileImage: getProfileImageUrl(String(profileImage || "")),
         profileImagePath: String(profileImage || ""),
+
+        openingDaysFrom:
+  actualUser?.opening_days_from ||
+  parsed?.opening_days_from ||
+  "",
+
+openingDaysTo:
+  actualUser?.opening_days_to ||
+  parsed?.opening_days_to ||
+  "",
+
         operatingHoursFrom:
           actualUser?.operating_hours_from ||
           parsed?.operating_hours_from ||
@@ -486,6 +518,17 @@ export default function FacilitySettings() {
           ? getProfileImageUrl(profileImagePath)
           : fallbackFacility.profileImage,
         profileImagePath: profileImagePath || fallbackFacility.profileImagePath,
+
+        openingDaysFrom:
+  data.opening_days_from ||
+  fallbackFacility.openingDaysFrom ||
+  "",
+
+openingDaysTo:
+  data.opening_days_to ||
+  fallbackFacility.openingDaysTo ||
+  "",
+
         operatingHoursFrom:
           data.operating_hours_from || fallbackFacility.operatingHoursFrom || "",
         operatingHoursTo:
@@ -512,6 +555,8 @@ export default function FacilitySettings() {
           location: updatedFacility.location,
           profileImage: updatedFacility.profileImage,
           profile_image: updatedFacility.profileImagePath,
+          opening_days_from: updatedFacility.openingDaysFrom,
+          opening_days_to: updatedFacility.openingDaysTo,
           operating_hours_from: updatedFacility.operatingHoursFrom,
           operating_hours_to: updatedFacility.operatingHoursTo,
           accepted_item_types: updatedFacility.acceptedItemTypes,
@@ -529,6 +574,8 @@ export default function FacilitySettings() {
             location: updatedFacility.location,
             profileImage: updatedFacility.profileImage,
             profile_image: updatedFacility.profileImagePath,
+            opening_days_from: updatedFacility.openingDaysFrom,
+            opening_days_to: updatedFacility.openingDaysTo,
             operating_hours_from: updatedFacility.operatingHoursFrom,
             operating_hours_to: updatedFacility.operatingHoursTo,
             accepted_item_types: updatedFacility.acceptedItemTypes,
@@ -547,6 +594,8 @@ export default function FacilitySettings() {
             location: updatedFacility.location,
             profileImage: updatedFacility.profileImage,
             profile_image: updatedFacility.profileImagePath,
+            opening_days_from: updatedFacility.openingDaysFrom,
+            opening_days_to: updatedFacility.openingDaysTo,
             operating_hours_from: updatedFacility.operatingHoursFrom,
             operating_hours_to: updatedFacility.operatingHoursTo,
             accepted_item_types: updatedFacility.acceptedItemTypes,
@@ -569,6 +618,8 @@ export default function FacilitySettings() {
     setEditName(facility.name || "");
     setEditProfileImage(facility.profileImage || "");
     setEditProfileImagePath(facility.profileImagePath || "");
+    setEditOpeningDayFrom(facility.openingDaysFrom || "");
+    setEditOpeningDayTo(facility.openingDaysTo || "");
     setEditOperatingHoursFrom(facility.operatingHoursFrom || "");
     setEditOperatingHoursTo(facility.operatingHoursTo || "");
     setEditAcceptedItemTypes(normalizeCommaValues(facility.acceptedItemTypes));
@@ -696,6 +747,16 @@ export default function FacilitySettings() {
 
       if (!validateEditProfile()) return;
 
+      if (!editOpeningDayFrom.trim()) {
+      Alert.alert("Missing Opening Days", "Please select the opening day.");
+      return false;
+    }
+
+    if (!editOpeningDayTo.trim()) {
+      Alert.alert("Missing Opening Days", "Please select the closing day.");
+      return false;
+    }
+
       if (!facility.id) {
         Alert.alert(
           "Facility Error",
@@ -707,13 +768,22 @@ export default function FacilitySettings() {
       setSavingProfile(true);
 
       const cleanName = editName.trim();
+
+      const cleanOpeningDayFrom = editOpeningDayFrom.trim();
+      const cleanOpeningDayTo = editOpeningDayTo.trim();
+
       const cleanOperatingHoursFrom = editOperatingHoursFrom.trim();
       const cleanOperatingHoursTo = editOperatingHoursTo.trim();
 
       const updateData: any = {
         name: cleanName,
+
+        opening_days_from: cleanOpeningDayFrom,
+        opening_days_to: cleanOpeningDayTo,
+
         operating_hours_from: cleanOperatingHoursFrom,
         operating_hours_to: cleanOperatingHoursTo,
+
         accepted_item_types: cleanedAcceptedItems,
         available_services: cleanedAvailableServices,
       };
@@ -743,6 +813,15 @@ export default function FacilitySettings() {
         location: facility.location,
         profileImage: editProfileImage || facility.profileImage,
         profileImagePath: updatedProfile?.profile_image || editProfileImagePath,
+
+       openingDaysFrom:
+        updatedProfile?.opening_days_from ||
+        cleanOpeningDayFrom,
+
+      openingDaysTo:
+        updatedProfile?.opening_days_to ||
+        cleanOpeningDayTo,
+
         operatingHoursFrom:
           updatedProfile?.operating_hours_from || cleanOperatingHoursFrom,
         operatingHoursTo:
@@ -1097,6 +1176,50 @@ export default function FacilitySettings() {
       </View>
     );
   };
+  
+  const renderDayPicker = () => {
+  if (!dayPickerVisible) return null;
+
+  return (
+    <View style={styles.centerTimeOverlay}>
+      <Pressable
+        style={styles.centerTimeBackdrop}
+        onPress={() => setDayPickerVisible(false)}
+      />
+
+      <View style={styles.centerTimePanel}>
+        <Text style={styles.centerTimeTitle}>
+          Select Opening Day
+        </Text>
+
+        <ScrollView
+          style={{ maxHeight: 300 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {DAY_OPTIONS.map((day) => (
+            <TouchableOpacity
+              key={day}
+              style={styles.timeOption}
+              onPress={() => {
+                if (dayTarget === "from") {
+                  setEditOpeningDayFrom(day);
+                } else {
+                  setEditOpeningDayTo(day);
+                }
+
+                setDayPickerVisible(false);
+              }}
+            >
+              <Text style={styles.timeOptionText}>
+                {day}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    </View>
+  );
+};
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1284,6 +1407,52 @@ export default function FacilitySettings() {
                   multiline
                 />
 
+                <Text style={styles.inputLabel}>Opening Days</Text>
+
+              <View style={styles.timeInputRow}>
+                <View style={styles.timeInputBox}>
+                  <Text style={styles.subLabel}>From</Text>
+
+                  <TouchableOpacity
+                    style={styles.timeTouchableInput}
+                    onPress={() => {
+                      setDayTarget("from");
+                      setDayPickerVisible(true);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.timeTouchableText,
+                        !editOpeningDayFrom && styles.placeholderText,
+                      ]}
+                    >
+                      {editOpeningDayFrom || "Select day"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.timeInputBox}>
+                  <Text style={styles.subLabel}>To</Text>
+
+                  <TouchableOpacity
+                    style={styles.timeTouchableInput}
+                    onPress={() => {
+                      setDayTarget("to");
+                      setDayPickerVisible(true);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.timeTouchableText,
+                        !editOpeningDayTo && styles.placeholderText,
+                      ]}
+                    >
+                      {editOpeningDayTo || "Select day"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
                 <Text style={styles.inputLabel}>Operating Hours</Text>
 
                 <View style={styles.timeInputRow}>
@@ -1376,6 +1545,7 @@ export default function FacilitySettings() {
               </ScrollView>
 
               {renderTimePickerPanel()}
+              {renderDayPicker()}
             </View>
           </View>
         </KeyboardAvoidingView>

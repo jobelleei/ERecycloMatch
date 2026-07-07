@@ -39,6 +39,8 @@ type MapPin = {
   address?: string;
   distance?: string;
   type: MapMode;
+  openingDaysFrom?: string;
+  openingDaysTo?: string;
   operatingHoursFrom?: string;
   operatingHoursTo?: string;
   acceptedItemTypes?: string;
@@ -518,31 +520,49 @@ export default function FacilityMapScreen() {
   };
 
   const getFacilityAddress = (facility: any) => {
-    const directAddress = getValueFromKeys(facility, [
-      "location",
-      "address",
-      "complete_address",
-      "facility_location",
-      "facility_address",
-    ]);
+  const directAddress = getValueFromKeys(facility, [
+    "location",
+    "address",
+    "complete_address",
+    "facility_location",
+    "facility_address",
+  ]);
 
-    if (directAddress) return String(directAddress);
+  if (directAddress) return String(directAddress);
 
-    const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
-    const municipality = getValueFromKeys(facility, [
-      "municipality",
-      "city",
-      "city_municipality",
-      "town",
-    ]);
-    const province = getValueFromKeys(facility, ["province"]);
+  const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
+  const municipality = getValueFromKeys(facility, [
+    "municipality",
+    "city",
+    "city_municipality",
+    "town",
+  ]);
+  const province = getValueFromKeys(facility, ["province"]);
 
-    const parts = [barangay, municipality, province]
-      .map((part) => String(part || "").trim())
-      .filter((part) => part.length > 0);
+  const parts = [barangay, municipality, province]
+    .map((part) => String(part || "").trim())
+    .filter((part) => part.length > 0);
 
-    return parts.join(", ");
-  };
+  return parts.join(", ");
+};
+
+const getFacilityOpeningDaysFrom = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_from",
+      "openingDaysFrom",
+    ]) || ""
+  ).trim();
+};
+
+const getFacilityOpeningDaysTo = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_to",
+      "openingDaysTo",
+    ]) || ""
+  ).trim();
+};
 
   const getFacilityOperatingHoursFrom = (facility: any) => {
     return String(
@@ -608,6 +628,17 @@ export default function FacilityMapScreen() {
 
     return `${cleanFrom} - ${cleanTo}`;
   };
+
+  const formatOpeningDays = (from?: string, to?: string) => {
+  const cleanFrom = String(from || "").trim();
+  const cleanTo = String(to || "").trim();
+
+  if (!cleanFrom && !cleanTo) return "Not specified";
+  if (cleanFrom && !cleanTo) return cleanFrom;
+  if (!cleanFrom && cleanTo) return cleanTo;
+
+  return `${cleanFrom} - ${cleanTo}`;
+};
 
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
@@ -879,18 +910,23 @@ export default function FacilityMapScreen() {
       }
 
       finalFacilities.push({
-        id: String(facility.id),
-        name: getFacilityName(facility),
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-        location: cleanedLocation || addressText,
-        address: addressText,
-        type: "facilities",
-        operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
-        operatingHoursTo: getFacilityOperatingHoursTo(facility),
-        acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
-        availableServices: getFacilityAvailableServices(facility),
-      });
+      id: String(facility.id),
+      name: getFacilityName(facility),
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      location: cleanedLocation || addressText,
+      address: addressText,
+      type: "facilities",
+
+      openingDaysFrom: getFacilityOpeningDaysFrom(facility),
+      openingDaysTo: getFacilityOpeningDaysTo(facility),
+
+      operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
+      operatingHoursTo: getFacilityOperatingHoursTo(facility),
+
+      acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
+      availableServices: getFacilityAvailableServices(facility),
+    });
     }
 
     return finalFacilities;
@@ -1320,10 +1356,12 @@ export default function FacilityMapScreen() {
   };
 
   const openPinDetails = (pin: MapPin) => {
-    setSelectedPin(pin);
-    setShowList(false);
-    goToPinOnMap(pin);
-  };
+  console.log(pin);
+
+  setSelectedPin(pin);
+  setShowList(false);
+  goToPinOnMap(pin);
+};
 
   const isOwnFacilityPin = (pin: MapPin | null) => {
     if (!pin || pin.type !== "facilities") return false;
@@ -1743,27 +1781,35 @@ export default function FacilityMapScreen() {
                   "No address provided"}
               </Text>
 
-              {selectedPin.type === "facilities" && (
-                <View style={styles.facilityInfoBox}>
-                  {renderFacilityInfoRow(
-                    "Operating Hours",
-                    formatOperatingHours(
-                      selectedPin.operatingHoursFrom,
-                      selectedPin.operatingHoursTo
-                    )
-                  )}
+            {selectedPin.type === "facilities" && (
+              <View style={styles.facilityInfoBox}>
+                {renderFacilityInfoRow(
+                  "Opening Days",
+                  formatOpeningDays(
+                    selectedPin.openingDaysFrom,
+                    selectedPin.openingDaysTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Accepted Items",
-                    formatCommaText(selectedPin.acceptedItemTypes)
-                  )}
+                {renderFacilityInfoRow(
+                  "Operating Hours",
+                  formatOperatingHours(
+                    selectedPin.operatingHoursFrom,
+                    selectedPin.operatingHoursTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Available Services",
-                    formatCommaText(selectedPin.availableServices)
-                  )}
-                </View>
-              )}
+                {renderFacilityInfoRow(
+                  "Accepted Items",
+                  formatCommaText(selectedPin.acceptedItemTypes)
+                )}
+
+                {renderFacilityInfoRow(
+                  "Available Services",
+                  formatCommaText(selectedPin.availableServices)
+                )}
+              </View>
+            )}
 
               {isOwnFacilityPin(selectedPin) && (
                 <Text style={styles.ownFacilityNote}>

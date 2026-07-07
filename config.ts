@@ -1,4 +1,4 @@
-export const API_URL = "https://eager-signs-throw.loca.lt/Admin_Side";//admin side tunnel, localtunnel (lt) link
+export const API_URL = "https://icy-worlds-begin.loca.lt/Admin_Side";//admin side tunnel, localtunnel (lt) link
 
 export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev"; //fastAPI tunnel, nrgok link
 

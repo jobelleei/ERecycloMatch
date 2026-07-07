@@ -164,6 +164,8 @@ export default function FacilityProfile() {
     location: "",
     address: "",
     profileImage: "",
+    openingDaysFrom: "",
+    openingDaysTo: "",
     operatingHoursFrom: "",
     operatingHoursTo: "",
     acceptedItems: "",
@@ -435,6 +437,17 @@ export default function FacilityProfile() {
           parsed?.location ||
           "No location added",
         profileImage: finalProfileImage,
+
+        openingDaysFrom:
+          actualUser?.opening_days_from ||
+          parsed?.opening_days_from ||
+          "",
+
+        openingDaysTo:
+          actualUser?.opening_days_to ||
+          parsed?.opening_days_to ||
+          "",
+
         operatingHoursFrom:
           actualUser?.operating_hours_from ||
           parsed?.operating_hours_from ||
@@ -484,21 +497,31 @@ export default function FacilityProfile() {
         : fallbackData.profileImage;
 
       const updatedFacility = {
-        id: String(data.id || fallbackData.id),
-        name: data.name || fallbackData.name,
-        email: data.email || fallbackData.email,
-        location: data.location || data.address || fallbackData.location,
-        address: data.address || data.location || fallbackData.address,
-        profileImage,
-        operatingHoursFrom:
-          data.operating_hours_from || fallbackData.operatingHoursFrom || "",
-        operatingHoursTo:
-          data.operating_hours_to || fallbackData.operatingHoursTo || "",
-        acceptedItems:
-          data.accepted_item_types || fallbackData.acceptedItems || "",
-        availableServices:
-          data.available_services || fallbackData.availableServices || "",
-      };
+      id: String(data.id || fallbackData.id),
+      name: data.name || fallbackData.name,
+      email: data.email || fallbackData.email,
+      location: data.location || data.address || fallbackData.location,
+      address: data.address || data.location || fallbackData.address,
+      profileImage,
+
+      openingDaysFrom:
+        data.opening_days_from || fallbackData.openingDaysFrom || "",
+
+      openingDaysTo:
+        data.opening_days_to || fallbackData.openingDaysTo || "",
+
+      operatingHoursFrom:
+        data.operating_hours_from || fallbackData.operatingHoursFrom || "",
+
+      operatingHoursTo:
+        data.operating_hours_to || fallbackData.operatingHoursTo || "",
+
+      acceptedItems:
+        data.accepted_item_types || fallbackData.acceptedItems || "",
+
+      availableServices:
+        data.available_services || fallbackData.availableServices || "",
+    };
 
       setFacility(updatedFacility);
 
@@ -1117,24 +1140,31 @@ export default function FacilityProfile() {
               </View>
 
               <View style={styles.headerInfoBox}>
-                {renderHeaderInfoRow(
-                  "Operating Hours",
-                  formatOperatingHours(
-                    facility.operatingHoursFrom,
-                    facility.operatingHoursTo
-                  )
-                )}
+              {renderHeaderInfoRow(
+                "Opening Days",
+                `${facility.openingDaysFrom || "Not specified"} - ${
+                  facility.openingDaysTo || ""
+                }`
+              )}
 
-                {renderHeaderInfoRow(
-                  "Accepted Items",
-                  formatCommaText(facility.acceptedItems)
-                )}
+              {renderHeaderInfoRow(
+                "Operating Hours",
+                formatOperatingHours(
+                  facility.operatingHoursFrom,
+                  facility.operatingHoursTo
+                )
+              )}
 
-                {renderHeaderInfoRow(
-                  "Available Services",
-                  formatCommaText(facility.availableServices)
-                )}
-              </View>
+              {renderHeaderInfoRow(
+                "Accepted Items",
+                formatCommaText(facility.acceptedItems)
+              )}
+
+              {renderHeaderInfoRow(
+                "Available Services",
+                formatCommaText(facility.availableServices)
+              )}
+            </View>
 
               <View style={styles.ratingSummaryBox}>
                 <Text style={styles.ratingSummaryStars}>
