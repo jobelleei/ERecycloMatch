@@ -195,13 +195,3 @@ if (updateError) {
 } // End function
 
 checkInactiveUsers();
-
-console.log(
-  "Using service role:",
-  !!process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-console.log(
-  "First 20 chars:",
-  process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20)
-);
