@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
+import { registerForPushNotificationsAsync } from "../utils/registerForPushNotifications";
 import {
   Image,
   ImageBackground,
@@ -130,7 +131,8 @@ export default function Signin() {
         Toast.show({
           type: "error",
           text1: "Account Deleted",
-          text2: "This account has already been deleted.",
+          text2:
+            "Your account has been deleted due to prolonged inactivity. Please create a new account to continue using ERecycloMatch.",
         });
         return;
       }
@@ -164,6 +166,24 @@ export default function Signin() {
 
       await AsyncStorage.setItem("user", JSON.stringify(userData));
 
+      const expoPushToken = await registerForPushNotificationsAsync();
+
+console.log("Expo Push Token:", expoPushToken);
+
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        expo_push_token: expoPushToken,
+        last_active_at: new Date().toISOString(),
+        last_inactivity_notification: 0,
+        deletion_scheduled_at: null,
+        deleted_at: null,
+      })
+      .eq("id", profile.id)
+      .select();
+
+    console.log("Update Result:", updatedProfile);
+    console.log("Update Error:", updateError);
       Toast.show({
         type: "success",
         text1: "Welcome Back!",
