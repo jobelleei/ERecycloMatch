@@ -11,8 +11,10 @@ import {
   CameraType,
   useCameraPermissions,
 } from "expo-camera";
+import UserBottomNav from "../../components/UserBottomNav";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { YOLO_URL } from "../../config";
@@ -22,18 +24,38 @@ export default function ScanScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
+  const [userId, setUserId] = useState("");
 
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [facing, setFacing] = useState<CameraType>("back");
 
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (permission && !permission.granted) {
       requestPermission();
     }
   }, [permission]);
+
+  useEffect(() => {
+  const loadUser = async () => {
+    const stored = await AsyncStorage.getItem("user");
+
+    if (!stored) return;
+
+    const parsed = JSON.parse(stored);
+
+    const id =
+      parsed?.id ||
+      parsed?.user?.id ||
+      parsed?.data?.id ||
+      "";
+
+    setUserId(String(id));
+  };
+
+  loadUser();
+}, []);
 
   const pingBackend = async () => {
     const controller = new AbortController();
@@ -339,127 +361,12 @@ export default function ScanScreen() {
         </Text>
       </TouchableOpacity>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_scan")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_map")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/messages")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/profile")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/settings")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {userId && (
+      <UserBottomNav
+          userId={userId}
+          active="scan"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -605,40 +512,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

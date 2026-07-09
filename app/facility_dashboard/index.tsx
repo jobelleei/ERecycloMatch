@@ -37,6 +37,7 @@ export default function FacilityDashboard() {
   const [searchedUsers, setSearchedUsers] = useState<any[]>([]);
   const [searchedItems, setSearchedItems] = useState<any[]>([]);
   const [randomListedItems, setRandomListedItems] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -46,46 +47,66 @@ export default function FacilityDashboard() {
   };
 
   useEffect(() => {
-    loadFacility();
-    fetchRandomListedItems();
-  }, []);
+  loadFacility();
+}, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFacility();
-      fetchRandomListedItems();
-    }, []),
-  );
+useFocusEffect(
+  useCallback(() => {
+    loadFacility();
+  }, [])
+);
+
+useEffect(() => {
+  const delaySearch = setTimeout(() => {
+    if (searchText.trim().length > 0) {
+      searchFacilityData(searchText.trim());
+    } else {
+      setSearchedUsers([]);
+      setSearchedItems([]);
+      setShowSearchResults(false);
+    }
+  }, 400);
+
+  return () => clearTimeout(delaySearch);
+}, [searchText]);
 
   useEffect(() => {
-    const delaySearch = setTimeout(() => {
-      if (searchText.trim().length > 0) {
-        searchFacilityData(searchText.trim());
-      } else {
-        setSearchedUsers([]);
-        setSearchedItems([]);
-        setShowSearchResults(false);
+  if (!facility?.id) return;
+
+  const channel = supabase
+    .channel("facility-unread")
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${facility.id}`,
+      },
+      () => {
+        fetchUnreadMessages(Number(facility.id));
       }
-    }, 400);
+    )
+    .subscribe();
 
-    return () => clearTimeout(delaySearch);
-  }, [searchText]);
-
-  const isEmptyValue = (value: any) => {
-    const cleanValue = String(value ?? "")
-      .trim()
-      .toLowerCase();
-
-    return (
-      cleanValue === "" ||
-      cleanValue === "null" ||
-      cleanValue === "undefined" ||
-      cleanValue === "not specified" ||
-      cleanValue === "no data" ||
-      cleanValue === "n/a" ||
-      cleanValue === "none"
-    );
+  return () => {
+    supabase.removeChannel(channel);
   };
+}, [facility]);
+
+const isEmptyValue = (value: any) => {
+  if (value === null || value === undefined) return true;
+
+  const text = String(value).trim().toLowerCase();
+
+  return (
+    text === "" ||
+    text === "null" ||
+    text === "undefined" ||
+    text === "n/a" ||
+    text === "none"
+  );
+};
 
   const getProfileValue = (profile: any, keys: string[]) => {
     if (!profile) return "";
@@ -290,6 +311,7 @@ export default function FacilityDashboard() {
 
       setFacility(latestFacility);
       setFacilityName(String(latestName));
+      fetchUnreadMessages(Number(latestFacility.id));
 
       checkMissingFacilityProfileDetails(latestFacility);
 
@@ -323,6 +345,30 @@ export default function FacilityDashboard() {
       hideFacilityProfileReminder();
     }
   };
+
+  const fetchUnreadMessages = async (facilityId = facility?.id) => {
+  if (!facilityId) {
+    setUnreadCount(0);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .eq("receiver_id", Number(facilityId))
+    .eq("is_read", false);
+
+  if (error) {
+    console.log("FACILITY UNREAD ERROR:", error);
+    return;
+  }
+
+  const unreadConversations = new Set(
+    (data || []).map((m) => m.conversation_id)
+  );
+
+  setUnreadCount(unreadConversations.size);
+};
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
@@ -1181,15 +1227,26 @@ export default function FacilityDashboard() {
             style={styles.navItem}
             onPress={() => goToPage("/facility_dashboard/messages")}
           >
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
+            <View style={{ position: "relative" }}>
+              <Image
+                source={require("../../assets/icons/chatting.png")}
+                style={styles.navImage}
+              />
+
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
 
             <Text
               style={[
                 styles.navLabel,
-                pathname === "/facility_dashboard/messages" && styles.navActive,
+                pathname === "/facility_dashboard/messages" &&
+                  styles.navActive,
               ]}
             >
               Messages
@@ -1593,4 +1650,23 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "bold",
   },
+
+  badge: {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: "red",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 4,
+},
+
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "bold",
+},
 });

@@ -43,6 +43,7 @@ export default function RecyclingHistory() {
   const [filteredHistory, setFilteredHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const [accountId, setAccountId] = useState("");
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
@@ -55,16 +56,122 @@ export default function RecyclingHistory() {
   }, []);
 
   useFocusEffect(
-    useCallback(() => {
-      loadAccount();
-    }, [])
+  useCallback(() => {
+    loadAccount();
+
+    if (accountId && accountRole) {
+      fetchUnreadMessages(accountId, accountRole);
+    }
+  }, [accountId, accountRole])
+);
+
+  const fetchUnreadMessages = async (
+  currentAccountId = accountId,
+  currentRole = accountRole
+) => {
+  if (!currentAccountId || !currentRole) {
+    setUnreadCount(0);
+    return;
+  }
+
+  let unreadMessagesQuery = supabase
+    .from("messages")
+    .select("conversation_id")
+    .eq("is_read", false);
+
+  let unreadRequestsQuery = supabase
+    .from("conversations")
+    .select("id")
+    .eq("is_read", false);
+
+  if (currentRole === "facility") {
+    unreadMessagesQuery = unreadMessagesQuery.eq(
+      "receiver_id",
+      Number(currentAccountId)
+    );
+
+    unreadRequestsQuery = unreadRequestsQuery.eq(
+      "facility_id",
+      String(currentAccountId)
+    );
+  } else {
+    unreadMessagesQuery = unreadMessagesQuery.eq(
+      "receiver_id",
+      Number(currentAccountId)
+    );
+
+    unreadRequestsQuery = unreadRequestsQuery.eq(
+      "user_id",
+      String(currentAccountId)
+    );
+  }
+
+  const { data: unreadMessages } = await unreadMessagesQuery;
+  const { data: unreadRequests } = await unreadRequestsQuery;
+
+  const unreadSet = new Set<string>();
+
+  (unreadMessages || []).forEach((m: any) =>
+    unreadSet.add(String(m.conversation_id))
   );
+
+  (unreadRequests || []).forEach((c: any) =>
+    unreadSet.add(String(c.id))
+  );
+
+  setUnreadCount(unreadSet.size);
+};
 
   useEffect(() => {
     if (accountId && accountRole) {
       fetchHistory(accountId, accountRole);
     }
   }, [accountId, accountRole]);
+
+  useEffect(() => {
+  if (!accountId || !accountRole) return;
+
+  const channel = supabase
+    .channel("history-unread")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${accountId}`,
+      },
+      () => fetchUnreadMessages(accountId, accountRole)
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${accountId}`,
+      },
+      () => fetchUnreadMessages(accountId, accountRole)
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "conversations",
+        filter:
+          accountRole === "facility"
+            ? `facility_id=eq.${accountId}`
+            : `user_id=eq.${accountId}`,
+      },
+      () => fetchUnreadMessages(accountId, accountRole)
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [accountId, accountRole]);
 
   useEffect(() => {
     applyFilter();
@@ -132,6 +239,8 @@ export default function RecyclingHistory() {
       setAccountId(String(id));
       setAccountRole(finalRole);
       setAccountName(String(name));
+      fetchUnreadMessages(String(id), finalRole);
+
     } catch (error) {
       console.log("LOAD RECYCLING HISTORY ACCOUNT ERROR:", error);
       setLoading(false);
@@ -419,10 +528,20 @@ export default function RecyclingHistory() {
             style={styles.navItem}
             onPress={() => goToPage("/facility_dashboard/messages")}
           >
+            <View style={{ position: "relative" }}>
             <Image
               source={require("../../assets/icons/chatting.png")}
               style={styles.navImage}
             />
+
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
 
             <Text
               style={[
@@ -903,4 +1022,23 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "bold",
   },
+
+  badge: {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: "red",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 4,
+},
+
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "bold",
+},
 });

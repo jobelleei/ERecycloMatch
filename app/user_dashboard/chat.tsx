@@ -68,7 +68,7 @@ export default function UserChat() {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [conversationId]);
+  }, [conversationId, user?.id]);
 
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
@@ -114,7 +114,7 @@ export default function UserChat() {
 
       if (!stored) {
         Alert.alert("User Error", "Please log in again.");
-        router.replace("/signin" as any);
+        router.back()
         return;
       }
 
@@ -532,6 +532,27 @@ export default function UserChat() {
         return;
       }
 
+      if (user?.id) {
+        await supabase
+          .from("messages")
+          .update({ is_read: true })
+          .eq("conversation_id", String(conversationId))
+          .eq("receiver_id", Number(user.id))
+          .eq("is_read", false);
+      }
+
+const { error: conversationError } = await supabase
+  .from("conversations")
+  .update({
+    is_read: true,
+  })
+  .eq("id", String(conversationId));
+
+console.log(
+  "UPDATE CONVERSATION READ:",
+  conversationError
+);
+
       let requestCardAlreadyShown = false;
 
       const cleanedMessages = (data || []).filter((message: any) => {
@@ -573,22 +594,22 @@ export default function UserChat() {
       const now = new Date().toISOString();
 
       const { error: messageError } = await supabase.from("messages").insert([
-        {
-          conversation_id: String(conversationId),
-          sender_id: null,
-          sender_name: "System",
-          sender_role: "system",
-          sender_type: "system",
-          receiver_id: null,
-          type: "system",
-          message: text,
-          created_at: now,
-        },
-      ]);
+      {
+        conversation_id: String(conversationId),
+        sender_id: Number(user?.id),
+        sender_name: user?.name || "User",
+        sender_role: "system",
+        sender_type: "system",
+        message_type: "system",
+        message: text,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
-      if (messageError) {
-        console.log("USER SYSTEM MESSAGE ERROR:", messageError);
-      }
+    if (messageError) {
+      console.log("USER SYSTEM MESSAGE ERROR:", messageError);
+    }
 
       const { error: updateError } = await supabase
         .from("conversations")
@@ -1208,19 +1229,20 @@ export default function UserChat() {
       );
 
       const { error } = await supabase.from("messages").insert([
-        {
-          conversation_id: String(conversationId),
-          sender_id: Number(user?.id),
-          sender_name: user.name || "User",
-          sender_role: "user",
-          sender_type: "user",
-          receiver_id: receiverId ? Number(receiverId) : null,
-          type: sendingOffer ? "offer" : "text",
-          message_type: sendingOffer ? "offer" : "text",
-          message: text,
-          created_at: new Date().toISOString(),
-        },
-      ]);
+      {
+        conversation_id: String(conversationId),
+        sender_id: Number(user?.id),
+        sender_name: user.name || "User",
+        sender_role: "user",
+        sender_type: "user",
+        receiver_id: receiverId ? Number(receiverId) : null,
+        type: sendingOffer ? "offer" : "text",
+        message_type: sendingOffer ? "offer" : "text",
+        message: text,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
       if (error) {
         Alert.alert("Send Failed", error.message);
@@ -1229,6 +1251,7 @@ export default function UserChat() {
 
       await updateConversation({
         last_message: sendingOffer ? `Offer: ${text}` : text,
+        is_read: false,
       });
 
       fetchMessages();
@@ -1505,7 +1528,7 @@ export default function UserChat() {
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.replace("/user_dashboard/messages" as any)}
+              onPress={() => router.back()}
             >
               <Text style={styles.back}>‹</Text>
             </TouchableOpacity>

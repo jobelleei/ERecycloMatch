@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import UserBottomNav from "../../components/UserBottomNav";
 import {
   useFocusEffect,
   useLocalSearchParams,
-  usePathname,
   useRouter,
 } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -22,7 +22,6 @@ import { supabase } from "../../utils/supabase";
 
 export default function FacilityViewProfile() {
   const router = useRouter();
-  const pathname = usePathname();
   const params = useLocalSearchParams();
 
   const facilityId = String(
@@ -58,6 +57,7 @@ export default function FacilityViewProfile() {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
   const [openingChatId, setOpeningChatId] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [activeSection, setActiveSection] = useState<"postings" | "feedbacks">(
     "postings"
@@ -121,6 +121,14 @@ export default function FacilityViewProfile() {
       setAverageRating(0);
     }
   }, [facilityId]);
+
+  useEffect(() => {
+  getStoredUser().then((data) => {
+    if (data) {
+      setCurrentUser(data);
+    }
+  });
+}, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -634,6 +642,7 @@ export default function FacilityViewProfile() {
             request_receiver_role: "facility",
             last_message:
               existingConversation.last_message || "Match request sent",
+              is_read: false,
             updated_at: now,
           })
           .eq("id", conversationId);
@@ -659,6 +668,7 @@ export default function FacilityViewProfile() {
               item_id: postingId,
               item_name: itemNeeded || "",
               status: "match_pending",
+              is_read: false,
               request_sender_role: "user",
               request_receiver_role: "facility",
               user_finished: false,
@@ -979,121 +989,12 @@ export default function FacilityViewProfile() {
         }
       />
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_scan")}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {currentUser && (
+        <UserBottomNav
+          userId={currentUser.id}
+          active="profile"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1457,40 +1358,5 @@ const styles = StyleSheet.create({
     color: "gray",
     marginTop: 35,
     fontSize: 15,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

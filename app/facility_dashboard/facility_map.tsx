@@ -113,6 +113,7 @@ export default function FacilityMapScreen() {
 
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
@@ -184,6 +185,7 @@ export default function FacilityMapScreen() {
       };
 
       setFacility(finalFacility);
+      fetchUnreadMessages(Number(finalFacility.id));
 
       return finalFacility;
     } catch (error) {
@@ -375,6 +377,76 @@ export default function FacilityMapScreen() {
       stopNavigation();
     };
   }, []);
+
+  useEffect(() => {
+  if (!facility?.id) return;
+
+const channel = supabase
+  .channel("facility-map-unread")
+
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "messages",
+      filter: `receiver_id=eq.${facility.id}`,
+    },
+    () => {
+      fetchUnreadMessages(Number(facility.id));
+    }
+  )
+
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "conversations",
+      filter: `facility_id=eq.${facility.id}`,
+    },
+    () => {
+      fetchUnreadMessages(Number(facility.id));
+    }
+  )
+
+  .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [facility]);
+
+const fetchUnreadMessages = async (facilityId = facility?.id) => {
+  if (!facilityId) {
+    setUnreadCount(0);
+    return;
+  }
+
+  const { data: unreadMessages } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .eq("receiver_id", Number(facilityId))
+    .eq("is_read", false);
+
+  const { data: unreadRequests } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("facility_id", String(facilityId))
+    .eq("is_read", false);
+
+  const unreadSet = new Set<string>();
+
+  (unreadMessages || []).forEach((m: any) => {
+    unreadSet.add(String(m.conversation_id));
+  });
+
+  (unreadRequests || []).forEach((c: any) => {
+    unreadSet.add(String(c.id));
+  });
+
+  setUnreadCount(unreadSet.size);
+};
 
   useEffect(() => {
     const currentPins = getPinsForSearch(search);
@@ -1968,10 +2040,20 @@ const getFacilityOpeningDaysTo = (facility: any) => {
             style={styles.navItem}
             onPress={() => router.push("/facility_dashboard/messages" as any)}
           >
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
+            <View style={{ position: "relative" }}>
+              <Image
+                source={require("../../assets/icons/chatting.png")}
+                style={styles.navImage}
+              />
+
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
 
             <Text
               style={[
@@ -2480,4 +2562,23 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "bold",
   },
+
+  badge: {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: "red",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 4,
+},
+
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "bold",
+},
 });

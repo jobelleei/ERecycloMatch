@@ -25,6 +25,7 @@
     const router = useRouter();
     const pathname = usePathname();
     const params = useLocalSearchParams();
+    const [unreadCount, setUnreadCount] = useState(0);
 
     const userId = String(
       params.user_id ||
@@ -157,14 +158,49 @@
     }, [userId, usernameParam, emailParam, nameParam]);
 
     useFocusEffect(
-      useCallback(() => {
-        loadFacility();
+  useCallback(() => {
+    loadFacility();
 
-        if (userId || usernameParam || emailParam || nameParam) {
-          refreshUserProfile();
-        }
-      }, [userId, usernameParam, emailParam, nameParam])
-    );
+    if (facility.id) {
+      fetchUnreadMessages(facility.id);
+    }
+
+    if (userId || usernameParam || emailParam || nameParam) {
+      refreshUserProfile();
+    }
+  }, [facility.id, userId, usernameParam, emailParam, nameParam])
+);
+
+    const fetchUnreadMessages = async (currentFacilityId = facility.id) => {
+  if (!currentFacilityId) {
+    setUnreadCount(0);
+    return;
+  }
+
+  const { data: unreadMessages } = await supabase
+    .from("messages")
+    .select("conversation_id")
+    .eq("receiver_id", Number(currentFacilityId))
+    .eq("is_read", false);
+
+  const { data: unreadRequests } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("facility_id", String(currentFacilityId))
+    .eq("is_read", false);
+
+  const unreadSet = new Set<string>();
+
+  (unreadMessages || []).forEach((m: any) => {
+    unreadSet.add(String(m.conversation_id));
+  });
+
+  (unreadRequests || []).forEach((c: any) => {
+    unreadSet.add(String(c.id));
+  });
+
+  setUnreadCount(unreadSet.size);
+};
 
     useEffect(() => {
       if (!userId && !usernameParam && !emailParam && !nameParam) return;
@@ -175,6 +211,48 @@
 
       return () => clearInterval(interval);
     }, [userId, usernameParam, emailParam, nameParam]);
+
+    useEffect(() => {
+  if (!facility.id) return;
+
+  const channel = supabase
+    .channel("facility-view-user-unread")
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${facility.id}`,
+      },
+      () => fetchUnreadMessages(facility.id)
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${facility.id}`,
+      },
+      () => fetchUnreadMessages(facility.id)
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "conversations",
+        filter: `facility_id=eq.${facility.id}`,
+      },
+      () => fetchUnreadMessages(facility.id)
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [facility.id]);
 
     const loadFacility = async () => {
       try {
@@ -235,6 +313,8 @@
           location: String(facilityLocation),
           profileImage: String(profileImage),
         });
+
+        fetchUnreadMessages(String(facilityId));
       } catch (error) {
         console.log("LOAD FACILITY ERROR:", error);
       }
@@ -1016,6 +1096,7 @@
                 item_name: getItemName(item),
                 last_message: "Match request sent",
                 status: "match_pending",
+                is_read: false,
                 request_sender_role: "facility",
                 request_receiver_role: "user",
                 user_finished: false,
@@ -1044,6 +1125,7 @@
               .update({
                 status: "match_pending",
                 last_message: "Match request sent",
+                is_read: false,
                 request_sender_role: "facility",
                 request_receiver_role: "user",
                 user_finished: false,
@@ -1439,10 +1521,20 @@
             style={styles.navItem}
             onPress={() => goToPage("/facility_dashboard/messages")}
           >
+            <View style={{ position: "relative" }}>
             <Image
               source={require("../../assets/icons/chatting.png")}
               style={styles.navImage}
             />
+
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            )}
+          </View>
 
             <Text
               style={[
@@ -1951,4 +2043,23 @@
       color: "green",
       fontWeight: "bold",
     },
+
+    badge: {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: "red",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 4,
+},
+
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "bold",
+},
   });

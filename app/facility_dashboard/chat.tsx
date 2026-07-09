@@ -534,6 +534,22 @@ export default function FacilityChat() {
         return;
       }
 
+      if (facility?.id) {
+        await supabase
+          .from("messages")
+          .update({ is_read: true })
+          .eq("conversation_id", String(conversationId))
+          .eq("receiver_id", Number(facility.id))
+          .eq("is_read", false);
+      }
+
+      await supabase
+      .from("conversations")
+      .update({
+        is_read: true,
+      })
+      .eq("id", String(conversationId));
+
       let requestCardAlreadyShown = false;
 
       const cleanedMessages = (data || []).filter((message: any) => {
@@ -628,6 +644,7 @@ export default function FacilityChat() {
           receiver_id: null,
           type: "system",
           message: text,
+          is_read: false,
           created_at: now,
         },
       ]);
@@ -637,12 +654,13 @@ export default function FacilityChat() {
       }
 
       const { error: updateError } = await supabase
-        .from("conversations")
-        .update({
-          last_message: text,
-          updated_at: now,
-        })
-        .eq("id", String(conversationId));
+      .from("conversations")
+      .update({
+        last_message: text,
+        updated_at: now,
+        is_read: false,
+      })
+      .eq("id", String(conversationId));
 
       if (updateError) {
         console.log("UPDATE FACILITY SYSTEM CONVERSATION ERROR:", updateError);
@@ -722,6 +740,7 @@ export default function FacilityChat() {
                 status: "matched",
                 request_status: "accepted",
                 last_message: "Match accepted",
+                is_read: false,
               });
 
               if (conversation?.item_id) {
@@ -765,6 +784,7 @@ export default function FacilityChat() {
             await updateConversation({
               status: "rejected",
               last_message: "Match rejected",
+              is_read: false,
             });
 
             if (conversation?.item_id) {
@@ -827,6 +847,7 @@ export default function FacilityChat() {
               status: "cancelled",
               request_status: "cancelled",
               last_message: "Match cancelled",
+              is_read: false,
             });
 
             if (conversation?.item_id) {
@@ -952,6 +973,7 @@ export default function FacilityChat() {
                   status: "finished",
                   last_message: "Match finished. Please provide feedback.",
                   finished_at: now,
+                  is_read: false,
                 });
 
                 if (conversation?.item_id) {
@@ -979,6 +1001,7 @@ export default function FacilityChat() {
                   facility_finished: true,
                   status: "finish_pending",
                   last_message: `${displayName} clicked Finish this match. Waiting for you to click the button too.`,
+                  is_read: false,
                 });
 
                 await addSystemMessage(
@@ -1054,6 +1077,7 @@ export default function FacilityChat() {
       await updateConversation({
         facility_feedback_given: true,
         last_message: "Facility submitted feedback.",
+        is_read: false,
       });
 
       await addSystemMessage("Facility submitted feedback.");
@@ -1246,6 +1270,7 @@ export default function FacilityChat() {
           type: sendingOffer ? "offer" : "text",
           message_type: sendingOffer ? "offer" : "text",
           message: text,
+          is_read: false,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -1257,6 +1282,7 @@ export default function FacilityChat() {
 
       await updateConversation({
         last_message: sendingOffer ? `Offer: ${text}` : text,
+        is_read: false,
       });
 
       fetchMessages();
@@ -1529,7 +1555,6 @@ export default function FacilityChat() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <SafeAreaView style={styles.container}></SafeAreaView>
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()}>

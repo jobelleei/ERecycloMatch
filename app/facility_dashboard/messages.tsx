@@ -432,15 +432,49 @@ export default function FacilityMessages() {
         visibleConversations
       );
 
-      const groupedConversations = groupConversationsByUser(withUserProfiles);
-      setConversations(groupedConversations);
-    } catch (error) {
-      console.log("FETCH FACILITY CONVERSATIONS ERROR:", error);
-      setConversations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      const { data: unreadMessages } = await supabase
+        .from("messages")
+        .select("conversation_id")
+        .eq("receiver_id", Number(currentFacilityId))
+        .eq("is_read", false);
+
+      const unreadSet = new Set<string>();
+
+      (unreadMessages || []).forEach((message: any) => {
+        unreadSet.add(String(message.conversation_id));
+      });
+
+      const { data: unreadRequests, error: requestError } = await supabase
+        .from("conversations")
+        .select("id, status")
+        .eq("facility_id", String(currentFacilityId))
+        .eq("status", "match_pending");
+
+      if (!requestError) {
+        (unreadRequests || []).forEach((conversation: any) => {
+          unreadSet.add(String(conversation.id));
+        });
+      }
+
+      const groupedConversations =
+      groupConversationsByUser(withUserProfiles).map((conversation) => ({
+        ...conversation,
+        hasUnread:
+          conversation.related_conversation_ids?.some((id: string) =>
+            unreadSet.has(String(id))
+          ) || false,
+      }));
+
+        setConversations(groupedConversations);
+        setLoading(false);
+
+        } catch (error) {
+          console.log("FETCH FACILITY CONVERSATIONS ERROR:", error);
+          setConversations([]);
+        } finally {
+          setLoading(false);
+        }
+        };
 
   const onRefresh = async () => {
     try {
@@ -698,7 +732,10 @@ export default function FacilityMessages() {
     return (
       <SwipeableConversation item={item} onDelete={deleteConversation}>
         <TouchableOpacity
-          style={styles.conversationCard}
+          style={[
+            styles.conversationCard,
+            item.hasUnread && styles.unreadConversationCard,
+          ]}
           activeOpacity={0.85}
           onPress={() => openChat(item)}
         >
@@ -706,21 +743,42 @@ export default function FacilityMessages() {
 
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
-              <Text style={styles.userName} numberOfLines={1}>
+              <Text
+                style={[
+                  styles.userName,
+                  item.hasUnread && styles.unreadUserName,
+                ]}
+              >
                 {item.user_name || "User"}
               </Text>
 
-              <Text style={styles.timeText}>
+              <Text
+                style={[
+                  styles.timeText,
+                  item.hasUnread && styles.unreadTime,
+                ]}
+              >
                 {formatDate(item.updated_at || item.created_at)}
               </Text>
             </View>
 
-            <Text style={styles.itemName} numberOfLines={1}>
+            <Text
+              style={[
+                styles.itemName,
+                item.hasUnread && styles.unreadItemName,
+              ]}
+            >
               Latest item: {item.item_name || "Unnamed Item"}
             </Text>
 
             <View style={styles.statusRow}>
-              <Text style={[styles.statusText, getStatusStyle(item)]}>
+              <Text
+                style={[
+                  styles.statusText,
+                  getStatusStyle(item),
+                  item.hasUnread && styles.unreadStatus,
+                ]}
+              >
                 {getConversationStatus(item)}
               </Text>
             </View>
@@ -1076,4 +1134,28 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "bold",
   },
+
+  unreadConversationCard: {
+  backgroundColor: "#f3fff2",
+  borderColor: "#2f7d1f",
+  borderWidth: 2,
+},
+
+unreadUserName: {
+  fontWeight: "900",
+},
+
+unreadItemName: {
+  fontWeight: "700",
+},
+
+unreadTime: {
+  color: "red",
+  fontWeight: "bold",
+},
+
+unreadStatus: {
+  fontWeight: "bold",
+  color: "#d32f2f",
+},
 });
