@@ -541,12 +541,7 @@ export default function UserMessages() {
           <View style={styles.conversationInfo}>
   <View style={styles.topRow}>
     <Text
-      style={[
-        styles.facilityName,
-        item.is_read
-          ? styles.readText
-          : styles.unreadText,
-      ]}
+      style={styles.facilityName}
       numberOfLines={1}
     >
       {item.facility_name || "Facility"}
@@ -556,23 +551,22 @@ export default function UserMessages() {
       style={[
         styles.timeText,
         item.is_read
-          ? styles.readText
-          : styles.unreadText,
+          ? styles.readItemText
+          : styles.unreadItemText,
       ]}
     >
       {formatDate(item.updated_at || item.created_at)}
     </Text>
   </View>
 
-  <Text
-    style={[
-      styles.itemName,
-      item.is_read
-        ? styles.readText
-        : styles.unreadText,
-    ]}
-    numberOfLines={1}
-  >
+ <Text
+  style={[
+    styles.itemName,
+    item.is_read
+      ? styles.readItemText
+      : styles.unreadItemText,
+  ]}
+>
     Latest item: {item.item_name || "Unnamed Item"}
   </Text>
 
@@ -735,13 +729,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  facilityName: {
-  flex: 1,
-  fontSize: 16,
-  color: "#111",
-  marginRight: 8,
-},
-
   timeText: {
     fontSize: 11,
     color: "#777",
@@ -753,6 +740,16 @@ const styles = StyleSheet.create({
     color: "#111",
     fontWeight: "400",
   },
+
+  readItemText: {
+  color: "#888",
+  fontWeight: "400",
+},
+
+unreadItemText: {
+  color: "#111",
+  fontWeight: "600",
+},
 
   statusRow: {
     marginTop: 7,
@@ -786,14 +783,12 @@ const styles = StyleSheet.create({
     color: "#555",
   },
 
-  readText: {
-  color: "#888",
-  fontWeight: "400",
-},
-
-unreadText: {
-  color: "#000",
+facilityName: {
+  flex: 1,
+  fontSize: 16,
+  color: "#111",
   fontWeight: "bold",
+  marginRight: 8,
 },
 
   emptyBox: {

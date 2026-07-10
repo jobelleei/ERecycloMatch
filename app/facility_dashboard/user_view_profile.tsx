@@ -1,10 +1,10 @@
   import AsyncStorage from "@react-native-async-storage/async-storage";
-  import {
-    useFocusEffect,
-    useLocalSearchParams,
-    usePathname,
-    useRouter,
-  } from "expo-router";
+  import FacilityBottomNav from "../../components/FacilityBottomNav";
+ import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
   import { useCallback, useEffect, useMemo, useState } from "react";
   import {
     Alert,
@@ -23,9 +23,7 @@
 
   export default function UserViewProfile() {
     const router = useRouter();
-    const pathname = usePathname();
     const params = useLocalSearchParams();
-    const [unreadCount, setUnreadCount] = useState(0);
 
     const userId = String(
       params.user_id ||
@@ -161,46 +159,21 @@
   useCallback(() => {
     loadFacility();
 
-    if (facility.id) {
-      fetchUnreadMessages(facility.id);
-    }
-
-    if (userId || usernameParam || emailParam || nameParam) {
+    if (
+      userId ||
+      usernameParam ||
+      emailParam ||
+      nameParam
+    ) {
       refreshUserProfile();
     }
-  }, [facility.id, userId, usernameParam, emailParam, nameParam])
+  }, [
+    userId,
+    usernameParam,
+    emailParam,
+    nameParam,
+  ])
 );
-
-    const fetchUnreadMessages = async (currentFacilityId = facility.id) => {
-  if (!currentFacilityId) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const { data: unreadMessages } = await supabase
-    .from("messages")
-    .select("conversation_id")
-    .eq("receiver_id", Number(currentFacilityId))
-    .eq("is_read", false);
-
-  const { data: unreadRequests } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("facility_id", String(currentFacilityId))
-    .eq("is_read", false);
-
-  const unreadSet = new Set<string>();
-
-  (unreadMessages || []).forEach((m: any) => {
-    unreadSet.add(String(m.conversation_id));
-  });
-
-  (unreadRequests || []).forEach((c: any) => {
-    unreadSet.add(String(c.id));
-  });
-
-  setUnreadCount(unreadSet.size);
-};
 
     useEffect(() => {
       if (!userId && !usernameParam && !emailParam && !nameParam) return;
@@ -211,48 +184,6 @@
 
       return () => clearInterval(interval);
     }, [userId, usernameParam, emailParam, nameParam]);
-
-    useEffect(() => {
-  if (!facility.id) return;
-
-  const channel = supabase
-    .channel("facility-view-user-unread")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${facility.id}`,
-      },
-      () => fetchUnreadMessages(facility.id)
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "UPDATE",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${facility.id}`,
-      },
-      () => fetchUnreadMessages(facility.id)
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "conversations",
-        filter: `facility_id=eq.${facility.id}`,
-      },
-      () => fetchUnreadMessages(facility.id)
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [facility.id]);
 
     const loadFacility = async () => {
       try {
@@ -314,7 +245,6 @@
           profileImage: String(profileImage),
         });
 
-        fetchUnreadMessages(String(facilityId));
       } catch (error) {
         console.log("LOAD FACILITY ERROR:", error);
       }
@@ -322,10 +252,6 @@
 
     const refreshUserProfile = async () => {
       await fetchUserProfile();
-    };
-
-    const goToPage = (path: string) => {
-      router.push(path as any);
     };
 
     const openImagePreview = (imageUrl: string) => {
@@ -1477,113 +1403,10 @@
           </View>
         </Modal>
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard")}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/facility_map")}
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/messages")}
-          >
-            <View style={{ position: "relative" }}>
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
-
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" && styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/profile")}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" && styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/settings")}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" && styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <FacilityBottomNav
+          facilityId={facility.id}
+          active="profile"
+        />
       </SafeAreaView>
     );
   }
@@ -1595,7 +1418,7 @@
     },
 
     listContent: {
-      paddingBottom: 100,
+      paddingBottom: 140,
     },
 
     profileHeader: {
@@ -2008,58 +1831,4 @@
       fontWeight: "bold",
       fontSize: 14,
     },
-
-    bottomNav: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 70,
-      flexDirection: "row",
-      justifyContent: "space-around",
-      alignItems: "center",
-      backgroundColor: "#fff",
-      borderTopWidth: 1,
-      borderColor: "#ddd",
-      paddingBottom: 8,
-    },
-
-    navItem: {
-      alignItems: "center",
-    },
-
-    navImage: {
-      width: 24,
-      height: 24,
-      marginBottom: 2,
-    },
-
-    navLabel: {
-      fontSize: 12,
-      color: "#777",
-    },
-
-    navActive: {
-      color: "green",
-      fontWeight: "bold",
-    },
-
-    badge: {
-  position: "absolute",
-  top: -6,
-  right: -8,
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  backgroundColor: "red",
-  justifyContent: "center",
-  alignItems: "center",
-  paddingHorizontal: 4,
-},
-
-badgeText: {
-  color: "#fff",
-  fontSize: 10,
-  fontWeight: "bold",
-},
   });

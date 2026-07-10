@@ -15,6 +15,7 @@ import {
   ScrollView,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
@@ -113,7 +114,6 @@ export default function FacilityMapScreen() {
 
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
@@ -185,7 +185,6 @@ export default function FacilityMapScreen() {
       };
 
       setFacility(finalFacility);
-      fetchUnreadMessages(Number(finalFacility.id));
 
       return finalFacility;
     } catch (error) {
@@ -377,135 +376,6 @@ export default function FacilityMapScreen() {
       stopNavigation();
     };
   }, []);
-
-  useEffect(() => {
-  if (!facility?.id) return;
-
-const channel = supabase
-  .channel("facility-map-unread")
-
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "messages",
-      filter: `receiver_id=eq.${facility.id}`,
-    },
-    () => {
-      fetchUnreadMessages(Number(facility.id));
-    }
-  )
-
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "conversations",
-      filter: `facility_id=eq.${facility.id}`,
-    },
-    () => {
-      fetchUnreadMessages(Number(facility.id));
-    }
-  )
-
-  .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [facility]);
-
-const fetchUnreadMessages = async (facilityId = facility?.id) => {
-  if (!facilityId) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const { data: unreadMessages } = await supabase
-    .from("messages")
-    .select("conversation_id")
-    .eq("receiver_id", Number(facilityId))
-    .eq("is_read", false);
-
-  const { data: unreadRequests } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("facility_id", String(facilityId))
-    .eq("is_read", false);
-
-  const unreadSet = new Set<string>();
-
-  (unreadMessages || []).forEach((m: any) => {
-    unreadSet.add(String(m.conversation_id));
-  });
-
-  (unreadRequests || []).forEach((c: any) => {
-    unreadSet.add(String(c.id));
-  });
-
-  setUnreadCount(unreadSet.size);
-};
-
-  useEffect(() => {
-    const currentPins = getPinsForSearch(search);
-
-    if (isApplyingRouteFocusRef.current) {
-      updateNearestList(currentPins, search);
-      return;
-    }
-
-    if (search.trim().length === 0) {
-      setSelectedPin(null);
-      setShowList(false);
-      updateNearestList(currentPins, "");
-    } else {
-      updateNearestList(currentPins, search);
-    }
-  }, [mapMode, userLocation]);
-
-  useEffect(() => {
-    const currentPins = getPinsForSearch(search);
-
-    updateNearestList(currentPins, search);
-  }, [facilities, dropOffBins, search]);
-
-  useEffect(() => {
-    if (!incomingSelectedBin || !incomingSelectedBinKey) {
-      return;
-    }
-
-    if (handledRouteFocusKeyRef.current === incomingSelectedBinKey) {
-      return;
-    }
-
-    handledRouteFocusKeyRef.current = incomingSelectedBinKey;
-    focusIncomingDropOffBin(incomingSelectedBin);
-  }, [incomingSelectedBinKey, dropOffBins.length]);
-
-  useEffect(() => {
-    if (!shouldOpenDropOffBinsInterface || incomingSelectedBin) {
-      return;
-    }
-
-    if (
-      dropOffInterfaceRouteKey &&
-      handledDropOffInterfaceKeyRef.current === dropOffInterfaceRouteKey
-    ) {
-      return;
-    }
-
-    handledDropOffInterfaceKeyRef.current =
-      dropOffInterfaceRouteKey || `drop-off-interface-${Date.now()}`;
-
-    openDropOffBinsInterfaceFromRoute();
-  }, [
-    shouldOpenDropOffBinsInterface,
-    dropOffInterfaceRouteKey,
-    incomingSelectedBinKey,
-    userLocation,
-  ]);
 
   const loadUserLocation = async () => {
     try {
@@ -1994,118 +1864,10 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </Animated.View>
         )}
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() =>
-              router.push("/facility_dashboard/facility_map" as any)
-            }
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/messages" as any)}
-          >
-            <View style={{ position: "relative" }}>
-              <Image
-                source={require("../../assets/icons/chatting.png")}
-                style={styles.navImage}
-              />
-
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" &&
-                  styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/profile" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" &&
-                  styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/settings" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <FacilityBottomNav
+        facilityId={facility?.id || ""}
+        active="map"
+      />
       </View>
     </SafeAreaView>
   );
@@ -2527,58 +2289,4 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginBottom: 10,
   },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: NAV_HEIGHT,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
-  },
-
-  badge: {
-  position: "absolute",
-  top: -6,
-  right: -8,
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  backgroundColor: "red",
-  justifyContent: "center",
-  alignItems: "center",
-  paddingHorizontal: 4,
-},
-
-badgeText: {
-  color: "#fff",
-  fontSize: 10,
-  fontWeight: "bold",
-},
 });

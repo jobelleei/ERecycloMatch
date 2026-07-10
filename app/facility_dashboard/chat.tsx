@@ -55,18 +55,27 @@ export default function FacilityChat() {
   }, []);
 
   useEffect(() => {
-    if (!conversationId) return;
+  if (!conversationId) return;
 
-    fetchConversation();
-    fetchMessages();
+  fetchConversation();
+  fetchMessages();
 
-    const interval = setInterval(() => {
+  const interval =
+    setInterval(() => {
       fetchConversation();
       fetchMessages();
     }, 5000);
 
-    return () => clearInterval(interval);
-  }, [conversationId]);
+  return () =>
+    clearInterval(interval);
+}, [conversationId]);
+
+useEffect(() => {
+  if (!facility?.id) return;
+  if (!conversationId) return;
+
+  markConversationAsRead();
+}, [facility?.id, conversationId]);
 
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
@@ -534,22 +543,6 @@ export default function FacilityChat() {
         return;
       }
 
-      if (facility?.id) {
-        await supabase
-          .from("messages")
-          .update({ is_read: true })
-          .eq("conversation_id", String(conversationId))
-          .eq("receiver_id", Number(facility.id))
-          .eq("is_read", false);
-      }
-
-      await supabase
-      .from("conversations")
-      .update({
-        is_read: true,
-      })
-      .eq("id", String(conversationId));
-
       let requestCardAlreadyShown = false;
 
       const cleanedMessages = (data || []).filter((message: any) => {
@@ -592,19 +585,25 @@ export default function FacilityChat() {
       }
 
       const { error } = await supabase.from("messages").insert([
-        {
-          conversation_id: String(targetConversationId),
-          sender_id: null,
-          sender_name: "System",
-          sender_role: "system",
-          sender_type: "system",
-          receiver_id: null,
-          type: "system",
-          message_type: "match_request",
-          message: "Match request sent",
-          created_at: new Date().toISOString(),
-        },
-      ]);
+{
+  conversation_id: String(targetConversationId),
+  sender_id: null,
+  sender_name: "System",
+  sender_role: "system",
+  sender_type: "system",
+
+  receiver_id:
+    conversation?.facility_id ||
+    facility?.id ||
+    null,
+
+  type: "system",
+  message_type: "match_request",
+  message: "Match request sent",
+  is_read: false,
+  created_at: new Date().toISOString(),
+},
+]);
 
       if (error) {
         console.log("ADD MATCH REQUEST MESSAGE ERROR:", error);
@@ -615,6 +614,32 @@ export default function FacilityChat() {
       console.log("ENSURE MATCH REQUEST MESSAGE ERROR:", error);
     }
   };
+
+const markConversationAsRead = async () => {
+  try {
+    if (!facility?.id || !conversationId) return;
+
+    await supabase
+      .from("messages")
+      .update({
+        is_read: true,
+      })
+      .eq("conversation_id", conversationId)
+      .eq("receiver_id", Number(facility.id))
+      .eq("is_read", false);
+
+    await supabase
+  .from("conversations")
+  .update({
+    is_read: true,
+  })
+  .eq("id", conversationId)
+  .eq("facility_id", Number(facility.id));
+
+  } catch (error) {
+    console.log("MARK READ ERROR:", error);
+  }
+};
 
   const updateConversation = async (updates: any) => {
     const { error } = await supabase
@@ -635,23 +660,67 @@ export default function FacilityChat() {
       const now = new Date().toISOString();
 
       const { error: messageError } = await supabase.from("messages").insert([
-        {
-          conversation_id: String(conversationId),
-          sender_id: null,
-          sender_name: "System",
-          sender_role: "system",
-          sender_type: "system",
-          receiver_id: null,
-          type: "system",
-          message: text,
-          is_read: false,
-          created_at: now,
-        },
-      ]);
+      {
+        conversation_id: String(conversationId),
+        sender_id: null,
+        sender_name: "System",
+        sender_role: "system",
+        sender_type: "system",
+
+        receiver_id:
+          Number(conversation?.user_id) ||
+          Number(conversation?.facility_id) ||
+          null,
+
+        type: "system",
+        message: text,
+        is_read: false,
+        created_at: now,
+      },
+]);
 
       if (messageError) {
         console.log("FACILITY SYSTEM MESSAGE ERROR:", messageError);
       }
+
+      const receiverId =
+  Number(
+    conversation?.user_id
+  );
+
+const { data: receiver } =
+  await supabase
+    .from("profiles")
+    .select(
+      "expo_push_token"
+    )
+    .eq("id", receiverId)
+    .single();
+
+if (
+  receiver?.expo_push_token
+) {
+  await fetch(
+    "https://exp.host/--/api/v2/push/send",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding":
+          "gzip, deflate",
+        "Content-Type":
+          "application/json",
+      },
+      body: JSON.stringify({
+        to:
+          receiver.expo_push_token,
+        title: "ERecycloMatch",
+        body: text,
+        sound: "default",
+      }),
+    }
+  );
+}
 
       const { error: updateError } = await supabase
       .from("conversations")
@@ -1275,13 +1344,89 @@ export default function FacilityChat() {
         },
       ]);
 
+      const { data: receiverProfile } =
+  await supabase
+    .from("profiles")
+    .select("expo_push_token")
+    .eq(
+      "id",
+      Number(receiverId)
+    )
+    .single();
+
+console.log(
+  "Receiver token:",
+  receiverProfile
+);
+
+if (
+  receiverProfile?.expo_push_token
+) {
+  const response =
+    await fetch(
+      "https://exp.host/--/api/v2/push/send",
+      {
+        method: "POST",
+        headers: {
+          Accept:
+            "application/json",
+          "Accept-Encoding":
+            "gzip, deflate",
+          "Content-Type":
+            "application/json",
+        },
+        body:
+          JSON.stringify({
+            to:
+              receiverProfile.expo_push_token,
+            title:
+              "New Message",
+            body: text,
+            sound:
+              "default",
+          }),
+      }
+    );
+
+  console.log(
+    await response.json()
+  );
+}
+
       if (error) {
         Alert.alert("Send Failed", error.message);
         return;
       }
 
+if (
+  receiverProfile?.expo_push_token
+) {
+  await fetch(
+    "https://exp.host/--/api/v2/push/send",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding":
+          "gzip, deflate",
+        "Content-Type":
+          "application/json",
+      },
+      body: JSON.stringify({
+        to:
+          receiverProfile.expo_push_token,
+        title:
+          facility.name ||
+          "Facility",
+        body: text,
+        sound: "default",
+      }),
+    }
+  );
+}
+
       await updateConversation({
-        last_message: sendingOffer ? `Offer: ${text}` : text,
+        last_message: text,
         is_read: false,
       });
 

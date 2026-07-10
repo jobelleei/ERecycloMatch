@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
-import useUnreadCount from "./hoooks/useUnreadCount";
+import useUnreadCount from "./hooks/useUnreadCount";
 
 type ActivePage =
   | "home"

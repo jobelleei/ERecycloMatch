@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 
 import {
   ActivityIndicator,
@@ -37,7 +38,6 @@ export default function FacilityDashboard() {
   const [searchedUsers, setSearchedUsers] = useState<any[]>([]);
   const [searchedItems, setSearchedItems] = useState<any[]>([]);
   const [randomListedItems, setRandomListedItems] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -69,30 +69,6 @@ useEffect(() => {
 
   return () => clearTimeout(delaySearch);
 }, [searchText]);
-
-  useEffect(() => {
-  if (!facility?.id) return;
-
-  const channel = supabase
-    .channel("facility-unread")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${facility.id}`,
-      },
-      () => {
-        fetchUnreadMessages(Number(facility.id));
-      }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [facility]);
 
 const isEmptyValue = (value: any) => {
   if (value === null || value === undefined) return true;
@@ -311,7 +287,6 @@ const isEmptyValue = (value: any) => {
 
       setFacility(latestFacility);
       setFacilityName(String(latestName));
-      fetchUnreadMessages(Number(latestFacility.id));
 
       checkMissingFacilityProfileDetails(latestFacility);
 
@@ -345,30 +320,6 @@ const isEmptyValue = (value: any) => {
       hideFacilityProfileReminder();
     }
   };
-
-  const fetchUnreadMessages = async (facilityId = facility?.id) => {
-  if (!facilityId) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const { data, error } = await supabase
-    .from("messages")
-    .select("conversation_id")
-    .eq("receiver_id", Number(facilityId))
-    .eq("is_read", false);
-
-  if (error) {
-    console.log("FACILITY UNREAD ERROR:", error);
-    return;
-  }
-
-  const unreadConversations = new Set(
-    (data || []).map((m) => m.conversation_id)
-  );
-
-  setUnreadCount(unreadConversations.size);
-};
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
@@ -1183,114 +1134,10 @@ const isEmptyValue = (value: any) => {
           )}
         </ScrollView>
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard")}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/facility_map")}
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/messages")}
-          >
-            <View style={{ position: "relative" }}>
-              <Image
-                source={require("../../assets/icons/chatting.png")}
-                style={styles.navImage}
-              />
-
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" &&
-                  styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/profile")}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" && styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/settings")}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" && styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <FacilityBottomNav
+          facilityId={facility?.id || ""}
+          active="home"
+        />
       </View>
     </SafeAreaView>
   );
@@ -1615,58 +1462,4 @@ const styles = StyleSheet.create({
     color: "#777",
     fontSize: 14,
   },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
-  },
-
-  badge: {
-  position: "absolute",
-  top: -6,
-  right: -8,
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  backgroundColor: "red",
-  justifyContent: "center",
-  alignItems: "center",
-  paddingHorizontal: 4,
-},
-
-badgeText: {
-  color: "#fff",
-  fontSize: 10,
-  fontWeight: "bold",
-},
 });

@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import UserBottomNav from "../../components/UserBottomNav";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import {
   ActivityIndicator,
   FlatList,
@@ -37,141 +39,17 @@ type HistoryItem = {
 
 export default function RecyclingHistory() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const [accountId, setAccountId] = useState("");
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
   const [accountName, setAccountName] = useState("");
 
   const [filter, setFilter] = useState<"All" | "Latest" | "Oldest">("All");
-
-  useEffect(() => {
-    loadAccount();
-  }, []);
-
-  useFocusEffect(
-  useCallback(() => {
-    loadAccount();
-
-    if (accountId && accountRole) {
-      fetchUnreadMessages(accountId, accountRole);
-    }
-  }, [accountId, accountRole])
-);
-
-  const fetchUnreadMessages = async (
-  currentAccountId = accountId,
-  currentRole = accountRole
-) => {
-  if (!currentAccountId || !currentRole) {
-    setUnreadCount(0);
-    return;
-  }
-
-  let unreadMessagesQuery = supabase
-    .from("messages")
-    .select("conversation_id")
-    .eq("is_read", false);
-
-  let unreadRequestsQuery = supabase
-    .from("conversations")
-    .select("id")
-    .eq("is_read", false);
-
-  if (currentRole === "facility") {
-    unreadMessagesQuery = unreadMessagesQuery.eq(
-      "receiver_id",
-      Number(currentAccountId)
-    );
-
-    unreadRequestsQuery = unreadRequestsQuery.eq(
-      "facility_id",
-      String(currentAccountId)
-    );
-  } else {
-    unreadMessagesQuery = unreadMessagesQuery.eq(
-      "receiver_id",
-      Number(currentAccountId)
-    );
-
-    unreadRequestsQuery = unreadRequestsQuery.eq(
-      "user_id",
-      String(currentAccountId)
-    );
-  }
-
-  const { data: unreadMessages } = await unreadMessagesQuery;
-  const { data: unreadRequests } = await unreadRequestsQuery;
-
-  const unreadSet = new Set<string>();
-
-  (unreadMessages || []).forEach((m: any) =>
-    unreadSet.add(String(m.conversation_id))
-  );
-
-  (unreadRequests || []).forEach((c: any) =>
-    unreadSet.add(String(c.id))
-  );
-
-  setUnreadCount(unreadSet.size);
-};
-
-  useEffect(() => {
-    if (accountId && accountRole) {
-      fetchHistory(accountId, accountRole);
-    }
-  }, [accountId, accountRole]);
-
-  useEffect(() => {
-  if (!accountId || !accountRole) return;
-
-  const channel = supabase
-    .channel("history-unread")
-    .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${accountId}`,
-      },
-      () => fetchUnreadMessages(accountId, accountRole)
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "UPDATE",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${accountId}`,
-      },
-      () => fetchUnreadMessages(accountId, accountRole)
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "conversations",
-        filter:
-          accountRole === "facility"
-            ? `facility_id=eq.${accountId}`
-            : `user_id=eq.${accountId}`,
-      },
-      () => fetchUnreadMessages(accountId, accountRole)
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [accountId, accountRole]);
 
   useEffect(() => {
     applyFilter();
@@ -219,15 +97,7 @@ export default function RecyclingHistory() {
         finalRole = "facility";
       } else if (roleRaw.includes("user")) {
         finalRole = "user";
-      } else {
-        const currentPath = String(pathname || "").toLowerCase();
-
-        if (currentPath.includes("facility")) {
-          finalRole = "facility";
-        } else {
-          finalRole = "user";
-        }
-      }
+      } 
 
       if (!id) {
         setLoading(false);
@@ -239,7 +109,6 @@ export default function RecyclingHistory() {
       setAccountId(String(id));
       setAccountRole(finalRole);
       setAccountName(String(name));
-      fetchUnreadMessages(String(id), finalRole);
 
     } catch (error) {
       console.log("LOAD RECYCLING HISTORY ACCOUNT ERROR:", error);
@@ -249,44 +118,87 @@ export default function RecyclingHistory() {
     }
   };
 
-  const fetchHistory = async (
-    currentAccountId: string,
-    currentRole: "user" | "facility"
-  ) => {
-    try {
-      setLoading(true);
+useEffect(() => {
+  loadAccount();
+}, []);
 
-      let query = supabase
-        .from("recycling_history")
-        .select("*")
-        .order("finished_date", { ascending: false });
+const fetchHistory = async (
+  currentAccountId: string,
+  currentRole: "user" | "facility"
+) => {
+  try {
+    setLoading(true);
 
-      if (currentRole === "facility") {
-        query = query.eq("facility_id", String(currentAccountId));
-      } else {
-        query = query.eq("user_id", String(currentAccountId));
-      }
+    let query = supabase
+      .from("recycling_history")
+      .select("*")
+      .order("finished_date", { ascending: false });
 
-      const { data, error } = await query;
+    if (currentRole === "facility") {
+      query = query.eq("facility_id", String(currentAccountId));
+    } else {
+      query = query.eq("user_id", String(currentAccountId));
+    }
 
-      if (error) {
-        console.log("FETCH RECYCLING HISTORY ERROR:", error);
-        setHistory([]);
-        setFilteredHistory([]);
-        return;
-      }
+    const { data, error } = await query;
 
-      setHistory(data || []);
-    } catch (error) {
+    if (error) {
       console.log("FETCH RECYCLING HISTORY ERROR:", error);
       setHistory([]);
       setFilteredHistory([]);
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
-  const applyFilter = () => {
+    setHistory(data || []);
+  } catch (error) {
+    console.log("FETCH RECYCLING HISTORY ERROR:", error);
+    setHistory([]);
+    setFilteredHistory([]);
+  } finally {
+    setLoading(false);
+  }
+};
+
+useEffect(() => {
+  if (accountId && accountRole) {
+    fetchHistory(accountId, accountRole);
+  }
+}, [accountId, accountRole]);
+
+const applyFilter = () => {
+  let updated = [...history];
+
+  if (filter === "Latest" || filter === "All") {
+    updated.sort((a, b) => {
+      const dateA = new Date(
+        a.finished_date || a.created_at || 0
+      ).getTime();
+
+      const dateB = new Date(
+        b.finished_date || b.created_at || 0
+      ).getTime();
+
+      return dateB - dateA;
+    });
+  }
+
+  if (filter === "Oldest") {
+    updated.sort((a, b) => {
+      const dateA = new Date(
+        a.finished_date || a.created_at || 0
+      ).getTime();
+
+      const dateB = new Date(
+        b.finished_date || b.created_at || 0
+      ).getTime();
+
+      return dateA - dateB;
+    });
+  }
+
+  setFilteredHistory(updated);
+};
+
     let updated = [...history];
 
     if (filter === "Latest" || filter === "All") {
@@ -305,31 +217,32 @@ export default function RecyclingHistory() {
 
         return dateA - dateB;
       });
-    }
+
+    useEffect(() => {
+  if (accountId && accountRole) {
+    fetchHistory(accountId, accountRole);
+  }
+}, [accountId, accountRole]);
 
     setFilteredHistory(updated);
   };
 
   const onRefresh = async () => {
-    try {
-      setRefreshing(true);
+  try {
+    setRefreshing(true);
 
-      if (accountId && accountRole) {
-        await fetchHistory(accountId, accountRole);
-      }
-    } finally {
-      setRefreshing(false);
+    if (accountId && accountRole) {
+      await fetchHistory(accountId, accountRole);
     }
-  };
+  } finally {
+    setRefreshing(false);
+  }
+};
 
   const goBack = () => {
     router.back();
   };
-
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
-
+  
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -481,239 +394,6 @@ export default function RecyclingHistory() {
     );
   };
 
-  const renderBottomNav = () => {
-    if (accountRole === "facility") {
-      return (
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard")}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/facility_map")}
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/messages")}
-          >
-            <View style={{ position: "relative" }}>
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
-
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>
-                  {unreadCount > 99 ? "99+" : unreadCount}
-                </Text>
-              </View>
-            )}
-          </View>
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" && styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/profile")}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" && styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/settings")}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_scan")}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
@@ -764,7 +444,17 @@ export default function RecyclingHistory() {
         }
       />
 
-      {renderBottomNav()}
+      {accountRole === "facility" ? (
+        <FacilityBottomNav
+          facilityId={accountId}
+          active="profile"
+        />
+      ) : (
+        <UserBottomNav
+          userId={accountId}
+          active="profile"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -880,7 +570,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 110,
+    paddingBottom: 140,
   },
 
   card: {
@@ -987,58 +677,4 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
   },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 8,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
-  },
-
-  badge: {
-  position: "absolute",
-  top: -6,
-  right: -8,
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  backgroundColor: "red",
-  justifyContent: "center",
-  alignItems: "center",
-  paddingHorizontal: 4,
-},
-
-badgeText: {
-  color: "#fff",
-  fontSize: 10,
-  fontWeight: "bold",
-},
 });

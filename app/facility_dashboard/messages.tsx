@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import {
   ActivityIndicator,
   Alert,
@@ -433,10 +434,10 @@ export default function FacilityMessages() {
       );
 
       const { data: unreadMessages } = await supabase
-        .from("messages")
-        .select("conversation_id")
-        .eq("receiver_id", Number(currentFacilityId))
-        .eq("is_read", false);
+      .from("messages")
+      .select("conversation_id")
+      .eq("receiver_id", Number(currentFacilityId))
+      .eq("is_read", false);
 
       const unreadSet = new Set<string>();
 
@@ -447,8 +448,8 @@ export default function FacilityMessages() {
       const { data: unreadRequests, error: requestError } = await supabase
         .from("conversations")
         .select("id, status")
-        .eq("facility_id", String(currentFacilityId))
-        .eq("status", "match_pending");
+        .eq("facility_id", Number(currentFacilityId))
+        .eq("is_read", false);
 
       if (!requestError) {
         (unreadRequests || []).forEach((conversation: any) => {
@@ -460,9 +461,9 @@ export default function FacilityMessages() {
       groupConversationsByUser(withUserProfiles).map((conversation) => ({
         ...conversation,
         hasUnread:
-          conversation.related_conversation_ids?.some((id: string) =>
-            unreadSet.has(String(id))
-          ) || false,
+        unreadSet.has(
+          String(conversation.id)
+        )
       }));
 
         setConversations(groupedConversations);
@@ -706,23 +707,46 @@ export default function FacilityMessages() {
     );
   };
 
-  const openChat = (conversation: any) => {
-    router.push({
-      pathname: "/facility_dashboard/chat" as any,
-      params: {
-        conversationId: String(conversation.id || ""),
-        user_id: String(conversation.user_id || ""),
-        user_name: String(conversation.user_name || "User"),
-        user_profile_image: String(conversation.user_profile_image || ""),
-        facility_id: String(conversation.facility_id || facility?.id || ""),
-        facility_name: String(
-          conversation.facility_name || facility?.name || "Facility"
-        ),
-        item_id: String(conversation.item_id || ""),
-        item_name: String(conversation.item_name || ""),
-      },
-    });
-  };
+  const openChat = async (conversation: any) => {
+  setConversations((prev) =>
+    prev.map((item) =>
+      item.id === conversation.id
+        ? {
+            ...item,
+            hasUnread: false,
+          }
+        : item
+    )
+  );
+
+  router.push({
+    pathname: "/facility_dashboard/chat" as any,
+    params: {
+      conversationId: String(conversation.id || ""),
+      user_id: String(conversation.user_id || ""),
+      user_name: String(conversation.user_name || "User"),
+      user_profile_image: String(
+        conversation.user_profile_image || ""
+      ),
+      facility_id: String(
+        conversation.facility_id ||
+          facility?.id ||
+          ""
+      ),
+      facility_name: String(
+        conversation.facility_name ||
+          facility?.name ||
+          "Facility"
+      ),
+      item_id: String(
+        conversation.item_id || ""
+      ),
+      item_name: String(
+        conversation.item_name || ""
+      ),
+    },
+  });
+};
 
   const goToPage = (path: string) => {
     router.push(path as any);
@@ -743,12 +767,7 @@ export default function FacilityMessages() {
 
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
-              <Text
-                style={[
-                  styles.userName,
-                  item.hasUnread && styles.unreadUserName,
-                ]}
-              >
+              <Text style={styles.userName}>
                 {item.user_name || "User"}
               </Text>
 
@@ -817,111 +836,16 @@ export default function FacilityMessages() {
             <Text style={styles.emptyTitle}>No messages yet</Text>
 
             <Text style={styles.emptyText}>
-              User match conversations with your facility will appear here.
+               Your conversation with other users will appear here.
             </Text>
           </View>
         }
       />
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/facility_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/facility_map" &&
-                styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/profile" &&
-                styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/settings" &&
-                styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+     <FacilityBottomNav
+        facilityId={facility?.id || ""}
+        active="messages"
+      />
     </SafeAreaView>
   );
 }
@@ -956,7 +880,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 110,
+    paddingBottom: 130,
   },
 
   swipeWrapper: {
@@ -984,14 +908,14 @@ const styles = StyleSheet.create({
   },
 
   conversationCard: {
-    flexDirection: "row",
-    backgroundColor: "#f7f7f7",
-    borderRadius: 14,
-    padding: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#eee",
-  },
+  flexDirection: "row",
+  backgroundColor: "#f5f5f5",
+  borderRadius: 14,
+  padding: 12,
+  alignItems: "center",
+  borderWidth: 1,
+  borderColor: "#eee",
+},
 
   deleteSwipeButton: {
     width: 92,
@@ -1026,25 +950,25 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  userName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#111",
-    marginRight: 8,
-  },
+userName: {
+  flex: 1,
+  fontSize: 16,
+  fontWeight: "bold",
+  color: "#000",
+  marginRight: 8,
+},
 
-  timeText: {
-    fontSize: 11,
-    color: "#777",
-  },
+itemName: {
+  marginTop: 3,
+  fontSize: 13,
+  color: "#888",
+  fontWeight: "400",
+},
 
-  itemName: {
-    marginTop: 3,
-    fontSize: 13,
-    color: "#111",
-    fontWeight: "400",
-  },
+timeText: {
+  fontSize: 11,
+  color: "#999",
+},
 
   statusRow: {
     marginTop: 7,
@@ -1135,27 +1059,25 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  unreadConversationCard: {
-  backgroundColor: "#f3fff2",
-  borderColor: "#2f7d1f",
-  borderWidth: 2,
+ unreadConversationCard: {
+  backgroundColor: "#ffffff",
 },
 
 unreadUserName: {
-  fontWeight: "900",
+  color: "#000",
 },
 
 unreadItemName: {
-  fontWeight: "700",
+  color: "#000",
+  fontWeight: "bold",
 },
 
 unreadTime: {
-  color: "red",
+  color: "#111",
   fontWeight: "bold",
 },
 
 unreadStatus: {
   fontWeight: "bold",
-  color: "#d32f2f",
 },
 });

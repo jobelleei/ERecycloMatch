@@ -541,12 +541,14 @@ export default function UserChat() {
           .eq("is_read", false);
       }
 
-const { error: conversationError } = await supabase
-  .from("conversations")
-  .update({
-    is_read: true,
-  })
-  .eq("id", String(conversationId));
+const { error: conversationError } =
+  await supabase
+    .from("conversations")
+    .update({
+      user_read: true,
+    })
+    .eq("id", String(conversationId))
+    .eq("user_id", Number(user.id));
 
 console.log(
   "UPDATE CONVERSATION READ:",
@@ -1249,9 +1251,60 @@ console.log(
         return;
       }
 
+      const { data: receiverProfile } =
+  await supabase
+    .from("profiles")
+    .select("expo_push_token")
+    .eq(
+      "id",
+      Number(receiverId)
+    )
+    .single();
+
+console.log(
+  "Facility token:",
+  receiverProfile
+);
+
+if (
+  receiverProfile?.expo_push_token
+) {
+  const response =
+    await fetch(
+      "https://exp.host/--/api/v2/push/send",
+      {
+        method: "POST",
+        headers: {
+          Accept:
+            "application/json",
+          "Accept-Encoding":
+            "gzip, deflate",
+          "Content-Type":
+            "application/json",
+        },
+        body:
+          JSON.stringify({
+            to:
+              receiverProfile.expo_push_token,
+            title:
+              user.name ||
+              "New Message",
+            body: text,
+            sound:
+              "default",
+          }),
+      }
+    );
+
+  console.log(
+    "Push response:",
+    await response.json()
+  );
+}
+
       await updateConversation({
-        last_message: sendingOffer ? `Offer: ${text}` : text,
-        is_read: false,
+        last_message: text,
+        facility_read: false,
       });
 
       fetchMessages();

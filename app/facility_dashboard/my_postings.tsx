@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -22,12 +23,10 @@ import { supabase } from "../../utils/supabase";
 
 export default function MyPostings() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [facilityId, setFacilityId] = useState("");
   const [facilityName, setFacilityName] = useState("");
   const [facilityLocation, setFacilityLocation] = useState("");
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const [postings, setPostings] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -38,10 +37,6 @@ export default function MyPostings() {
   const [editedItemNeeded, setEditedItemNeeded] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
 
   const normalizeText = (value: any) => {
     return String(value || "")
@@ -111,85 +106,6 @@ useFocusEffect(
   }, [])
 );
 
-  useEffect(() => {
-  if (!facilityId) return;
-
-  const channel = supabase
-    .channel("my-postings-unread")
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${facilityId}`,
-      },
-      () => fetchUnreadMessages(facilityId)
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "conversations",
-        filter: `facility_id=eq.${facilityId}`,
-      },
-      () => fetchUnreadMessages(facilityId)
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [facilityId]);
-
-  const fetchUnreadMessages = async (currentFacilityId = facilityId) => {
-  if (!currentFacilityId) {
-    setUnreadCount(0);
-    return;
-  }
-
-  const { data: unreadMessages } = await supabase
-    .from("messages")
-    .select("conversation_id")
-    .eq("receiver_id", Number(currentFacilityId))
-    .eq("is_read", false);
-
-  const { data: unreadRequests } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("facility_id", String(currentFacilityId))
-    .eq("is_read", false);
-
-  const unreadSet = new Set<string>();
-
-  (unreadMessages || []).forEach((m: any) => {
-    unreadSet.add(String(m.conversation_id));
-  });
-
-  (unreadRequests || []).forEach((c: any) => {
-    unreadSet.add(String(c.id));
-  });
-
-  setUnreadCount(unreadSet.size);
-};
-
-  useEffect(() => {
-    if (facilityId) {
-      fetchPostings(facilityId);
-    }
-  }, [facilityId]);
-
-  useEffect(() => {
-    if (!facilityId) return;
-
-    const interval = setInterval(() => {
-      fetchPostings(facilityId);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [facilityId]);
-
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -234,7 +150,6 @@ useFocusEffect(
         "";
 
       setFacilityId(String(id));
-      fetchUnreadMessages(String(id));
       setFacilityName(String(name));
       setFacilityLocation(String(location));
 
@@ -850,113 +765,10 @@ useFocusEffect(
         </View>
       </Modal>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/facility_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/facility_map" &&
-                styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/messages")}
-        >
-          <View style={{ position: "relative" }}>
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          {unreadCount > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </Text>
-            </View>
-          )}
-        </View>
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FacilityBottomNav
+        facilityId={facilityId}
+        active="profile"
+      />
     </SafeAreaView>
   );
 }
@@ -1039,7 +851,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
 
   card: {

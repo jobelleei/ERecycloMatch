@@ -566,19 +566,23 @@ export default function FacilityViewProfile() {
 
     if (existingMessage) return;
 
-    const { error } = await supabase.from("messages").insert([
-      {
-        conversation_id: String(conversationId),
-        sender_id: null,
-        sender_name: "System",
-        sender_role: "system",
-        sender_type: "system",
-        receiver_id: null,
-        type: "system",
-        message: "Match request sent",
-        created_at: now,
-      },
-    ]);
+     const { error } = await supabase.from("messages").insert([
+  {
+    conversation_id: String(conversationId),
+
+    sender_id: null,
+    sender_name: "System",
+    sender_role: "system",
+    sender_type: "system",
+
+    receiver_id: Number(facilityId),
+
+    type: "system",
+    message: "Match request sent",
+    is_read: false,
+    created_at: now,
+  },
+]);
 
     if (error) {
       console.log("CREATE MATCH REQUEST MESSAGE ERROR:", error);
@@ -992,7 +996,7 @@ export default function FacilityViewProfile() {
       {currentUser && (
         <UserBottomNav
           userId={currentUser.id}
-          active="profile"
+          active={undefined as any}
         />
       )}
     </SafeAreaView>
@@ -1070,7 +1074,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 12,
     lineHeight: 16,
-    textAlign: "left",
+    textAlign: "center",
     flexShrink: 1,
   },
 
