@@ -629,12 +629,12 @@ const markConversationAsRead = async () => {
       .eq("is_read", false);
 
     await supabase
-  .from("conversations")
-  .update({
-    is_read: true,
-  })
-  .eq("id", conversationId)
-  .eq("facility_id", Number(facility.id));
+      .from("conversations")
+      .update({
+        is_read: true,
+      })
+      .eq("id", String(conversationId))
+      .eq("facility_id", String(facility.id));
 
   } catch (error) {
     console.log("MARK READ ERROR:", error);
@@ -1297,6 +1297,21 @@ if (
     return "Chat is locked until the match is active";
   };
 
+const getRequestSentMessage = () => {
+  // Receiver only sees normal text
+  if (!isCurrentAccountRequester()) {
+    return "Match request sent";
+  }
+
+  const targetName =
+    userProfile.name ||
+    conversation?.user_name ||
+    userNameParam ||
+    "the user";
+
+  return `Request is already sent. You are now able to send one offer message so that ${targetName} can choose the best offer.`;
+};
+
   const sendMessage = async () => {
     if (!messageText.trim()) return;
 
@@ -1640,22 +1655,26 @@ if (
           ]}
         >
           <Text
-            style={[
-              styles.systemText,
-              acceptedMessage && styles.acceptedSystemText,
-              rejectedMessage && styles.rejectedSystemText,
-              cancelledMessage && styles.cancelledSystemText,
-              finishClickedMessage && styles.finishSystemText,
-            ]}
-          >
-            {requestMessage
-              ? "Match request sent"
-              : rejectedMessage
-                ? "Match rejected"
-                : cancelledMessage
-                  ? "Match cancelled"
-                  : item.message}
-          </Text>
+          style={[
+            styles.systemText,
+            acceptedMessage &&
+              styles.acceptedSystemText,
+            rejectedMessage &&
+              styles.rejectedSystemText,
+            cancelledMessage &&
+              styles.cancelledSystemText,
+            finishClickedMessage &&
+              styles.finishSystemText,
+          ]}
+        >
+          {requestMessage
+            ? getRequestSentMessage()
+            : rejectedMessage
+              ? "Match rejected"
+              : cancelledMessage
+                ? "Match cancelled"
+                : item.message}
+        </Text>
 
           {requestMessage && renderRequestItemCard()}
 

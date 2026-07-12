@@ -1012,7 +1012,15 @@ const isEmptyValue = (value: any) => {
                               key={`item-${item.id}-${index}`}
                               style={styles.searchResultItem}
                               activeOpacity={0.8}
-                              onPress={() => openUserProfileFromItem(item)}
+                              onPress={() =>
+                                router.push({
+                                  pathname:
+                                    "/facility_dashboard/item_details",
+                                  params: {
+                                    item_id: String(item.id),
+                                  },
+                                })
+                              }
                             >
                               <Image
                                 source={
@@ -1089,42 +1097,78 @@ const isEmptyValue = (value: any) => {
               return (
                 <TouchableOpacity
                   key={`random-listed-${item.id}-${index}`}
-                  style={styles.itemCard}
+                  style={styles.postCard}
                   activeOpacity={0.8}
-                  onPress={() => openUserProfileFromItem(item)}
+                  onPress={() =>
+                    router.push({
+                      pathname:
+                        "/facility_dashboard/item_details",
+                      params: {
+                        item_id: String(item.id),
+                      },
+                    })
+                  }
                 >
-                  <Image
-                    source={
-                      itemImage
-                        ? { uri: itemImage }
-                        : require("../../assets/icons/icon.png")
-                    }
-                    style={styles.itemImage}
-                  />
+                <Image
+                  source={
+                    itemImage
+                      ? { uri: itemImage }
+                      : require("../../assets/icons/icon.png")
+                  }
+                  style={styles.postImage}
+                />
 
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.itemTitle}>
-                      {item.item_name || item.item_type || "No item name"}
+                <View style={styles.postContent}>
+                  <View style={styles.postHeader}>
+                    <Text style={styles.postTitle}>
+                      {item.item_name ||
+                        item.item_type ||
+                        "Unnamed Item"}
                     </Text>
 
-                    <Text style={styles.itemSub}>
-                      Posted by: {item.submitter_name || "No submitter"}
-                    </Text>
-
-                    <Text style={styles.itemLocation} numberOfLines={1}>
-                      Tap to view user profile
+                    <Text
+                      style={[
+                        styles.postStatus,
+                        getStatusStyle(
+                          getDisplayStatus(item)
+                        ),
+                      ]}
+                    >
+                      {getDisplayStatus(item)}
                     </Text>
                   </View>
 
-                  <Text
-                    style={[
-                      styles.itemStatus,
-                      getStatusStyle(getDisplayStatus(item)),
-                    ]}
-                  >
-                    {getDisplayStatus(item)}
+                  <Text style={styles.postUser}>
+                    Posted by{" "}
+                    {item.submitter_name || "Unknown User"}
                   </Text>
-                </TouchableOpacity>
+
+                  {!!item.description && (
+                    <Text
+                      style={styles.postDescription}
+                      numberOfLines={3}
+                    >
+                      {item.description}
+                    </Text>
+                  )}
+
+                  <View style={styles.postFooter}>
+                    <Image
+                      source={require("../../assets/icons/location.png")}
+                      style={styles.locationIcon}
+                    />
+
+                    <Text
+                      style={styles.postLocation}
+                      numberOfLines={1}
+                    >
+                      {item.location ||
+                        item.address ||
+                        "No location"}
+                    </Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
               );
             })
           ) : (
@@ -1396,43 +1440,78 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  itemCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
-  },
+  postCard: {
+  backgroundColor: "#fff",
+  marginTop: 15,
+  borderRadius: 18,
+  overflow: "hidden",
+  elevation: 3,
+  shadowColor: "#000",
+  shadowOpacity: 0.08,
+  shadowRadius: 5,
+},
 
-  itemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: "#eee",
-  },
+postImage: {
+  width: "100%",
+  height: 220,
+  backgroundColor: "#eee",
+},
 
-  itemTitle: {
-    fontWeight: "bold",
-  },
+postContent: {
+  padding: 14,
+},
 
-  itemSub: {
-    color: "#777",
-  },
+postHeader: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "flex-start",
+},
 
-  itemLocation: {
-    color: "#999",
-    fontSize: 12,
-    marginTop: 2,
-  },
+postTitle: {
+  flex: 1,
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#222",
+  marginRight: 10,
+},
 
-  itemStatus: {
-    marginTop: 5,
-    fontWeight: "bold",
-    fontSize: 12,
-    maxWidth: 95,
-    textAlign: "right",
-  },
+postStatus: {
+  fontSize: 12,
+  fontWeight: "700",
+},
+
+postUser: {
+  marginTop: 6,
+  fontSize: 13,
+  color: "#2f7d1f",
+  fontWeight: "600",
+},
+
+postDescription: {
+  marginTop: 10,
+  fontSize: 14,
+  color: "#555",
+  lineHeight: 20,
+},
+
+postFooter: {
+  flexDirection: "row",
+  alignItems: "center",
+  marginTop: 12,
+},
+
+locationIcon: {
+  width: 14,
+  height: 14,
+  tintColor: "#666",
+  marginRight: 5,
+},
+
+postLocation: {
+  flex: 1,
+  fontSize: 12,
+  color: "#777",
+},
 
   pending: {
     color: "#fbc02d",

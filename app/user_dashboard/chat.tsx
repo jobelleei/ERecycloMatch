@@ -532,28 +532,46 @@ export default function UserChat() {
         return;
       }
 
-      if (user?.id) {
-        await supabase
-          .from("messages")
-          .update({ is_read: true })
-          .eq("conversation_id", String(conversationId))
-          .eq("receiver_id", Number(user.id))
-          .eq("is_read", false);
-      }
-
-const { error: conversationError } =
+if (user?.id) {
   await supabase
+    .from("messages")
+    .update({
+      is_read: true,
+    })
+    .eq(
+      "conversation_id",
+      String(conversationId)
+    )
+    .eq(
+      "receiver_id",
+      Number(user.id)
+    )
+    .eq(
+      "is_read",
+      false
+    );
+
+  const {
+    error: conversationError,
+  } = await supabase
     .from("conversations")
     .update({
-      user_read: true,
+      is_read: true,
     })
-    .eq("id", String(conversationId))
-    .eq("user_id", Number(user.id));
+    .eq(
+      "id",
+      String(conversationId)
+    )
+    .eq(
+      "user_id",
+      String(user.id)
+    );
 
-console.log(
-  "UPDATE CONVERSATION READ:",
-  conversationError
-);
+  console.log(
+    "UPDATE CONVERSATION READ:",
+    conversationError
+  );
+}
 
       let requestCardAlreadyShown = false;
 
@@ -1302,10 +1320,10 @@ if (
   );
 }
 
-      await updateConversation({
-        last_message: text,
-        facility_read: false,
-      });
+     await updateConversation({
+  last_message: text,
+  is_read: false,
+});
 
       fetchMessages();
       fetchConversation();
@@ -1468,6 +1486,19 @@ if (
     );
   };
 
+const getRequestSentMessage = () => {
+  if (!isCurrentAccountRequester()) {
+    return "Match request sent";
+  }
+
+  const targetName =
+    facilityProfile.name ||
+    conversation?.facility_name ||
+    "the facility";
+
+  return `Request is already sent. You are now able to send one offer message so that ${targetName} can choose the best offer.`;
+};
+
   const renderMessage = ({ item }: any) => {
     const messageTextValue = String(item?.message || "").trim();
     const messageLower = messageTextValue.toLowerCase();
@@ -1513,22 +1544,26 @@ if (
           ]}
         >
           <Text
-            style={[
-              styles.systemText,
-              acceptedMessage && styles.acceptedSystemText,
-              rejectedMessage && styles.rejectedSystemText,
-              cancelledMessage && styles.cancelledSystemText,
-              finishClickedMessage && styles.finishSystemText,
-            ]}
-          >
-            {requestMessage
-              ? "Match request sent"
-              : rejectedMessage
-                ? "Match rejected"
-                : cancelledMessage
-                  ? "Match cancelled"
-                  : item.message}
-          </Text>
+          style={[
+            styles.systemText,
+            acceptedMessage &&
+              styles.acceptedSystemText,
+            rejectedMessage &&
+              styles.rejectedSystemText,
+            cancelledMessage &&
+              styles.cancelledSystemText,
+            finishClickedMessage &&
+              styles.finishSystemText,
+          ]}
+        >
+          {requestMessage
+            ? getRequestSentMessage()
+            : rejectedMessage
+              ? "Match rejected"
+              : cancelledMessage
+                ? "Match cancelled"
+                : item.message}
+        </Text>
 
           {requestMessage && renderRequestItemCard()}
 

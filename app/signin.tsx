@@ -121,7 +121,6 @@ export default function Signin() {
           type: "error",
           text1: "Account Rejected",
           text2:
-            profile.reject_reason ||
             "Your account registration was rejected by the admin.",
         });
         return;

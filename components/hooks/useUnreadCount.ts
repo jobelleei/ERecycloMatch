@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "../../utils/supabase";
 
 type Role = "user" | "facility";
@@ -9,7 +10,7 @@ export default function useUnreadCount(
 ) {
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       if (!accountId) {
         setUnreadCount(0);
@@ -19,140 +20,215 @@ export default function useUnreadCount(
       const unreadSet = new Set<string>();
 
       // ==========================
-      // UNREAD CHAT MESSAGES
+      // UNREAD MESSAGES
       // ==========================
-      const { data: unreadMessages } = await supabase
+      const {
+        data: unreadMessages,
+        error: messageError,
+      } = await supabase
         .from("messages")
         .select("conversation_id")
         .eq("receiver_id", Number(accountId))
         .eq("is_read", false);
 
+      if (messageError) {
+        console.log(
+          "UNREAD MESSAGE ERROR:",
+          messageError
+        );
+      }
+
       (unreadMessages || []).forEach(
         (message: any) => {
           unreadSet.add(
-            String(message.conversation_id)
+            String(
+              message.conversation_id
+            )
           );
         }
       );
 
       // ==========================
-      // UNREAD REQUESTS
+      // UNREAD CONVERSATIONS
       // ==========================
       if (role === "facility") {
-        const { data: unreadRequests } =
-          await supabase
-            .from("conversations")
-            .select("id")
-            .eq(
-              "facility_id",
-              Number(accountId)
-            )
-            .eq(
-              "facility_read",
-              false
-            );
+        const {
+          data: unreadConversations,
+          error,
+        } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq(
+            "facility_id",
+            String(accountId)
+          )
+          .eq(
+            "is_read",
+            false
+          );
 
-        (unreadRequests || []).forEach(
+        if (error) {
+          console.log(
+            "FACILITY UNREAD ERROR:",
+            error
+          );
+        }
+
+        (
+          unreadConversations || []
+        ).forEach(
           (conversation: any) => {
             unreadSet.add(
-              String(conversation.id)
+              String(
+                conversation.id
+              )
             );
           }
         );
       } else {
-        const { data: unreadRequests } =
-          await supabase
-            .from("conversations")
-            .select("id")
-            .eq(
-              "user_id",
-              Number(accountId)
-            )
-            .eq(
-              "user_read",
-              false
-            );
+        const {
+          data: unreadConversations,
+          error,
+        } = await supabase
+          .from("conversations")
+          .select("id")
+          .eq(
+            "user_id",
+            String(accountId)
+          )
+          .eq(
+            "is_read",
+            false
+          );
 
-        (unreadRequests || []).forEach(
+        if (error) {
+          console.log(
+            "USER UNREAD ERROR:",
+            error
+          );
+        }
+
+        (
+          unreadConversations || []
+        ).forEach(
           (conversation: any) => {
             unreadSet.add(
-              String(conversation.id)
+              String(
+                conversation.id
+              )
             );
           }
         );
       }
 
       console.log(
-        "Unread count:",
-        unreadSet.size
+        "Unread IDs:",
+        [...unreadSet]
       );
 
-      setUnreadCount(unreadSet.size);
+      setUnreadCount(
+        unreadSet.size
+      );
     } catch (error) {
       console.log(
-        "FETCH UNREAD COUNT ERROR:",
+        "FETCH UNREAD ERROR:",
         error
       );
 
       setUnreadCount(0);
     }
-  };
-
-  useEffect(() => {
-    fetchUnreadCount();
   }, [accountId, role]);
 
+  // Initial fetch
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
+  // Refresh whenever screen focuses
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadCount();
+    }, [fetchUnreadCount])
+  );
+
+  // ==========================
+  // REALTIME
+  // ==========================
   useEffect(() => {
     if (!accountId) return;
 
+    const conversationChannelName =
+      `conversation-unread-${role}-${accountId}`;
+
+    const messageChannelName =
+      `message-unread-${role}-${accountId}`;
+
+    // Remove old channels first
+    supabase
+      .getChannels()
+      .forEach((channel) => {
+        if (
+          channel.topic ===
+            `realtime:${conversationChannelName}` ||
+          channel.topic ===
+            `realtime:${messageChannelName}`
+        ) {
+          supabase.removeChannel(
+            channel
+          );
+        }
+      });
+
     const conversationChannel =
-      supabase.channel(
-        `conversation-unread-${role}-${accountId}-${Date.now()}`
-      );
-
-    conversationChannel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "conversations",
-        filter:
-          role === "facility"
-            ? `facility_id=eq.${Number(
-                accountId
-              )}`
-            : `user_id=eq.${Number(
-                accountId
-              )}`,
-      },
-      () => {
-        fetchUnreadCount();
-      }
-    );
-
-    conversationChannel.subscribe();
+      supabase
+        .channel(
+          conversationChannelName
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "conversations",
+            filter:
+              role ===
+              "facility"
+                ? `facility_id=eq.${String(
+                    accountId
+                  )}`
+                : `user_id=eq.${String(
+                    accountId
+                  )}`,
+          },
+          () => {
+            fetchUnreadCount();
+          }
+        )
+        .subscribe();
 
     const messageChannel =
-      supabase.channel(
-        `message-unread-${role}-${accountId}-${Date.now()}`
-      );
-
-    messageChannel.on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "messages",
-        filter: `receiver_id=eq.${Number(
-          accountId
-        )}`,
-      },
-      () => {
-        fetchUnreadCount();
-      }
-    );
-
-    messageChannel.subscribe();
+      supabase
+        .channel(
+          messageChannelName
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table:
+              "messages",
+            filter:
+              `receiver_id=eq.${Number(
+                accountId
+              )}`,
+          },
+          () => {
+            fetchUnreadCount();
+          }
+        )
+        .subscribe();
 
     return () => {
       supabase.removeChannel(
@@ -163,7 +239,11 @@ export default function useUnreadCount(
         messageChannel
       );
     };
-  }, [accountId, role]);
+  }, [
+    accountId,
+    role,
+    fetchUnreadCount,
+  ]);
 
   return unreadCount;
 }
