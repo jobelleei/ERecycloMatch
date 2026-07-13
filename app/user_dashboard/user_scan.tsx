@@ -16,6 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { YOLO_URL } from "../../config";
 
@@ -28,6 +29,11 @@ export default function ScanScreen() {
 
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [facing, setFacing] = useState<CameraType>("back");
+  const [scanFailed, setScanFailed] =
+  useState(false);
+
+  const [showUnknownModal, setShowUnknownModal] =
+  useState(false);
 
   const router = useRouter();
 
@@ -194,9 +200,19 @@ export default function ScanScreen() {
 
       await pingBackend();
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: false,
+      if (!cameraRef.current) {
+        Alert.alert(
+          "Camera Error",
+          "Camera is not ready."
+        );
+
+        return;
+      }
+
+      const photo =
+      await cameraRef.current.takePictureAsync({
+        quality: 0.5,
+        skipProcessing: true,
       });
 
       setFlash("off");
@@ -219,11 +235,29 @@ export default function ScanScreen() {
         );
         return;
       }
-
       let detected = getDetectedLabel(data);
 
       if (!detected || String(detected).trim() === "") {
         detected = "Unknown";
+      }
+
+      const unidentifiedItems = [
+        "unknown",
+        "unidentified",
+        "none",
+        "no detection",
+        "not detected",
+      ];
+
+      if (
+        unidentifiedItems.includes(
+          String(detected)
+            .trim()
+            .toLowerCase()
+        )
+      ) {
+        setShowUnknownModal(true);
+        return;
       }
 
       const confidence =
@@ -317,7 +351,9 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.flashButton}
           onPress={() => setFlash((prev) => (prev === "off" ? "on" : "off"))}
-          disabled={scanning}
+          disabled={
+            scanning || showUnknownModal
+          }
         >
           <Text style={styles.flashText}>
             {flash === "on" ? "Flash On" : "Flash Off"}
@@ -360,6 +396,41 @@ export default function ScanScreen() {
           {scanning ? "Scanning..." : "Capture"}
         </Text>
       </TouchableOpacity>
+
+      {showUnknownModal && (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Ionicons
+            name="warning"
+            size={55}
+            color="#d32f2f"
+            style={styles.modalIcon}
+          />
+
+          <Text style={styles.modalTitle}>
+            Item Unidentified
+          </Text>
+
+          <Text style={styles.modalText}>
+            The item could not be identified.
+            Please try scanning again with better lighting
+            or a clearer view of the object.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => {
+              setShowUnknownModal(false);
+              setScanning(false);
+            }}
+          >
+            <Text style={styles.modalButtonText}>
+              Scan Again
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    )}
 
       {userId && (
       <UserBottomNav
@@ -513,4 +584,95 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+
+  failedBox: {
+  marginTop: 20,
+  marginHorizontal: 20,
+  backgroundColor: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  alignItems: "center",
+  elevation: 4,
+},
+
+failedTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#d32f2f",
+},
+
+failedText: {
+  marginTop: 10,
+  fontSize: 14,
+  color: "#555",
+  textAlign: "center",
+  lineHeight: 22,
+},
+
+retryButton: {
+  marginTop: 15,
+  backgroundColor: "#1b5e20",
+  paddingVertical: 12,
+  paddingHorizontal: 25,
+  borderRadius: 25,
+},
+
+retryText: {
+  color: "#fff",
+  fontWeight: "600",
+  fontSize: 15,
+},
+
+modalOverlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 999,
+},
+
+modalContainer: {
+  width: "82%",
+  backgroundColor: "#fff",
+  borderRadius: 25,
+  padding: 25,
+  alignItems: "center",
+  elevation: 8,
+},
+
+modalIcon: {
+  marginBottom: 15,
+},
+
+modalTitle: {
+  fontSize: 20,
+  fontWeight: "700",
+  color: "#222",
+},
+
+modalText: {
+  marginTop: 12,
+  fontSize: 15,
+  color: "#555",
+  textAlign: "center",
+  lineHeight: 23,
+},
+
+modalButton: {
+  marginTop: 25,
+  backgroundColor: "#1b5e20",
+  paddingVertical: 13,
+  paddingHorizontal: 35,
+  borderRadius: 30,
+},
+
+modalButtonText: {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: "700",
+},
 });

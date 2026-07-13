@@ -592,6 +592,37 @@ export default function MyItems() {
     return styles.pending;
   };
 
+const getDisplayStatus = (
+  item: any
+) => {
+  const status =
+    getItemStatus(item);
+
+  const approvalSource = String(
+    item?.approval_source || ""
+  ).toLowerCase();
+
+  if (
+    status === "Approved"
+  ) {
+    if (
+      approvalSource ===
+      "system"
+    ) {
+      return "Approved by System";
+    }
+
+    if (
+      approvalSource ===
+      "admin"
+    ) {
+      return "Approved by Admin";
+    }
+  }
+
+  return status;
+};
+
   const renderActionButtons = (item: any) => {
     const status = getItemStatus(item);
 
@@ -694,8 +725,13 @@ export default function MyItems() {
               {item.description || "No description"}
             </Text>
 
-            <Text style={[styles.itemStatus, getStatusStyle(status)]}>
-              {status}
+            <Text
+              style={[
+                styles.itemStatus,
+                getStatusStyle(status),
+              ]}
+            >
+              {getDisplayStatus(item)}
             </Text>
           </View>
 
@@ -774,7 +810,7 @@ export default function MyItems() {
 
       <FlatList
         data={filteredItems}
-        keyExtractor={(item) => `${item.id}-${getItemStatus(item)}`}
+        keyExtractor={(item) => `${item.id}-${getDisplayStatus(item)}`}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -908,10 +944,24 @@ export default function MyItems() {
                     <Text
                       style={[
                         styles.readOnlyText,
-                        getStatusStyle(getItemStatus(editingItem)),
+                        getStatusStyle(
+                          getItemStatus(editingItem)
+                        ),
                       ]}
                     >
-                      {getItemStatus(editingItem)}
+                      {getDisplayStatus(editingItem)}
+                    </Text>
+
+                    <Text style={styles.modalLabel}>
+                      Approval Type
+                    </Text>
+
+                    <Text style={styles.readOnlyText}>
+                      {editingItem?.approval_source === "System"
+                        ? "Approved by System"
+                        : editingItem?.approval_source === "Admin"
+                          ? "Approved by Admin"
+                          : "Pending Review"}
                     </Text>
 
                     {getItemStatus(editingItem) === "Rejected" && (
