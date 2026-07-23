@@ -19,11 +19,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ForgotPassword() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
-
   const [loading, setLoading] = useState(false);
-
   const checkResetLimit = async () => {
     try {
       const lastReset = await AsyncStorage.getItem("last_reset_attempt");

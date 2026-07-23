@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "658995325568",
+    "project_id": "erecyclomatch-55fe9",
+    "storage_bucket": "erecyclomatch-55fe9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:658995325568:android:31cdc0873a280416c8d465",
+        "android_client_info": {
+          "package_name": "com.erecyclomatch.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDBK9YMz6ZSpc1wRhUdNz-rCcKiSrfZywM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
