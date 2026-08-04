@@ -470,10 +470,26 @@ export default function UserDashboard() {
               Welcome Back{userName ? `, ${userName}` : ""}!
             </Text>
 
-            <Image
-              source={require("../../assets/icons/icon.png")}
-              style={styles.avatar}
-            />
+            <View style={styles.headerActions}>
+              <TouchableOpacity
+                style={styles.notificationButton}
+                activeOpacity={0.8}
+                onPress={() =>
+                  router.push("/user_dashboard/notifications" as any)
+                }
+              >
+                <Text style={styles.notificationBell}>🔔</Text>
+
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>2</Text>
+                </View>
+              </TouchableOpacity>
+
+              <Image
+                source={require("../../assets/icons/icon.png")}
+                style={styles.avatar}
+              />
+            </View>
           </View>
 
           <View style={styles.searchArea}>
@@ -810,6 +826,47 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
     marginRight: 10,
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  notificationButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#e4f2df",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    position: "relative",
+  },
+
+  notificationBell: {
+    fontSize: 20,
+  },
+
+  notificationBadge: {
+    position: "absolute",
+    top: -2,
+    right: -1,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: "#d32f2f",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#f5f5f5",
+  },
+
+  notificationBadgeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "800",
   },
 
   avatar: {

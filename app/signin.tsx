@@ -285,7 +285,7 @@ export default function Signin() {
             </Pressable>
           </View>
 
-          {/* <Pressable
+          <Pressable
             onPress={() => router.push("/forgot_password" as any)}
             style={{
               alignSelf: "flex-start",
@@ -294,7 +294,7 @@ export default function Signin() {
             }}
           >
            <Text style={signinStyles.forgot}>Forgot your Password?</Text> 
-          </Pressable> */}
+          </Pressable> 
 
           <Pressable
             onPress={handleSignIn}

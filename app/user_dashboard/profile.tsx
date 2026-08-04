@@ -434,9 +434,7 @@ export default function Profile() {
               .toLowerCase();
 
             return (
-              normalizedStatus === "listed" ||
-              normalizedStatus === "pending match" ||
-              normalizedStatus === "matched"
+              normalizedStatus === "listed" 
             );
           },
         );
@@ -454,9 +452,7 @@ export default function Profile() {
           .toLowerCase();
 
         return (
-          normalizedStatus === "listed" ||
-          normalizedStatus === "pending match" ||
-          normalizedStatus === "matched"
+          normalizedStatus === "listed" 
         );
       });
 

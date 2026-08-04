@@ -51,6 +51,19 @@ export default function UserChat() {
   const [selectedRating, setSelectedRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [includeReport, setIncludeReport] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+
+  const reportReasons = [
+    "Scam or fraud",
+    "Harassment or inappropriate behavior",
+    "No-show during transaction",
+    "Misleading information",
+    "Unsafe transaction",
+    "Fake account",
+    "Other",
+  ];
 
   useEffect(() => {
     loadUser();
@@ -983,6 +996,14 @@ export default function UserChat() {
         return;
       }
 
+      if (includeReport && !reportReason) {
+        Alert.alert(
+          "Report reason required",
+          "Please select why you are reporting this facility.",
+        );
+        return;
+      }
+
       const cleanRating = Number(selectedRating);
 
       if (!cleanRating || cleanRating < 1 || cleanRating > 5) {
@@ -1033,7 +1054,9 @@ export default function UserChat() {
       setFeedbackModalVisible(false);
       setSelectedRating(0);
       setFeedbackComment("");
-
+      setIncludeReport(false);
+      setReportReason("");
+      setReportDetails("");
       fetchConversation();
 
       Alert.alert("Thank You", "Your feedback has been submitted.");
@@ -1613,6 +1636,101 @@ export default function UserChat() {
                         blurOnSubmit={true}
                         onSubmitEditing={Keyboard.dismiss}
                       />
+                      <View style={styles.reportSection}>
+                        <TouchableOpacity
+                          style={styles.reportToggle}
+                          onPress={() => {
+                            const nextValue = !includeReport;
+                            setIncludeReport(nextValue);
+
+                            if (!nextValue) {
+                              setReportReason("");
+                              setReportDetails("");
+                            }
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.reportCheckbox,
+                              includeReport && styles.reportCheckboxSelected,
+                            ]}
+                          >
+                            {includeReport && (
+                              <Text style={styles.reportCheckmark}>✓</Text>
+                            )}
+                          </View>
+
+                          <View style={styles.reportToggleContent}>
+                            <Text style={styles.reportToggleTitle}>
+                              Report this facility
+                            </Text>
+
+                            <Text style={styles.reportToggleDescription}>
+                              Select this only if a serious issue occurred
+                              during the transaction.
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {includeReport && (
+                          <View style={styles.reportForm}>
+                            <Text style={styles.reportQuestion}>
+                              Why are you reporting this facility?
+                            </Text>
+
+                            {reportReasons.map((reason) => {
+                              const selected = reportReason === reason;
+
+                              return (
+                                <TouchableOpacity
+                                  key={reason}
+                                  style={[
+                                    styles.reportReason,
+                                    selected && styles.reportReasonSelected,
+                                  ]}
+                                  onPress={() => setReportReason(reason)}
+                                >
+                                  <View
+                                    style={[
+                                      styles.reportRadio,
+                                      selected && styles.reportRadioSelected,
+                                    ]}
+                                  >
+                                    {selected && (
+                                      <View style={styles.reportRadioInner} />
+                                    )}
+                                  </View>
+
+                                  <Text
+                                    style={[
+                                      styles.reportReasonText,
+                                      selected &&
+                                        styles.reportReasonTextSelected,
+                                    ]}
+                                  >
+                                    {reason}
+                                  </Text>
+                                </TouchableOpacity>
+                              );
+                            })}
+
+                            <TextInput
+                              value={reportDetails}
+                              onChangeText={setReportDetails}
+                              placeholder="Describe what happened (optional)"
+                              placeholderTextColor="#888"
+                              multiline
+                              maxLength={500}
+                              style={styles.reportDetailsInput}
+                              textAlignVertical="top"
+                            />
+
+                            <Text style={styles.reportCharacterCount}>
+                              {reportDetails.length}/500
+                            </Text>
+                          </View>
+                        )}
+                      </View>
 
                       <View style={styles.modalButtons}>
                         <TouchableOpacity
@@ -2055,5 +2173,140 @@ const styles = StyleSheet.create({
   modalSubmitText: {
     color: "#fff",
     fontWeight: "bold",
+  },
+
+  
+
+
+  reportSection: {
+    marginTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e5e5",
+    paddingTop: 14,
+  },
+
+  reportToggle: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+
+  reportCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    borderWidth: 2,
+    borderColor: "#777",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+
+  reportCheckboxSelected: {
+    backgroundColor: "#1b5e20",
+    borderColor: "#1b5e20",
+  },
+
+  reportCheckmark: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+
+  reportToggleContent: {
+    flex: 1,
+    marginLeft: 10,
+  },
+
+  reportToggleTitle: {
+    color: "#b3261e",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  reportToggleDescription: {
+    marginTop: 3,
+    color: "#666",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+
+  reportForm: {
+    marginTop: 14,
+  },
+
+  reportQuestion: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#222",
+    marginBottom: 10,
+  },
+
+  reportReason: {
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#dddddd",
+    backgroundColor: "#ffffff",
+  },
+
+  reportReasonSelected: {
+    borderColor: "#1b5e20",
+    backgroundColor: "#f1f8f2",
+  },
+
+  reportRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: "#888",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  reportRadioSelected: {
+    borderColor: "#1b5e20",
+  },
+
+  reportRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#1b5e20",
+  },
+
+  reportReasonText: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 13,
+    color: "#444",
+  },
+
+  reportReasonTextSelected: {
+    color: "#1b5e20",
+    fontWeight: "600",
+  },
+
+  reportDetailsInput: {
+    minHeight: 90,
+    marginTop: 6,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#cccccc",
+    backgroundColor: "#fafafa",
+    color: "#222",
+    fontSize: 14,
+  },
+
+  reportCharacterCount: {
+    marginTop: 4,
+    textAlign: "right",
+    fontSize: 11,
+    color: "#888",
   },
 });
