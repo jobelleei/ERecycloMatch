@@ -2320,7 +2320,10 @@ export default function ScanResult() {
 
       await supabase
         .from("items")
-        .update({ match_status: "Pending Match" })
+        .update({
+          status: "Approved",
+          approval_source: "Admin",
+        })
         .eq("id", cleanItemId)
         .eq("user_id", cleanUserId);
 
@@ -2768,6 +2771,11 @@ export default function ScanResult() {
             recyclability: recyclability,
             item_image: uploadedMainImage.path,
             status: finalDecision.status,
+
+            approval_source:
+              finalDecision.status === "Approved"
+                ? "System"
+                : null,
             match_status: finalDecision.match_status,
             auto_decision_note: finalDecision.note,
             reject_reason: finalDecision.reject_reason,

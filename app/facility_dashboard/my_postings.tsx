@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -22,7 +23,6 @@ import { supabase } from "../../utils/supabase";
 
 export default function MyPostings() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [facilityId, setFacilityId] = useState("");
   const [facilityName, setFacilityName] = useState("");
@@ -37,10 +37,6 @@ export default function MyPostings() {
   const [editedItemNeeded, setEditedItemNeeded] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [saving, setSaving] = useState(false);
-
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
 
   const normalizeText = (value: any) => {
     return String(value || "")
@@ -104,27 +100,11 @@ export default function MyPostings() {
     loadFacility();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFacility();
-    }, [])
-  );
-
-  useEffect(() => {
-    if (facilityId) {
-      fetchPostings(facilityId);
-    }
-  }, [facilityId]);
-
-  useEffect(() => {
-    if (!facilityId) return;
-
-    const interval = setInterval(() => {
-      fetchPostings(facilityId);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [facilityId]);
+useFocusEffect(
+  useCallback(() => {
+    loadFacility();
+  }, [])
+);
 
   const loadFacility = async () => {
     try {
@@ -785,103 +765,10 @@ export default function MyPostings() {
         </View>
       </Modal>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/facility_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/facility_map" &&
-                styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FacilityBottomNav
+        facilityId={facilityId}
+        active="profile"
+      />
     </SafeAreaView>
   );
 }
@@ -964,7 +851,7 @@ const styles = StyleSheet.create({
   },
 
   listContent: {
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
 
   card: {
@@ -1283,4 +1170,23 @@ const styles = StyleSheet.create({
     color: "green",
     fontWeight: "bold",
   },
+
+  badge: {
+  position: "absolute",
+  top: -6,
+  right: -8,
+  minWidth: 18,
+  height: 18,
+  borderRadius: 9,
+  backgroundColor: "red",
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 4,
+},
+
+badgeText: {
+  color: "#fff",
+  fontSize: 10,
+  fontWeight: "bold",
+},
 });

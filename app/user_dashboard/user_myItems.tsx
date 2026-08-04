@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
+import UserBottomNav from "../../components/UserBottomNav";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -26,7 +27,6 @@ const screenHeight = Dimensions.get("window").height;
 
 export default function MyItems() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [items, setItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -45,10 +45,6 @@ export default function MyItems() {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImageSource, setPreviewImageSource] = useState<any>(null);
   const [previewTitle, setPreviewTitle] = useState("");
-
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
 
   const getItemStatus = (item: any) => {
     const status =
@@ -596,6 +592,37 @@ export default function MyItems() {
     return styles.pending;
   };
 
+const getDisplayStatus = (
+  item: any
+) => {
+  const status =
+    getItemStatus(item);
+
+  const approvalSource = String(
+    item?.approval_source || ""
+  ).toLowerCase();
+
+  if (
+    status === "Approved"
+  ) {
+    if (
+      approvalSource ===
+      "system"
+    ) {
+      return "Approved by System";
+    }
+
+    if (
+      approvalSource ===
+      "admin"
+    ) {
+      return "Approved by Admin";
+    }
+  }
+
+  return status;
+};
+
   const renderActionButtons = (item: any) => {
     const status = getItemStatus(item);
 
@@ -698,8 +725,13 @@ export default function MyItems() {
               {item.description || "No description"}
             </Text>
 
-            <Text style={[styles.itemStatus, getStatusStyle(status)]}>
-              {status}
+            <Text
+              style={[
+                styles.itemStatus,
+                getStatusStyle(status),
+              ]}
+            >
+              {getDisplayStatus(item)}
             </Text>
           </View>
 
@@ -778,7 +810,7 @@ export default function MyItems() {
 
       <FlatList
         data={filteredItems}
-        keyExtractor={(item) => `${item.id}-${getItemStatus(item)}`}
+        keyExtractor={(item) => `${item.id}-${getDisplayStatus(item)}`}
         renderItem={renderItem}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -912,10 +944,24 @@ export default function MyItems() {
                     <Text
                       style={[
                         styles.readOnlyText,
-                        getStatusStyle(getItemStatus(editingItem)),
+                        getStatusStyle(
+                          getItemStatus(editingItem)
+                        ),
                       ]}
                     >
-                      {getItemStatus(editingItem)}
+                      {getDisplayStatus(editingItem)}
+                    </Text>
+
+                    <Text style={styles.modalLabel}>
+                      Approval Type
+                    </Text>
+
+                    <Text style={styles.readOnlyText}>
+                      {editingItem?.approval_source === "System"
+                        ? "Approved by System"
+                        : editingItem?.approval_source === "Admin"
+                          ? "Approved by Admin"
+                          : "Pending Review"}
                     </Text>
 
                     {getItemStatus(editingItem) === "Rejected" && (
@@ -1028,121 +1074,10 @@ export default function MyItems() {
         </View>
       </Modal>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_scan")}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <UserBottomNav
+        userId={userId}
+        active="profile"
+      />
     </SafeAreaView>
   );
 }
@@ -1571,40 +1506,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 15,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

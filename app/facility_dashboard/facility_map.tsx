@@ -15,6 +15,7 @@ import {
   ScrollView,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
@@ -39,6 +40,8 @@ type MapPin = {
   address?: string;
   distance?: string;
   type: MapMode;
+  openingDaysFrom?: string;
+  openingDaysTo?: string;
   operatingHoursFrom?: string;
   operatingHoursTo?: string;
   acceptedItemTypes?: string;
@@ -374,65 +377,6 @@ export default function FacilityMapScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    const currentPins = getPinsForSearch(search);
-
-    if (isApplyingRouteFocusRef.current) {
-      updateNearestList(currentPins, search);
-      return;
-    }
-
-    if (search.trim().length === 0) {
-      setSelectedPin(null);
-      setShowList(false);
-      updateNearestList(currentPins, "");
-    } else {
-      updateNearestList(currentPins, search);
-    }
-  }, [mapMode, userLocation]);
-
-  useEffect(() => {
-    const currentPins = getPinsForSearch(search);
-
-    updateNearestList(currentPins, search);
-  }, [facilities, dropOffBins, search]);
-
-  useEffect(() => {
-    if (!incomingSelectedBin || !incomingSelectedBinKey) {
-      return;
-    }
-
-    if (handledRouteFocusKeyRef.current === incomingSelectedBinKey) {
-      return;
-    }
-
-    handledRouteFocusKeyRef.current = incomingSelectedBinKey;
-    focusIncomingDropOffBin(incomingSelectedBin);
-  }, [incomingSelectedBinKey, dropOffBins.length]);
-
-  useEffect(() => {
-    if (!shouldOpenDropOffBinsInterface || incomingSelectedBin) {
-      return;
-    }
-
-    if (
-      dropOffInterfaceRouteKey &&
-      handledDropOffInterfaceKeyRef.current === dropOffInterfaceRouteKey
-    ) {
-      return;
-    }
-
-    handledDropOffInterfaceKeyRef.current =
-      dropOffInterfaceRouteKey || `drop-off-interface-${Date.now()}`;
-
-    openDropOffBinsInterfaceFromRoute();
-  }, [
-    shouldOpenDropOffBinsInterface,
-    dropOffInterfaceRouteKey,
-    incomingSelectedBinKey,
-    userLocation,
-  ]);
-
   const loadUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -518,31 +462,49 @@ export default function FacilityMapScreen() {
   };
 
   const getFacilityAddress = (facility: any) => {
-    const directAddress = getValueFromKeys(facility, [
-      "location",
-      "address",
-      "complete_address",
-      "facility_location",
-      "facility_address",
-    ]);
+  const directAddress = getValueFromKeys(facility, [
+    "location",
+    "address",
+    "complete_address",
+    "facility_location",
+    "facility_address",
+  ]);
 
-    if (directAddress) return String(directAddress);
+  if (directAddress) return String(directAddress);
 
-    const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
-    const municipality = getValueFromKeys(facility, [
-      "municipality",
-      "city",
-      "city_municipality",
-      "town",
-    ]);
-    const province = getValueFromKeys(facility, ["province"]);
+  const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
+  const municipality = getValueFromKeys(facility, [
+    "municipality",
+    "city",
+    "city_municipality",
+    "town",
+  ]);
+  const province = getValueFromKeys(facility, ["province"]);
 
-    const parts = [barangay, municipality, province]
-      .map((part) => String(part || "").trim())
-      .filter((part) => part.length > 0);
+  const parts = [barangay, municipality, province]
+    .map((part) => String(part || "").trim())
+    .filter((part) => part.length > 0);
 
-    return parts.join(", ");
-  };
+  return parts.join(", ");
+};
+
+const getFacilityOpeningDaysFrom = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_from",
+      "openingDaysFrom",
+    ]) || ""
+  ).trim();
+};
+
+const getFacilityOpeningDaysTo = (facility: any) => {
+  return String(
+    getValueFromKeys(facility, [
+      "opening_days_to",
+      "openingDaysTo",
+    ]) || ""
+  ).trim();
+};
 
   const getFacilityOperatingHoursFrom = (facility: any) => {
     return String(
@@ -608,6 +570,17 @@ export default function FacilityMapScreen() {
 
     return `${cleanFrom} - ${cleanTo}`;
   };
+
+  const formatOpeningDays = (from?: string, to?: string) => {
+  const cleanFrom = String(from || "").trim();
+  const cleanTo = String(to || "").trim();
+
+  if (!cleanFrom && !cleanTo) return "Not specified";
+  if (cleanFrom && !cleanTo) return cleanFrom;
+  if (!cleanFrom && cleanTo) return cleanTo;
+
+  return `${cleanFrom} - ${cleanTo}`;
+};
 
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
@@ -879,18 +852,23 @@ export default function FacilityMapScreen() {
       }
 
       finalFacilities.push({
-        id: String(facility.id),
-        name: getFacilityName(facility),
-        latitude: coordinates.latitude,
-        longitude: coordinates.longitude,
-        location: cleanedLocation || addressText,
-        address: addressText,
-        type: "facilities",
-        operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
-        operatingHoursTo: getFacilityOperatingHoursTo(facility),
-        acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
-        availableServices: getFacilityAvailableServices(facility),
-      });
+      id: String(facility.id),
+      name: getFacilityName(facility),
+      latitude: coordinates.latitude,
+      longitude: coordinates.longitude,
+      location: cleanedLocation || addressText,
+      address: addressText,
+      type: "facilities",
+
+      openingDaysFrom: getFacilityOpeningDaysFrom(facility),
+      openingDaysTo: getFacilityOpeningDaysTo(facility),
+
+      operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
+      operatingHoursTo: getFacilityOperatingHoursTo(facility),
+
+      acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
+      availableServices: getFacilityAvailableServices(facility),
+    });
     }
 
     return finalFacilities;
@@ -1320,10 +1298,12 @@ export default function FacilityMapScreen() {
   };
 
   const openPinDetails = (pin: MapPin) => {
-    setSelectedPin(pin);
-    setShowList(false);
-    goToPinOnMap(pin);
-  };
+  console.log(pin);
+
+  setSelectedPin(pin);
+  setShowList(false);
+  goToPinOnMap(pin);
+};
 
   const isOwnFacilityPin = (pin: MapPin | null) => {
     if (!pin || pin.type !== "facilities") return false;
@@ -1743,27 +1723,35 @@ export default function FacilityMapScreen() {
                   "No address provided"}
               </Text>
 
-              {selectedPin.type === "facilities" && (
-                <View style={styles.facilityInfoBox}>
-                  {renderFacilityInfoRow(
-                    "Operating Hours",
-                    formatOperatingHours(
-                      selectedPin.operatingHoursFrom,
-                      selectedPin.operatingHoursTo
-                    )
-                  )}
+            {selectedPin.type === "facilities" && (
+              <View style={styles.facilityInfoBox}>
+                {renderFacilityInfoRow(
+                  "Opening Days",
+                  formatOpeningDays(
+                    selectedPin.openingDaysFrom,
+                    selectedPin.openingDaysTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Accepted Items",
-                    formatCommaText(selectedPin.acceptedItemTypes)
-                  )}
+                {renderFacilityInfoRow(
+                  "Operating Hours",
+                  formatOperatingHours(
+                    selectedPin.operatingHoursFrom,
+                    selectedPin.operatingHoursTo
+                  )
+                )}
 
-                  {renderFacilityInfoRow(
-                    "Available Services",
-                    formatCommaText(selectedPin.availableServices)
-                  )}
-                </View>
-              )}
+                {renderFacilityInfoRow(
+                  "Accepted Items",
+                  formatCommaText(selectedPin.acceptedItemTypes)
+                )}
+
+                {renderFacilityInfoRow(
+                  "Available Services",
+                  formatCommaText(selectedPin.availableServices)
+                )}
+              </View>
+            )}
 
               {isOwnFacilityPin(selectedPin) && (
                 <Text style={styles.ownFacilityNote}>
@@ -1876,108 +1864,10 @@ export default function FacilityMapScreen() {
           </Animated.View>
         )}
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() =>
-              router.push("/facility_dashboard/facility_map" as any)
-            }
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/messages" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" &&
-                  styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/profile" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" &&
-                  styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push("/facility_dashboard/settings" as any)}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" &&
-                  styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+      <FacilityBottomNav
+        facilityId={facility?.id || ""}
+        active="map"
+      />
       </View>
     </SafeAreaView>
   );
@@ -2398,40 +2288,5 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderRadius: 3,
     marginBottom: 10,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: NAV_HEIGHT,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

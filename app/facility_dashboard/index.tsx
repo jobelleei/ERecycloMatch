@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 
 import {
   ActivityIndicator,
@@ -47,13 +48,11 @@ export default function FacilityDashboard() {
 
   useEffect(() => {
     loadFacility();
-    fetchRandomListedItems();
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       loadFacility();
-      fetchRandomListedItems();
     }, []),
   );
 
@@ -72,18 +71,16 @@ export default function FacilityDashboard() {
   }, [searchText]);
 
   const isEmptyValue = (value: any) => {
-    const cleanValue = String(value ?? "")
-      .trim()
-      .toLowerCase();
+    if (value === null || value === undefined) return true;
+
+    const text = String(value).trim().toLowerCase();
 
     return (
-      cleanValue === "" ||
-      cleanValue === "null" ||
-      cleanValue === "undefined" ||
-      cleanValue === "not specified" ||
-      cleanValue === "no data" ||
-      cleanValue === "n/a" ||
-      cleanValue === "none"
+      text === "" ||
+      text === "null" ||
+      text === "undefined" ||
+      text === "n/a" ||
+      text === "none"
     );
   };
 
@@ -1031,7 +1028,15 @@ export default function FacilityDashboard() {
                               key={`item-${item.id}-${index}`}
                               style={styles.searchResultItem}
                               activeOpacity={0.8}
-                              onPress={() => openUserProfileFromItem(item)}
+                              onPress={() =>
+                                router.push({
+                                  pathname:
+                                    "/facility_dashboard/item_details" as any,
+                                  params: {
+                                    item_id: String(item.id),
+                                  },
+                                })
+                              }
                             >
                               <Image
                                 source={
@@ -1108,9 +1113,16 @@ export default function FacilityDashboard() {
               return (
                 <TouchableOpacity
                   key={`random-listed-${item.id}-${index}`}
-                  style={styles.itemCard}
+                  style={styles.postCard}
                   activeOpacity={0.8}
-                  onPress={() => openUserProfileFromItem(item)}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/facility_dashboard/item_details" as any,
+                      params: {
+                        item_id: String(item.id),
+                      },
+                    })
+                  }
                 >
                   <Image
                     source={
@@ -1118,31 +1130,46 @@ export default function FacilityDashboard() {
                         ? { uri: itemImage }
                         : require("../../assets/icons/icon.png")
                     }
-                    style={styles.itemImage}
+                    style={styles.postImage}
                   />
 
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={styles.itemTitle}>
-                      {item.item_name || item.item_type || "No item name"}
+                  <View style={styles.postContent}>
+                    <View style={styles.postHeader}>
+                      <Text style={styles.postTitle}>
+                        {item.item_name || item.item_type || "Unnamed Item"}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.postStatus,
+                          getStatusStyle(getDisplayStatus(item)),
+                        ]}
+                      >
+                        {getDisplayStatus(item)}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.postUser}>
+                      Posted by {item.submitter_name || "Unknown User"}
                     </Text>
 
-                    <Text style={styles.itemSub}>
-                      Posted by: {item.submitter_name || "No submitter"}
-                    </Text>
+                    {!!item.description && (
+                      <Text style={styles.postDescription} numberOfLines={3}>
+                        {item.description}
+                      </Text>
+                    )}
 
-                    <Text style={styles.itemLocation} numberOfLines={1}>
-                      Tap to view user profile
-                    </Text>
+                    <View style={styles.postFooter}>
+                      <Image
+                        source={require("../../assets/icons/location.png")}
+                        style={styles.locationIcon}
+                      />
+
+                      <Text style={styles.postLocation} numberOfLines={1}>
+                        {item.location || item.address || "No location"}
+                      </Text>
+                    </View>
                   </View>
-
-                  <Text
-                    style={[
-                      styles.itemStatus,
-                      getStatusStyle(getDisplayStatus(item)),
-                    ]}
-                  >
-                    {getDisplayStatus(item)}
-                  </Text>
                 </TouchableOpacity>
               );
             })
@@ -1153,103 +1180,7 @@ export default function FacilityDashboard() {
           )}
         </ScrollView>
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard")}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/facility_map")}
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/messages")}
-          >
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" && styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/profile")}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" && styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/settings")}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" && styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <FacilityBottomNav facilityId={facility?.id || ""} active="home" />
       </View>
     </SafeAreaView>
   );
@@ -1549,42 +1480,77 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  itemCard: {
-    flexDirection: "row",
-    alignItems: "center",
+  postCard: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginTop: 10,
+    marginTop: 15,
+    borderRadius: 18,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
   },
 
-  itemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
+  postImage: {
+    width: "100%",
+    height: 220,
     backgroundColor: "#eee",
   },
 
-  itemTitle: {
-    fontWeight: "bold",
+  postContent: {
+    padding: 14,
   },
 
-  itemSub: {
+  postHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  postTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#222",
+    marginRight: 10,
+  },
+
+  postStatus: {
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  postUser: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#2f7d1f",
+    fontWeight: "600",
+  },
+
+  postDescription: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#555",
+    lineHeight: 20,
+  },
+
+  postFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 12,
+  },
+
+  locationIcon: {
+    width: 14,
+    height: 14,
+    tintColor: "#666",
+    marginRight: 5,
+  },
+
+  postLocation: {
+    flex: 1,
+    fontSize: 12,
     color: "#777",
-  },
-
-  itemLocation: {
-    color: "#999",
-    fontSize: 12,
-    marginTop: 2,
-  },
-
-  itemStatus: {
-    marginTop: 5,
-    fontWeight: "bold",
-    fontSize: 12,
-    maxWidth: 95,
-    textAlign: "right",
   },
 
   pending: {

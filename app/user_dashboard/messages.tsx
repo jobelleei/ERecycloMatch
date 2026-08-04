@@ -1,5 +1,6 @@
+import UserBottomNav from "../../components/UserBottomNav";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -101,7 +102,6 @@ function SwipeableConversation({
 
 export default function UserMessages() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [user, setUser] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -113,24 +113,13 @@ export default function UserMessages() {
   }, []);
 
   useFocusEffect(
-    useCallback(() => {
-      loadUser();
-    }, [])
-  );
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    fetchConversations(user.id);
-
-    const interval = setInterval(() => {
+  useCallback(() => {
+    if (user?.id) {
       fetchConversations(user.id);
-    }, 5000);
+    }
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [user?.id]);
+  }, [user?.id])
+);
 
   const loadUser = async () => {
     try {
@@ -539,10 +528,6 @@ export default function UserMessages() {
     });
   };
 
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
-
   const renderConversation = ({ item }: any) => {
     return (
       <SwipeableConversation item={item} onDelete={deleteConversation}>
@@ -554,26 +539,48 @@ export default function UserMessages() {
           <Image source={getFacilityImageSource(item)} style={styles.avatar} />
 
           <View style={styles.conversationInfo}>
-            <View style={styles.topRow}>
-              <Text style={styles.facilityName} numberOfLines={1}>
-                {item.facility_name || "Facility"}
-              </Text>
+  <View style={styles.topRow}>
+    <Text
+      style={styles.facilityName}
+      numberOfLines={1}
+    >
+      {item.facility_name || "Facility"}
+    </Text>
 
-              <Text style={styles.timeText}>
-                {formatDate(item.updated_at || item.created_at)}
-              </Text>
-            </View>
+    <Text
+      style={[
+        styles.timeText,
+        item.is_read
+          ? styles.readItemText
+          : styles.unreadItemText,
+      ]}
+    >
+      {formatDate(item.updated_at || item.created_at)}
+    </Text>
+  </View>
 
-            <Text style={styles.itemName} numberOfLines={1}>
-              Latest item: {item.item_name || "Unnamed Item"}
-            </Text>
+ <Text
+  style={[
+    styles.itemName,
+    item.is_read
+      ? styles.readItemText
+      : styles.unreadItemText,
+  ]}
+>
+    Latest item: {item.item_name || "Unnamed Item"}
+  </Text>
 
-            <View style={styles.statusRow}>
-              <Text style={[styles.statusText, getStatusStyle(item)]}>
-                {getConversationStatus(item)}
-              </Text>
-            </View>
-          </View>
+  <View style={styles.statusRow}>
+    <Text
+      style={[
+        styles.statusText,
+        getStatusStyle(item),
+      ]}
+    >
+      {getConversationStatus(item)}
+    </Text>
+  </View>
+</View>
         </TouchableOpacity>
       </SwipeableConversation>
     );
@@ -614,121 +621,10 @@ export default function UserMessages() {
         }
       />
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_scan")}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+        <UserBottomNav
+          userId={user.id}
+          active="messages"
+        />
     </SafeAreaView>
   );
 }
@@ -833,14 +729,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  facilityName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#111",
-    marginRight: 8,
-  },
-
   timeText: {
     fontSize: 11,
     color: "#777",
@@ -852,6 +740,16 @@ const styles = StyleSheet.create({
     color: "#111",
     fontWeight: "400",
   },
+
+  readItemText: {
+  color: "#888",
+  fontWeight: "400",
+},
+
+unreadItemText: {
+  color: "#111",
+  fontWeight: "600",
+},
 
   statusRow: {
     marginTop: 7,
@@ -885,6 +783,14 @@ const styles = StyleSheet.create({
     color: "#555",
   },
 
+facilityName: {
+  flex: 1,
+  fontSize: 16,
+  color: "#111",
+  fontWeight: "bold",
+  marginRight: 8,
+},
+
   emptyBox: {
     backgroundColor: "#f5f5f5",
     marginTop: 40,
@@ -905,40 +811,5 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

@@ -11,9 +11,12 @@ import {
   CameraType,
   useCameraPermissions,
 } from "expo-camera";
+import UserBottomNav from "../../components/UserBottomNav";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useRef, useState } from "react";
-import { useRouter, usePathname } from "expo-router";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 
 import { YOLO_URL } from "../../config";
 
@@ -22,18 +25,43 @@ export default function ScanScreen() {
 
   const [permission, requestPermission] = useCameraPermissions();
   const [scanning, setScanning] = useState(false);
+  const [userId, setUserId] = useState("");
 
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [facing, setFacing] = useState<CameraType>("back");
+  const [scanFailed, setScanFailed] =
+  useState(false);
+
+  const [showUnknownModal, setShowUnknownModal] =
+  useState(false);
 
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     if (permission && !permission.granted) {
       requestPermission();
     }
   }, [permission]);
+
+  useEffect(() => {
+  const loadUser = async () => {
+    const stored = await AsyncStorage.getItem("user");
+
+    if (!stored) return;
+
+    const parsed = JSON.parse(stored);
+
+    const id =
+      parsed?.id ||
+      parsed?.user?.id ||
+      parsed?.data?.id ||
+      "";
+
+    setUserId(String(id));
+  };
+
+  loadUser();
+}, []);
 
   const pingBackend = async () => {
     const controller = new AbortController();
@@ -172,9 +200,19 @@ export default function ScanScreen() {
 
       await pingBackend();
 
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        skipProcessing: false,
+      if (!cameraRef.current) {
+        Alert.alert(
+          "Camera Error",
+          "Camera is not ready."
+        );
+
+        return;
+      }
+
+      const photo =
+      await cameraRef.current.takePictureAsync({
+        quality: 0.5,
+        skipProcessing: true,
       });
 
       setFlash("off");
@@ -197,11 +235,29 @@ export default function ScanScreen() {
         );
         return;
       }
-
       let detected = getDetectedLabel(data);
 
       if (!detected || String(detected).trim() === "") {
         detected = "Unknown";
+      }
+
+      const unidentifiedItems = [
+        "unknown",
+        "unidentified",
+        "none",
+        "no detection",
+        "not detected",
+      ];
+
+      if (
+        unidentifiedItems.includes(
+          String(detected)
+            .trim()
+            .toLowerCase()
+        )
+      ) {
+        setShowUnknownModal(true);
+        return;
       }
 
       const confidence =
@@ -295,7 +351,9 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.flashButton}
           onPress={() => setFlash((prev) => (prev === "off" ? "on" : "off"))}
-          disabled={scanning}
+          disabled={
+            scanning || showUnknownModal
+          }
         >
           <Text style={styles.flashText}>
             {flash === "on" ? "Flash On" : "Flash Off"}
@@ -339,127 +397,47 @@ export default function ScanScreen() {
         </Text>
       </TouchableOpacity>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
+      {showUnknownModal && (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Ionicons
+            name="warning"
+            size={55}
+            color="#d32f2f"
+            style={styles.modalIcon}
           />
 
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
+          <Text style={styles.modalTitle}>
+            Item Unidentified
           </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_scan")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
+          <Text style={styles.modalText}>
+            The item could not be identified.
+            Please try scanning again with better lighting
+            or a clearer view of the object.
           </Text>
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_map")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
+          <TouchableOpacity
+            style={styles.modalButton}
+            onPress={() => {
+              setShowUnknownModal(false);
+              setScanning(false);
+            }}
           >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/messages")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/profile")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/settings")}
-          disabled={scanning}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
+            <Text style={styles.modalButtonText}>
+              Scan Again
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
+    )}
+
+      {userId && (
+      <UserBottomNav
+          userId={userId}
+          active="scan"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -607,38 +585,94 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
+  failedBox: {
+  marginTop: 20,
+  marginHorizontal: 20,
+  backgroundColor: "#fff",
+  borderRadius: 18,
+  padding: 18,
+  alignItems: "center",
+  elevation: 4,
+},
 
-  navItem: {
-    alignItems: "center",
-  },
+failedTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#d32f2f",
+},
 
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
+failedText: {
+  marginTop: 10,
+  fontSize: 14,
+  color: "#555",
+  textAlign: "center",
+  lineHeight: 22,
+},
 
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
+retryButton: {
+  marginTop: 15,
+  backgroundColor: "#1b5e20",
+  paddingVertical: 12,
+  paddingHorizontal: 25,
+  borderRadius: 25,
+},
 
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
-  },
+retryText: {
+  color: "#fff",
+  fontWeight: "600",
+  fontSize: 15,
+},
+
+modalOverlay: {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 999,
+},
+
+modalContainer: {
+  width: "82%",
+  backgroundColor: "#fff",
+  borderRadius: 25,
+  padding: 25,
+  alignItems: "center",
+  elevation: 8,
+},
+
+modalIcon: {
+  marginBottom: 15,
+},
+
+modalTitle: {
+  fontSize: 20,
+  fontWeight: "700",
+  color: "#222",
+},
+
+modalText: {
+  marginTop: 12,
+  fontSize: 15,
+  color: "#555",
+  textAlign: "center",
+  lineHeight: 23,
+},
+
+modalButton: {
+  marginTop: 25,
+  backgroundColor: "#1b5e20",
+  paddingVertical: 13,
+  paddingHorizontal: 35,
+  borderRadius: 30,
+},
+
+modalButtonText: {
+  color: "#fff",
+  fontSize: 15,
+  fontWeight: "700",
+},
 });

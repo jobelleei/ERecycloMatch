@@ -1,10 +1,10 @@
   import AsyncStorage from "@react-native-async-storage/async-storage";
-  import {
-    useFocusEffect,
-    useLocalSearchParams,
-    usePathname,
-    useRouter,
-  } from "expo-router";
+  import FacilityBottomNav from "../../components/FacilityBottomNav";
+ import {
+  useFocusEffect,
+  useLocalSearchParams,
+  useRouter,
+} from "expo-router";
   import { useCallback, useEffect, useMemo, useState } from "react";
   import {
     Alert,
@@ -23,7 +23,6 @@
 
   export default function UserViewProfile() {
     const router = useRouter();
-    const pathname = usePathname();
     const params = useLocalSearchParams();
 
     const userId = String(
@@ -157,14 +156,24 @@
     }, [userId, usernameParam, emailParam, nameParam]);
 
     useFocusEffect(
-      useCallback(() => {
-        loadFacility();
+  useCallback(() => {
+    loadFacility();
 
-        if (userId || usernameParam || emailParam || nameParam) {
-          refreshUserProfile();
-        }
-      }, [userId, usernameParam, emailParam, nameParam])
-    );
+    if (
+      userId ||
+      usernameParam ||
+      emailParam ||
+      nameParam
+    ) {
+      refreshUserProfile();
+    }
+  }, [
+    userId,
+    usernameParam,
+    emailParam,
+    nameParam,
+  ])
+);
 
     useEffect(() => {
       if (!userId && !usernameParam && !emailParam && !nameParam) return;
@@ -235,6 +244,7 @@
           location: String(facilityLocation),
           profileImage: String(profileImage),
         });
+
       } catch (error) {
         console.log("LOAD FACILITY ERROR:", error);
       }
@@ -242,10 +252,6 @@
 
     const refreshUserProfile = async () => {
       await fetchUserProfile();
-    };
-
-    const goToPage = (path: string) => {
-      router.push(path as any);
     };
 
     const openImagePreview = (imageUrl: string) => {
@@ -1016,6 +1022,7 @@
                 item_name: getItemName(item),
                 last_message: "Match request sent",
                 status: "match_pending",
+                is_read: false,
                 request_sender_role: "facility",
                 request_receiver_role: "user",
                 user_finished: false,
@@ -1044,6 +1051,7 @@
               .update({
                 status: "match_pending",
                 last_message: "Match request sent",
+                is_read: false,
                 request_sender_role: "facility",
                 request_receiver_role: "user",
                 user_finished: false,
@@ -1395,103 +1403,10 @@
           </View>
         </Modal>
 
-        <View style={styles.bottomNav}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard")}
-          >
-            <Image
-              source={require("../../assets/icons/home.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard" && styles.navActive,
-              ]}
-            >
-              Home
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/facility_map")}
-          >
-            <Image
-              source={require("../../assets/icons/map.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/facility_map" &&
-                  styles.navActive,
-              ]}
-            >
-              Map
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/messages")}
-          >
-            <Image
-              source={require("../../assets/icons/chatting.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/messages" && styles.navActive,
-              ]}
-            >
-              Messages
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/profile")}
-          >
-            <Image
-              source={require("../../assets/icons/user.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/profile" && styles.navActive,
-              ]}
-            >
-              Profile
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => goToPage("/facility_dashboard/settings")}
-          >
-            <Image
-              source={require("../../assets/icons/setting_1.png")}
-              style={styles.navImage}
-            />
-
-            <Text
-              style={[
-                styles.navLabel,
-                pathname === "/facility_dashboard/settings" && styles.navActive,
-              ]}
-            >
-              Settings
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <FacilityBottomNav
+          facilityId={facility.id}
+          active="profile"
+        />
       </SafeAreaView>
     );
   }
@@ -1503,7 +1418,7 @@
     },
 
     listContent: {
-      paddingBottom: 100,
+      paddingBottom: 140,
     },
 
     profileHeader: {
@@ -1915,40 +1830,5 @@
       color: "#1b5e20",
       fontWeight: "bold",
       fontSize: 14,
-    },
-
-    bottomNav: {
-      position: "absolute",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: 70,
-      flexDirection: "row",
-      justifyContent: "space-around",
-      alignItems: "center",
-      backgroundColor: "#fff",
-      borderTopWidth: 1,
-      borderColor: "#ddd",
-      paddingBottom: 8,
-    },
-
-    navItem: {
-      alignItems: "center",
-    },
-
-    navImage: {
-      width: 24,
-      height: 24,
-      marginBottom: 2,
-    },
-
-    navLabel: {
-      fontSize: 12,
-      color: "#777",
-    },
-
-    navActive: {
-      color: "green",
-      fontWeight: "bold",
     },
   });

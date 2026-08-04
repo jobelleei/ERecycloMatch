@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, usePathname, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
+import { useFocusEffect } from "@react-navigation/native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -155,7 +157,6 @@ const CONDITION_OPTIONS = [
 
 export default function FacilityProfile() {
   const router = useRouter();
-  const pathname = usePathname();
 
   const [facility, setFacility] = useState({
     id: "",
@@ -164,6 +165,8 @@ export default function FacilityProfile() {
     location: "",
     address: "",
     profileImage: "",
+    openingDaysFrom: "",
+    openingDaysTo: "",
     operatingHoursFrom: "",
     operatingHoursTo: "",
     acceptedItems: "",
@@ -243,11 +246,11 @@ export default function FacilityProfile() {
     loadFacility();
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadFacility();
-    }, [])
-  );
+useFocusEffect(
+  useCallback(() => {
+    loadFacility();
+  }, [])
+);
 
   useEffect(() => {
     if (facility.id) {
@@ -255,6 +258,7 @@ export default function FacilityProfile() {
       fetchFeedbacks();
     }
   }, [facility.id]);
+
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
@@ -435,6 +439,17 @@ export default function FacilityProfile() {
           parsed?.location ||
           "No location added",
         profileImage: finalProfileImage,
+
+        openingDaysFrom:
+          actualUser?.opening_days_from ||
+          parsed?.opening_days_from ||
+          "",
+
+        openingDaysTo:
+          actualUser?.opening_days_to ||
+          parsed?.opening_days_to ||
+          "",
+
         operatingHoursFrom:
           actualUser?.operating_hours_from ||
           parsed?.operating_hours_from ||
@@ -484,21 +499,31 @@ export default function FacilityProfile() {
         : fallbackData.profileImage;
 
       const updatedFacility = {
-        id: String(data.id || fallbackData.id),
-        name: data.name || fallbackData.name,
-        email: data.email || fallbackData.email,
-        location: data.location || data.address || fallbackData.location,
-        address: data.address || data.location || fallbackData.address,
-        profileImage,
-        operatingHoursFrom:
-          data.operating_hours_from || fallbackData.operatingHoursFrom || "",
-        operatingHoursTo:
-          data.operating_hours_to || fallbackData.operatingHoursTo || "",
-        acceptedItems:
-          data.accepted_item_types || fallbackData.acceptedItems || "",
-        availableServices:
-          data.available_services || fallbackData.availableServices || "",
-      };
+      id: String(data.id || fallbackData.id),
+      name: data.name || fallbackData.name,
+      email: data.email || fallbackData.email,
+      location: data.location || data.address || fallbackData.location,
+      address: data.address || data.location || fallbackData.address,
+      profileImage,
+
+      openingDaysFrom:
+        data.opening_days_from || fallbackData.openingDaysFrom || "",
+
+      openingDaysTo:
+        data.opening_days_to || fallbackData.openingDaysTo || "",
+
+      operatingHoursFrom:
+        data.operating_hours_from || fallbackData.operatingHoursFrom || "",
+
+      operatingHoursTo:
+        data.operating_hours_to || fallbackData.operatingHoursTo || "",
+
+      acceptedItems:
+        data.accepted_item_types || fallbackData.acceptedItems || "",
+
+      availableServices:
+        data.available_services || fallbackData.availableServices || "",
+    };
 
       setFacility(updatedFacility);
 
@@ -1117,24 +1142,31 @@ export default function FacilityProfile() {
               </View>
 
               <View style={styles.headerInfoBox}>
-                {renderHeaderInfoRow(
-                  "Operating Hours",
-                  formatOperatingHours(
-                    facility.operatingHoursFrom,
-                    facility.operatingHoursTo
-                  )
-                )}
+              {renderHeaderInfoRow(
+                "Opening Days",
+                `${facility.openingDaysFrom || "Not specified"} - ${
+                  facility.openingDaysTo || ""
+                }`
+              )}
 
-                {renderHeaderInfoRow(
-                  "Accepted Items",
-                  formatCommaText(facility.acceptedItems)
-                )}
+              {renderHeaderInfoRow(
+                "Operating Hours",
+                formatOperatingHours(
+                  facility.operatingHoursFrom,
+                  facility.operatingHoursTo
+                )
+              )}
 
-                {renderHeaderInfoRow(
-                  "Available Services",
-                  formatCommaText(facility.availableServices)
-                )}
-              </View>
+              {renderHeaderInfoRow(
+                "Accepted Items",
+                formatCommaText(facility.acceptedItems)
+              )}
+
+              {renderHeaderInfoRow(
+                "Available Services",
+                formatCommaText(facility.availableServices)
+              )}
+            </View>
 
               <View style={styles.ratingSummaryBox}>
                 <Text style={styles.ratingSummaryStars}>
@@ -1323,99 +1355,10 @@ export default function FacilityProfile() {
         </View>
       </Modal>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/facility_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/facility_map" &&
-                styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/facility_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/facility_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FacilityBottomNav
+        facilityId={facility.id}
+        active="profile"
+      />
     </SafeAreaView>
   );
 }
@@ -1950,40 +1893,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 16,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

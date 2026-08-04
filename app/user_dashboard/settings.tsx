@@ -519,7 +519,9 @@ export default function Settings() {
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={() => router.replace("/user_dashboard" as any)}
+          >
             <Text style={styles.back}>←</Text>
           </TouchableOpacity>
 
