@@ -1,21 +1,22 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Image,
-  TextInput,
-  ImageBackground,
-  TouchableOpacity,
   ActivityIndicator,
+  Image,
+  ImageBackground,
   Keyboard,
   RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import UserBottomNav from "../../components/UserBottomNav";
-import { useCallback, useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 export default function UserDashboard() {
@@ -27,6 +28,7 @@ export default function UserDashboard() {
   const [partneredFacilities, setPartneredFacilities] = useState<any[]>([]);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [searchText, setSearchText] = useState("");
   const [searchedFacilities, setSearchedFacilities] = useState<any[]>([]);
@@ -43,28 +45,61 @@ export default function UserDashboard() {
   useFocusEffect(
     useCallback(() => {
       loadUser();
-    }, [])
+
+      if (userId) {
+        fetchUnreadNotificationCount(userId);
+      }
+    }, [userId]),
   );
 
-          useEffect(() => {
-      if (!userId) return;
+  useEffect(() => {
+    if (!userId) return;
 
+    fetchRecentItems(userId);
+
+    const interval = setInterval(() => {
       fetchRecentItems(userId);
+    }, 5000);
 
-      const interval = setInterval(() => {
-        fetchRecentItems(userId);
-      }, 5000);
-
-      return () => clearInterval(interval);
-    }, [userId]);
+    return () => clearInterval(interval);
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
       if (userId) {
         fetchRecentItems(userId);
       }
-    }, [userId])
+    }, [userId]),
   );
+
+  useEffect(() => {
+    if (!userId) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    fetchUnreadNotificationCount(userId);
+
+    const channel = supabase
+      .channel(`dashboard-user-notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `profile_id=eq.${userId}`,
+        },
+        () => {
+          fetchUnreadNotificationCount(userId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -79,6 +114,35 @@ export default function UserDashboard() {
     return () => clearTimeout(delaySearch);
   }, [searchText]);
 
+  const fetchUnreadNotificationCount = async (currentUserId = userId) => {
+    try {
+      if (!currentUserId) {
+        setUnreadNotificationCount(0);
+        return;
+      }
+
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("profile_id", Number(currentUserId))
+        .eq("is_read", false);
+
+      if (error) {
+        console.log("FETCH UNREAD NOTIFICATION COUNT ERROR:", error);
+        setUnreadNotificationCount(0);
+        return;
+      }
+
+      setUnreadNotificationCount(count || 0);
+    } catch (error) {
+      console.log("UNREAD NOTIFICATION COUNT ERROR:", error);
+      setUnreadNotificationCount(0);
+    }
+  };
+
   const loadUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
@@ -89,6 +153,7 @@ export default function UserDashboard() {
         setUserName("User");
         setSubmitterName("");
         setRecentItems([]);
+        setUnreadNotificationCount(0);
         return;
       }
 
@@ -127,6 +192,9 @@ export default function UserDashboard() {
 
       if (id) {
         fetchRecentItems(String(id));
+        fetchUnreadNotificationCount(String(id));
+      } else {
+        setUnreadNotificationCount(0);
       }
     } catch (error) {
       console.log("LOAD USER ERROR:", error);
@@ -139,7 +207,7 @@ export default function UserDashboard() {
         item?.item_status ||
         item?.approval_status ||
         item?.match_status ||
-        ""
+        "",
     )
       .trim()
       .toLowerCase();
@@ -196,6 +264,18 @@ export default function UserDashboard() {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
   };
 
+  const isVisibleDashboardItem = (item: any) => {
+    const status = String(item?.status || "")
+      .trim()
+      .toLowerCase();
+
+    const matchStatus = String(item?.match_status || "")
+      .trim()
+      .toLowerCase();
+
+    return status === "listed" && matchStatus === "listed";
+  };
+
   const fetchRecentItems = async (currentUserId = userId) => {
     try {
       if (!currentUserId) {
@@ -207,7 +287,9 @@ export default function UserDashboard() {
         .from("items")
         .select("*")
         .eq("user_id", String(currentUserId))
-        .order("updated_at", { ascending: false });
+        .order("updated_at", {
+          ascending: false,
+        });
 
       if (error) {
         console.log("DASHBOARD RECENT ITEMS SUPABASE ERROR:", error);
@@ -216,21 +298,32 @@ export default function UserDashboard() {
           .from("items")
           .select("*")
           .eq("user_id", String(currentUserId))
-          .order("created_at", { ascending: false });
+          .order("created_at", {
+            ascending: false,
+          });
 
         if (fallback.error) {
           console.log("DASHBOARD RECENT ITEMS FALLBACK ERROR:", fallback.error);
+
           setRecentItems([]);
           return;
         }
 
-        setRecentItems(sortByLatestSubmitted(fallback.data || []).slice(0, 3));
+        const visibleFallbackItems = (fallback.data || []).filter(
+          isVisibleDashboardItem,
+        );
+
+        setRecentItems(sortByLatestSubmitted(visibleFallbackItems).slice(0, 3));
+
         return;
       }
 
-      setRecentItems(sortByLatestSubmitted(data || []).slice(0, 3));
+      const visibleItems = (data || []).filter(isVisibleDashboardItem);
+
+      setRecentItems(sortByLatestSubmitted(visibleItems).slice(0, 3));
     } catch (error) {
       console.log("FETCH RECENT ITEMS ERROR:", error);
+
       setRecentItems([]);
     }
   };
@@ -251,7 +344,7 @@ export default function UserDashboard() {
           location,
           profile_image,
           updated_at
-        `
+        `,
         )
         .ilike("role", "facility")
         .ilike("status", "approved")
@@ -279,6 +372,7 @@ export default function UserDashboard() {
 
     if (userId) {
       await fetchRecentItems(userId);
+      await fetchUnreadNotificationCount(userId);
     }
 
     await fetchApprovedFacilities();
@@ -305,12 +399,12 @@ export default function UserDashboard() {
           location,
           profile_image,
           updated_at
-        `
+        `,
         )
         .ilike("role", "facility")
         .ilike("status", "approved")
         .or(
-          `name.ilike.${cleanKeyword},address.ilike.${cleanKeyword},location.ilike.${cleanKeyword}`
+          `name.ilike.${cleanKeyword},address.ilike.${cleanKeyword},location.ilike.${cleanKeyword}`,
         )
         .order("id", { ascending: false });
 
@@ -419,18 +513,15 @@ export default function UserDashboard() {
 
   const getFacilityLocation = (facility: any) => {
     const location =
-      facility.location ||
-      facility.address ||
-      facility.facility_location ||
-      "";
+      facility.location || facility.address || facility.facility_location || "";
 
-    return String(location).trim() !== ""
-      ? location
-      : "No location provided";
+    return String(location).trim() !== "" ? location : "No location provided";
   };
 
   const getStatusStyle = (status: string) => {
-    const normalizedStatus = String(status || "").trim().toLowerCase();
+    const normalizedStatus = String(status || "")
+      .trim()
+      .toLowerCase();
 
     if (normalizedStatus === "listed") return styles.statusGreen;
     if (normalizedStatus === "approved") return styles.statusBlue;
@@ -475,14 +566,24 @@ export default function UserDashboard() {
                 style={styles.notificationButton}
                 activeOpacity={0.8}
                 onPress={() =>
-                  router.push("/user_dashboard/notifications" as any)
+                  router.push("/user_dashboard/notification" as any)
                 }
               >
-                <Text style={styles.notificationBell}>🔔</Text>
+                <Ionicons
+                  name="notifications-outline"
+                  size={27}
+                  color="#000000"
+                />
 
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>2</Text>
-                </View>
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadNotificationCount > 99
+                        ? "99+"
+                        : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
 
               <Image
@@ -684,10 +785,7 @@ export default function UserDashboard() {
           )}
         </ScrollView>
 
-       <UserBottomNav
-          userId={userId}
-          active="home"
-      />
+        <UserBottomNav userId={userId} active="home" />
       </View>
     </SafeAreaView>
   );
@@ -726,15 +824,13 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#e4f2df",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
     position: "relative",
-  },
-
-  notificationBell: {
-    fontSize: 20,
   },
 
   notificationBadge: {

@@ -78,10 +78,22 @@ export default function UserChat() {
     const interval = setInterval(() => {
       fetchConversation();
       fetchMessages();
+
+      if (user?.id) {
+        markMessagesAsRead();
+      }
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [conversationId]);
+  }, [conversationId, user?.id]);
+
+  useEffect(() => {
+    if (!conversationId || !user?.id) {
+      return;
+    }
+
+    markMessagesAsRead();
+  }, [conversationId, user?.id]);
 
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
@@ -529,6 +541,65 @@ export default function UserChat() {
     }
   };
 
+  /*
+  |--------------------------------------------------------------------------
+  | Mark Received Messages as Read
+  |--------------------------------------------------------------------------
+  | When the user opens this conversation, every unread message addressed
+  | to this user in this conversation is marked as read.
+  |--------------------------------------------------------------------------
+  */
+
+  const markMessagesAsRead = async () => {
+    try {
+      if (!conversationId || !user?.id) {
+        return;
+      }
+
+      const numericUserId = Number(user.id);
+
+      if (!Number.isFinite(numericUserId)) {
+        console.log("MARK USER MESSAGES READ ERROR: Invalid user ID", user.id);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("messages")
+        .update({
+          is_read: true,
+        })
+        .eq("conversation_id", String(conversationId))
+        .eq("receiver_id", numericUserId)
+        .eq("is_read", false);
+
+      if (error) {
+        console.log("MARK USER MESSAGES READ ERROR:", error);
+        return;
+      }
+
+      /*
+       * Keep the conversation-level read flag in sync as well.
+       * The unread badge now uses messages as its source of truth,
+       * but other screens may still read conversations.is_read.
+       */
+      const { error: conversationReadError } = await supabase
+        .from("conversations")
+        .update({
+          is_read: true,
+        })
+        .eq("id", String(conversationId));
+
+      if (conversationReadError) {
+        console.log(
+          "MARK USER CONVERSATION READ ERROR:",
+          conversationReadError,
+        );
+      }
+    } catch (error) {
+      console.log("MARK USER MESSAGES READ ERROR:", error);
+    }
+  };
+
   const fetchMessages = async () => {
     try {
       if (!conversationId) return;
@@ -561,6 +632,10 @@ export default function UserChat() {
       });
 
       setMessages(cleanedMessages);
+
+      if (user?.id) {
+        await markMessagesAsRead();
+      }
     } catch (error) {
       console.log("FETCH USER MESSAGES ERROR:", error);
       setMessages([]);
@@ -2174,9 +2249,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
   },
-
-  
-
 
   reportSection: {
     marginTop: 16,

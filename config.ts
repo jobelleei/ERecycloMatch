@@ -1,8 +1,8 @@
-export const API_URL = "https://neat-tires-flash.loca.lt/Admin_Side";//admin side tunnel, localtunnel (lt) link
+export const API_URL = "https://tangy-crews-vanish.loca.ltAdmin_Side"; //admin side tunnel, localtunnel (lt) link
 
 export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev"; //fastAPI tunnel, nrgok link
 
-
+export const NEARBY_NOTIFICATION_RADIUS_KM = 5;
 
 //export const API_URL = "https://emcee-fence-squatted.ngrok-free.dev/Admin_Side";
 

@@ -1,22 +1,22 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-  Alert,
-} from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
-import { decode } from "base64-arraybuffer";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useState } from "react";
+import {
+  Alert,
+  Image,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
 
 type IssueOption = {
@@ -1245,7 +1245,7 @@ const getItemData = (item: string): ItemData => {
   }
 
   const matchedKey = Object.keys(ITEM_DATA).find((key) =>
-    normalizedLabel.includes(key)
+    normalizedLabel.includes(key),
   );
 
   return matchedKey ? ITEM_DATA[matchedKey] : ITEM_DATA.unknown;
@@ -1314,16 +1314,17 @@ export default function ScanResult() {
   const [resultModalDecision, setResultModalDecision] =
     useState<AutoDecision | null>(null);
   const [resultModalItemName, setResultModalItemName] = useState("");
-  const [resultModalUploadedItem, setResultModalUploadedItem] = useState<any>(null);
+  const [resultModalUploadedItem, setResultModalUploadedItem] =
+    useState<any>(null);
 
   const totalDeduction = selectedIssues.reduce(
     (sum, issue) => sum + issue.deduction,
-    0
+    0,
   );
 
   const totalHazard = selectedIssues.reduce(
     (sum, issue) => sum + issue.hazard,
-    0
+    0,
   );
 
   const recyclability = Math.max(100 - totalDeduction, 0);
@@ -1335,7 +1336,7 @@ export default function ScanResult() {
     userLatitude: number,
     userLongitude: number,
     targetLatitude: number,
-    targetLongitude: number
+    targetLongitude: number,
   ) => {
     const earthRadiusKm = 6371;
     const toRadians = (value: number) => (value * Math.PI) / 180;
@@ -1379,7 +1380,7 @@ export default function ScanResult() {
           userLatitude,
           userLongitude,
           bin.latitude,
-          bin.longitude
+          bin.longitude,
         ),
       })).sort((a, b) => Number(a.distanceKm || 0) - Number(b.distanceKm || 0));
 
@@ -1407,14 +1408,14 @@ export default function ScanResult() {
   const getAutoDecision = (
     recyclabilityValue: number,
     hazardValue: number,
-    disposalSuggestions: string[]
+    disposalSuggestions: string[],
   ): AutoDecision => {
     const now = new Date().toISOString();
 
     if (hazardValue >= 70) {
       const note = `Immediate safe disposal required.\n\n${formatSuggestionBlock(
         "Disposal Instructions",
-        disposalSuggestions
+        disposalSuggestions,
       )}`;
 
       return {
@@ -1433,7 +1434,7 @@ export default function ScanResult() {
         match_status: "Approved",
         note: `Safe to process in a recycling facility.\n\n${formatSuggestionBlock(
           "Suggestions",
-          disposalSuggestions
+          disposalSuggestions,
         )}`,
         reject_reason: null,
         approved_at: now,
@@ -1452,7 +1453,7 @@ export default function ScanResult() {
         match_status: "Approved",
         note: `Item has moderate recyclability but rising hazard; refurbish if possible.\n\n${formatSuggestionBlock(
           "Suggestions",
-          disposalSuggestions
+          disposalSuggestions,
         )}`,
         reject_reason: null,
         approved_at: now,
@@ -1463,7 +1464,7 @@ export default function ScanResult() {
     if (recyclabilityValue < 40 || hazardValue >= 40) {
       const note = `Too hazardous or inefficient to recycle.\n\n${formatSuggestionBlock(
         "Disposal Instructions",
-        disposalSuggestions
+        disposalSuggestions,
       )}`;
 
       return {
@@ -1481,14 +1482,13 @@ export default function ScanResult() {
       match_status: "Pending",
       note: `Item needs manual review because the recyclability and hazard values are between decision rules.\n\n${formatSuggestionBlock(
         "Suggestions",
-        disposalSuggestions
+        disposalSuggestions,
       )}`,
       reject_reason: null,
       approved_at: null,
       rejected_at: null,
     };
   };
-
 
   const getLoggedInUser = async (): Promise<LoggedInUser> => {
     const storedUser = await AsyncStorage.getItem("user");
@@ -1539,12 +1539,12 @@ export default function ScanResult() {
 
   const toggleIssue = (issue: IssueOption) => {
     const alreadySelected = selectedIssues.some(
-      (selected) => selected.name === issue.name
+      (selected) => selected.name === issue.name,
     );
 
     if (alreadySelected) {
       const updatedIssues = selectedIssues.filter(
-        (selected) => selected.name !== issue.name
+        (selected) => selected.name !== issue.name,
       );
 
       const updatedPhotos = { ...issuePhotos };
@@ -1562,7 +1562,7 @@ export default function ScanResult() {
     }
 
     const filteredIssues = selectedIssues.filter(
-      (selected) => selected.name !== "None"
+      (selected) => selected.name !== "None",
     );
 
     setSelectedIssues([...filteredIssues, issue]);
@@ -1575,7 +1575,7 @@ export default function ScanResult() {
       if (!permission.granted) {
         Alert.alert(
           "Camera Permission Required",
-          "Please allow camera access to take a photo of the selected issue."
+          "Please allow camera access to take a photo of the selected issue.",
         );
         return;
       }
@@ -1601,7 +1601,7 @@ export default function ScanResult() {
       console.log("TAKE ISSUE PHOTO ERROR:", error);
       Alert.alert(
         "Camera Error",
-        error?.message || "Unable to take issue photo."
+        error?.message || "Unable to take issue photo.",
       );
     }
   };
@@ -1620,7 +1620,7 @@ export default function ScanResult() {
     if (isUnknownItem && description.trim().length < 5) {
       Alert.alert(
         "Item Name Reminder",
-        "Since the item was detected as Unknown, please state the possible item name in the description."
+        "Since the item was detected as Unknown, please state the possible item name in the description.",
       );
       return false;
     }
@@ -1634,13 +1634,13 @@ export default function ScanResult() {
 
     if (needsIssuePhotos) {
       const missingIssuePhoto = actualIssues.find(
-        (issue) => !issuePhotos[issue.name]?.uri
+        (issue) => !issuePhotos[issue.name]?.uri,
       );
 
       if (missingIssuePhoto) {
         Alert.alert(
           "Missing Issue Photo",
-          `Please take a photo for this issue: ${missingIssuePhoto.name}`
+          `Please take a photo for this issue: ${missingIssuePhoto.name}`,
         );
         return false;
       }
@@ -1652,7 +1652,7 @@ export default function ScanResult() {
   const uploadImageToBucket = async (
     bucket: string,
     filePath: string,
-    imageUri: string
+    imageUri: string,
   ) => {
     try {
       const fileInfo = await FileSystem.getInfoAsync(imageUri);
@@ -1707,7 +1707,9 @@ export default function ScanResult() {
         throw error;
       }
 
-      const publicUrlData = supabase.storage.from(bucket).getPublicUrl(filePath);
+      const publicUrlData = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
 
       console.log("STORAGE UPLOAD SUCCESS:", {
         path: data?.path,
@@ -1723,7 +1725,7 @@ export default function ScanResult() {
 
       throw new Error(
         error?.message ||
-          "Network request failed while uploading image to Supabase Storage."
+          "Network request failed while uploading image to Supabase Storage.",
       );
     }
   };
@@ -1731,7 +1733,7 @@ export default function ScanResult() {
   const uploadIssuePhotos = async (
     itemId: number,
     userId: number,
-    issues: IssueOption[]
+    issues: IssueOption[],
   ) => {
     const records = [];
 
@@ -1749,7 +1751,7 @@ export default function ScanResult() {
       const uploaded = await uploadImageToBucket(
         "item-issue-photos",
         filePath,
-        issuePhoto.uri
+        issuePhoto.uri,
       );
 
       records.push({
@@ -1762,7 +1764,9 @@ export default function ScanResult() {
     }
 
     if (records.length > 0) {
-      const { error } = await supabase.from("item_issue_photos").insert(records);
+      const { error } = await supabase
+        .from("item_issue_photos")
+        .insert(records);
 
       if (error) {
         console.log("INSERT ISSUE PHOTOS ERROR:", error);
@@ -1942,7 +1946,7 @@ export default function ScanResult() {
         "created_by",
         "created_by_id",
         "account_id",
-      ])
+      ]),
     ).trim();
   };
 
@@ -2064,7 +2068,7 @@ export default function ScanResult() {
 
   const isPostActive = (post: any) => {
     const status = normalizeText(
-      getValueFromKeys(post, ["status", "post_status", "state"]) || "active"
+      getValueFromKeys(post, ["status", "post_status", "state"]) || "active",
     );
 
     if (!status) return true;
@@ -2110,7 +2114,7 @@ export default function ScanResult() {
     scannedItemName: string,
     scannedDescription: string,
     scannedIssues: string,
-    post: any
+    post: any,
   ) => {
     const postItemNeeded = getPostItemNeededText(post);
     const postDescription = getPostDescriptionText(post);
@@ -2123,22 +2127,22 @@ export default function ScanResult() {
 
     const issueTokensMatched = getMatchedTokens(
       scannedCombinedText,
-      facilityCombinedText
+      facilityCombinedText,
     );
 
     const descriptionTokensMatched = getMatchedTokens(
       scannedDescription,
-      facilityCombinedText
+      facilityCombinedText,
     );
 
     const itemNameMentionedInFacilityDescription = hasCommonToken(
       scannedItemName,
-      facilityCombinedText
+      facilityCombinedText,
     );
 
     const issueDescriptionScore = getTokenScore(
       scannedCombinedText,
-      facilityCombinedText
+      facilityCombinedText,
     );
 
     const isMatched =
@@ -2171,7 +2175,7 @@ export default function ScanResult() {
       if (!loggedInUser.userId || !itemToMatch?.id || !facility?.id) {
         Alert.alert(
           "Message Error",
-          "The item was saved, but the conversation details are incomplete. Please open this item from My Items and try again."
+          "The item was saved, but the conversation details are incomplete. Please open this item from My Items and try again.",
         );
         return;
       }
@@ -2191,13 +2195,15 @@ export default function ScanResult() {
           itemToMatch.photo_url ||
           itemToMatch.scanned_image_url ||
           image ||
-          ""
+          "",
       );
 
       const profileImage =
         typeof facility.image === "object" && facility.image?.uri
           ? facility.image.uri
-          : String(facility.profile_image || facility.facility_profile_image || "");
+          : String(
+              facility.profile_image || facility.facility_profile_image || "",
+            );
 
       const unfinishedStatuses = [
         "match_pending",
@@ -2226,7 +2232,7 @@ export default function ScanResult() {
         (conversation: any) => {
           const status = String(conversation?.status || "").toLowerCase();
           const requestStatus = String(
-            conversation?.request_status || ""
+            conversation?.request_status || "",
           ).toLowerCase();
 
           const isCancelledOrDone =
@@ -2239,7 +2245,7 @@ export default function ScanResult() {
             requestStatus === "rejected";
 
           return !isCancelledOrDone;
-        }
+        },
       );
 
       if (unfinishedConversation) {
@@ -2253,7 +2259,7 @@ export default function ScanResult() {
               text: "View Messages",
               onPress: () => router.replace("/user_dashboard/messages" as any),
             },
-          ]
+          ],
         );
 
         return;
@@ -2415,7 +2421,7 @@ export default function ScanResult() {
 
     if (postFacilityId) {
       const exactIdProfile = profiles.find(
-        (profile: any) => String(profile.id) === String(postFacilityId)
+        (profile: any) => String(profile.id) === String(postFacilityId),
       );
 
       if (exactIdProfile) {
@@ -2466,7 +2472,7 @@ export default function ScanResult() {
         return profileNames.some(
           (name) =>
             name.includes(cleanPostFacilityName) ||
-            cleanPostFacilityName.includes(name)
+            cleanPostFacilityName.includes(name),
         );
       });
 
@@ -2564,7 +2570,7 @@ export default function ScanResult() {
   const findMatchingFacilities = async (
     scannedItemName: string,
     scannedDescription = description,
-    scannedIssues = actualIssues.map((issue) => issue.name).join(", ")
+    scannedIssues = actualIssues.map((issue) => issue.name).join(", "),
   ) => {
     try {
       setFindingMatch(true);
@@ -2576,7 +2582,7 @@ export default function ScanResult() {
       const facilityProfiles = await fetchAllFacilityProfiles();
 
       const activePosts = (facilityPosts || []).filter((post: any) =>
-        isPostActive(post)
+        isPostActive(post),
       );
 
       const scoredMatches = activePosts
@@ -2585,7 +2591,7 @@ export default function ScanResult() {
             scannedItemName,
             scannedDescription,
             cleanIssuesText(scannedIssues),
-            post
+            post,
           );
 
           return {
@@ -2617,7 +2623,7 @@ export default function ScanResult() {
             getFacilityIdFromPost(post) ||
             normalizeText(getFacilityNameFromPost(post)) ||
             post.id ||
-            ""
+            "",
         );
 
         if (!facilityKey) return;
@@ -2690,14 +2696,14 @@ export default function ScanResult() {
   const showUploadResultAlert = (
     finalDecision: AutoDecision,
     scannedItemName: string,
-    uploadedItem?: any
+    uploadedItem?: any,
   ) => {
     const title =
       finalDecision.status === "Approved"
         ? "Item Approved"
         : finalDecision.status === "Rejected"
-        ? "Item Rejected"
-        : "Item Submitted for Review";
+          ? "Item Rejected"
+          : "Item Submitted for Review";
 
     setResultModalTitle(title);
     setResultModalMessage(finalDecision.note);
@@ -2737,15 +2743,43 @@ export default function ScanResult() {
       if (!loggedInUser.submitterName || !loggedInUser.userId) {
         Alert.alert(
           "User Error",
-          "Cannot find logged-in user details. Please log in again."
+          "Cannot find logged-in user details. Please log in again.",
         );
         return;
+      }
+
+      let listingLatitude: number | null = null;
+      let listingLongitude: number | null = null;
+
+      try {
+        const permission = await Location.requestForegroundPermissionsAsync();
+
+        if (permission.granted) {
+          const currentLocation = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+
+          listingLatitude = currentLocation.coords.latitude;
+
+          listingLongitude = currentLocation.coords.longitude;
+
+          console.log("LISTING LOCATION:", {
+            latitude: listingLatitude,
+            longitude: listingLongitude,
+          });
+        } else {
+          console.log(
+            "Location permission was not granted. Listing will be saved without coordinates.",
+          );
+        }
+      } catch (locationError) {
+        console.log("GET LISTING LOCATION ERROR:", locationError);
       }
 
       const finalDecision = getAutoDecision(
         recyclability,
         hazardStatus,
-        itemData.disposalSuggestions
+        itemData.disposalSuggestions,
       );
 
       const imageUri = image as string;
@@ -2755,7 +2789,7 @@ export default function ScanResult() {
       const uploadedMainImage = await uploadImageToBucket(
         "item-images",
         filePath,
-        imageUri
+        imageUri,
       );
 
       const { data: insertedItem, error: insertError } = await supabase
@@ -2771,11 +2805,11 @@ export default function ScanResult() {
             recyclability: recyclability,
             item_image: uploadedMainImage.path,
             status: finalDecision.status,
+            latitude: listingLatitude,
+            longitude: listingLongitude,
 
             approval_source:
-              finalDecision.status === "Approved"
-                ? "System"
-                : null,
+              finalDecision.status === "Approved" ? "System" : null,
             match_status: finalDecision.match_status,
             auto_decision_note: finalDecision.note,
             reject_reason: finalDecision.reject_reason,
@@ -2796,7 +2830,7 @@ export default function ScanResult() {
       if (!insertedItem?.id) {
         Alert.alert(
           "Upload Failed",
-          "Item was saved but the item ID was not returned."
+          "Item was saved but the item ID was not returned.",
         );
         return;
       }
@@ -2804,7 +2838,7 @@ export default function ScanResult() {
       await uploadIssuePhotos(
         Number(insertedItem.id),
         loggedInUser.userId,
-        actualIssues
+        actualIssues,
       );
 
       setUploadedItemForMatch(insertedItem);
@@ -2815,7 +2849,7 @@ export default function ScanResult() {
       Alert.alert(
         "Upload Failed",
         error?.message ||
-          "Unable to upload item. Please check your internet connection and Supabase Storage buckets."
+          "Unable to upload item. Please check your internet connection and Supabase Storage buckets.",
       );
     } finally {
       setUploading(false);
@@ -2828,7 +2862,10 @@ export default function ScanResult() {
         <View style={styles.header}>
           <Text style={styles.title}>Scanning E-Waste</Text>
 
-          <Text style={styles.close} onPress={() => router.replace("/user_dashboard/user_scan" as any)}>
+          <Text
+            style={styles.close}
+            onPress={() => router.replace("/user_dashboard/user_scan" as any)}
+          >
             ✕
           </Text>
         </View>
@@ -2915,7 +2952,7 @@ export default function ScanResult() {
                 <ScrollView>
                   {itemData.issues.map((issue, index) => {
                     const isSelected = selectedIssues.some(
-                      (selected) => selected.name === issue.name
+                      (selected) => selected.name === issue.name,
                     );
 
                     return (
@@ -2986,7 +3023,6 @@ export default function ScanResult() {
               ))}
             </>
           )}
-
         </View>
 
         <Modal visible={resultModalVisible} transparent animationType="fade">
@@ -3126,8 +3162,14 @@ export default function ScanResult() {
                   showsVerticalScrollIndicator={false}
                 >
                   {matchedFacilities.map((facility, index) => (
-                    <View key={`${facility.id}-${index}`} style={styles.facilityMatchCard}>
-                      <Image source={facility.image} style={styles.facilityImage} />
+                    <View
+                      key={`${facility.id}-${index}`}
+                      style={styles.facilityMatchCard}
+                    >
+                      <Image
+                        source={facility.image}
+                        style={styles.facilityImage}
+                      />
 
                       <Text style={styles.facilityName}>{facility.name}</Text>
 
@@ -3240,7 +3282,10 @@ export default function ScanResult() {
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.scanAgain} onPress={() => router.replace("/user_dashboard/user_scan" as any)}>
+        <Text
+          style={styles.scanAgain}
+          onPress={() => router.replace("/user_dashboard/user_scan" as any)}
+        >
           ⟳ Scan Another Item
         </Text>
       </ScrollView>
@@ -3473,8 +3518,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 12,
   },
-
-
 
   resultOverlay: {
     flex: 1,

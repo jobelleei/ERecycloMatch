@@ -1,6 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { usePathname, useRouter } from "expo-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   StyleSheet,
@@ -9,110 +11,290 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { supabase } from "../../utils/supabase";
 
 type NotificationItem = {
   id: string;
-  type: "match" | "message" | "transaction" | "approval";
+  type: string;
   title: string;
   description: string;
   createdAt: string;
   read: boolean;
+  data?: any;
 };
-
-const mockNotifications: NotificationItem[] = [
-  {
-    id: "1",
-    type: "match",
-    title: "Match accepted",
-    description:
-      "Green Cycle Facility accepted your request for the old laptop.",
-    createdAt: "Just now",
-    read: false,
-  },
-  {
-    id: "2",
-    type: "message",
-    title: "New message",
-    description: "Green Cycle Facility sent you a new message.",
-    createdAt: "10 minutes ago",
-    read: false,
-  },
-  {
-    id: "3",
-    type: "transaction",
-    title: "Transaction finished",
-    description:
-      "Your recycling transaction has been completed successfully.",
-    createdAt: "Yesterday",
-    read: true,
-  },
-  {
-    id: "4",
-    type: "approval",
-    title: "Listing approved",
-    description: "Your uploaded item is now visible to facilities.",
-    createdAt: "2 days ago",
-    read: true,
-  },
-];
 
 export default function UserNotifications() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(mockNotifications);
+  const [userId, setUserId] = useState("");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
     [notifications],
   );
 
-  const markAsRead = (notificationId: string) => {
-    setNotifications((current) =>
-      current.map((item) =>
-        item.id === notificationId ? { ...item, read: true } : item,
-      ),
-    );
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    fetchNotifications(userId);
+
+    const channel = supabase
+      .channel(`user-notifications-${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `profile_id=eq.${userId}`,
+        },
+        () => {
+          fetchNotifications(userId);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
+
+  const loadUser = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("user");
+
+      if (!stored) {
+        setLoading(false);
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+      const actualUser = parsed?.user || parsed?.data || parsed;
+
+      const id =
+        actualUser?.id ||
+        actualUser?.user_id ||
+        parsed?.id ||
+        parsed?.user_id ||
+        "";
+
+      if (!id) {
+        console.log("USER NOTIFICATIONS: User ID not found.");
+        setLoading(false);
+        return;
+      }
+
+      setUserId(String(id));
+    } catch (error) {
+      console.log("LOAD USER NOTIFICATIONS ERROR:", error);
+      setLoading(false);
+    }
   };
 
-  const markAllAsRead = () => {
-    setNotifications((current) =>
-      current.map((item) => ({ ...item, read: true })),
-    );
+  const formatNotificationTime = (dateValue: string) => {
+    if (!dateValue) return "";
+
+    const date = new Date(dateValue);
+
+    if (isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return "Just now";
+
+    if (minutes < 60) {
+      return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+    }
+
+    if (hours < 24) {
+      return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+    }
+
+    if (days === 1) return "Yesterday";
+
+    if (days < 7) {
+      return `${days} days ago`;
+    }
+
+    return date.toLocaleDateString();
   };
 
-  const getNotificationIcon = (type: NotificationItem["type"]) => {
-    switch (type) {
+  const fetchNotifications = async (currentUserId = userId) => {
+    try {
+      if (!currentUserId) {
+        setNotifications([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("profile_id", Number(currentUserId))
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.log("FETCH USER NOTIFICATIONS ERROR:", error);
+        setNotifications([]);
+        return;
+      }
+
+      const mapped: NotificationItem[] = (data || []).map(
+        (notification: any) => ({
+          id: String(notification.id),
+          type: String(notification.type || ""),
+          title: notification.title || "Notification",
+          description: notification.message || "",
+          createdAt: formatNotificationTime(notification.created_at),
+          read: Boolean(notification.is_read),
+          data: notification.data || {},
+        }),
+      );
+
+      setNotifications(mapped);
+    } catch (error) {
+      console.log("USER NOTIFICATIONS ERROR:", error);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAsRead = async (notificationId: string) => {
+    try {
+      setNotifications((current) =>
+        current.map((item) =>
+          item.id === notificationId ? { ...item, read: true } : item,
+        ),
+      );
+
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", Number(notificationId));
+
+      if (error) {
+        console.log("MARK USER NOTIFICATION READ ERROR:", error);
+      }
+    } catch (error) {
+      console.log("MARK USER NOTIFICATION READ ERROR:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      if (!userId) return;
+
+      setNotifications((current) =>
+        current.map((item) => ({
+          ...item,
+          read: true,
+        })),
+      );
+
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("profile_id", Number(userId))
+        .eq("is_read", false);
+
+      if (error) {
+        console.log("MARK ALL USER NOTIFICATIONS READ ERROR:", error);
+      }
+    } catch (error) {
+      console.log("MARK ALL USER NOTIFICATIONS READ ERROR:", error);
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    const cleanType = String(type || "")
+      .trim()
+      .toLowerCase();
+
+    switch (cleanType) {
       case "match":
+      case "match_accepted":
+      case "match_request":
         return "✓";
+
       case "message":
+      case "new_message":
         return "✉";
+
       case "transaction":
+      case "transaction_completed":
+      case "finished":
         return "♻";
+
       case "approval":
+      case "item_approved":
+      case "listing_approved":
         return "✓";
+
+      case "nearby_facility":
+        return "📍";
+
       default:
         return "•";
     }
   };
 
-  const openNotification = (item: NotificationItem) => {
-    markAsRead(item.id);
+  const openNotification = async (item: NotificationItem) => {
+    await markAsRead(item.id);
 
-    if (item.type === "message" || item.type === "match") {
+    const type = String(item.type || "")
+      .trim()
+      .toLowerCase();
+
+    if (
+      type === "message" ||
+      type === "new_message" ||
+      type === "match" ||
+      type === "match_accepted" ||
+      type === "match_request"
+    ) {
       router.push("/user_dashboard/messages" as any);
       return;
     }
 
-    if (item.type === "transaction") {
+    if (
+      type === "transaction" ||
+      type === "transaction_completed" ||
+      type === "finished"
+    ) {
       router.push("/user_dashboard/profile" as any);
       return;
     }
 
-    if (item.type === "approval") {
-      router.push("/user_dashboard/profile" as any);
+    if (
+      type === "approval" ||
+      type === "item_approved" ||
+      type === "listing_approved"
+    ) {
+      router.push("/user_dashboard/user_myItems" as any);
+      return;
     }
+
+    if (type === "nearby_facility") {
+      router.push("/user_dashboard/user_map" as any);
+      return;
+    }
+
+    router.push("/user_dashboard" as any);
   };
 
   const renderNotification = ({ item }: { item: NotificationItem }) => {
@@ -126,14 +308,9 @@ export default function UserNotifications() {
         onPress={() => openNotification(item)}
       >
         <View
-          style={[
-            styles.iconCircle,
-            !item.read && styles.unreadIconCircle,
-          ]}
+          style={[styles.iconCircle, !item.read && styles.unreadIconCircle]}
         >
-          <Text style={styles.iconText}>
-            {getNotificationIcon(item.type)}
-          </Text>
+          <Text style={styles.iconText}>{getNotificationIcon(item.type)}</Text>
         </View>
 
         <View style={styles.notificationContent}>
@@ -150,15 +327,31 @@ export default function UserNotifications() {
             {!item.read && <View style={styles.unreadDot} />}
           </View>
 
-          <Text style={styles.notificationDescription}>
-            {item.description}
-          </Text>
+          <Text style={styles.notificationDescription}>{item.description}</Text>
+
+          {String(item.type).toLowerCase() === "nearby_facility" &&
+            item?.data?.distance_km !== undefined && (
+              <Text style={styles.notificationDescription}>
+                📍 {Number(item.data.distance_km).toFixed(2)} km away
+              </Text>
+            )}
 
           <Text style={styles.notificationTime}>{item.createdAt}</Text>
         </View>
       </TouchableOpacity>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color="#1b5e20" />
+          <Text style={styles.emptyDescription}>Loading notifications...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -182,10 +375,7 @@ export default function UserNotifications() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={markAllAsRead}
-          disabled={unreadCount === 0}
-        >
+        <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
           <Text
             style={[
               styles.markAllText,
@@ -202,6 +392,8 @@ export default function UserNotifications() {
         keyExtractor={(item) => item.id}
         renderItem={renderNotification}
         showsVerticalScrollIndicator={false}
+        refreshing={loading}
+        onRefresh={() => fetchNotifications(userId)}
         contentContainerStyle={[
           styles.listContent,
           notifications.length === 0 && styles.emptyListContent,
@@ -215,8 +407,8 @@ export default function UserNotifications() {
             <Text style={styles.emptyTitle}>No notifications yet</Text>
 
             <Text style={styles.emptyDescription}>
-              Match, message, transaction, and approval updates will appear
-              here.
+              Match, nearby facility, message, transaction, and approval updates
+              will appear here.
             </Text>
           </View>
         }
@@ -243,9 +435,7 @@ export default function UserNotifications() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() =>
-            router.push("/user_dashboard/user_scan" as any)
-          }
+          onPress={() => router.push("/user_dashboard/user_scan" as any)}
         >
           <Image
             source={require("../../assets/icons/scan.png")}
@@ -256,9 +446,7 @@ export default function UserNotifications() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() =>
-            router.push("/user_dashboard/user_map" as any)
-          }
+          onPress={() => router.push("/user_dashboard/user_map" as any)}
         >
           <Image
             source={require("../../assets/icons/map.png")}
@@ -269,9 +457,7 @@ export default function UserNotifications() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() =>
-            router.push("/user_dashboard/messages" as any)
-          }
+          onPress={() => router.push("/user_dashboard/messages" as any)}
         >
           <Image
             source={require("../../assets/icons/chatting.png")}
@@ -282,9 +468,7 @@ export default function UserNotifications() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() =>
-            router.push("/user_dashboard/profile" as any)
-          }
+          onPress={() => router.push("/user_dashboard/profile" as any)}
         >
           <Image
             source={require("../../assets/icons/user.png")}
@@ -295,9 +479,7 @@ export default function UserNotifications() {
 
         <TouchableOpacity
           style={styles.navItem}
-          onPress={() =>
-            router.push("/user_dashboard/settings" as any)
-          }
+          onPress={() => router.push("/user_dashboard/settings" as any)}
         >
           <Image
             source={require("../../assets/icons/setting_1.png")}

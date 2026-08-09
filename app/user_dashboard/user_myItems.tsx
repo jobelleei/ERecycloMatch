@@ -1,6 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import UserBottomNav from "../../components/UserBottomNav";
 import { useCallback, useEffect, useState } from "react";
 import {
   Alert,
@@ -20,10 +19,42 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
+
+const NEARBY_RADIUS_KM = 5;
+
+const calculateDistanceKm = (
+  latitude1: number,
+  longitude1: number,
+  latitude2: number,
+  longitude2: number,
+) => {
+  const earthRadiusKm = 6371;
+
+  const toRadians = (degree: number) => degree * (Math.PI / 180);
+
+  const latitudeDifference = toRadians(latitude2 - latitude1);
+
+  const longitudeDifference = toRadians(longitude2 - longitude1);
+
+  const firstLatitude = toRadians(latitude1);
+
+  const secondLatitude = toRadians(latitude2);
+
+  const a =
+    Math.sin(latitudeDifference / 2) ** 2 +
+    Math.cos(firstLatitude) *
+      Math.cos(secondLatitude) *
+      Math.sin(longitudeDifference / 2) ** 2;
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return earthRadiusKm * c;
+};
 
 export default function MyItems() {
   const router = useRouter();
@@ -47,22 +78,44 @@ export default function MyItems() {
   const [previewTitle, setPreviewTitle] = useState("");
 
   const getItemStatus = (item: any) => {
-    const status =
-      item.status ||
-      item.item_status ||
-      item.approval_status ||
-      item.match_status ||
-      "";
-
-    const cleanStatus = String(status || "")
+    const matchStatus = String(item?.match_status || "")
       .trim()
       .toLowerCase();
 
-    if (cleanStatus === "rejected") return "Rejected";
-    if (cleanStatus === "approved") return "Approved";
-    if (cleanStatus === "listed") return "Listed";
-    if (cleanStatus === "pending") return "Pending";
+    const status = String(
+      item?.status || item?.item_status || item?.approval_status || "",
+    )
+      .trim()
+      .toLowerCase();
 
+    if (matchStatus === "pending match" || matchStatus === "match pending") {
+      return "Pending Match";
+    }
+
+    if (matchStatus === "matched") {
+      return "Matched";
+    }
+
+    if (
+      matchStatus === "finished" ||
+      matchStatus === "recycled" ||
+      matchStatus === "completed"
+    ) {
+      return "Finished";
+    }
+
+    if (status === "rejected") {
+      return "Rejected";
+    }
+    if (status === "approved") {
+      return "Approved";
+    }
+    if (status === "listed") {
+      return "Listed";
+    }
+    if (status === "pending") {
+      return "Pending";
+    }
     return "Pending";
   };
 
@@ -103,8 +156,16 @@ export default function MyItems() {
 
   useFocusEffect(
     useCallback(() => {
-      loadUser();
-    }, []),
+      const refreshMyItems = async () => {
+        await loadUser();
+
+        if (userId) {
+          await fetchItems();
+        }
+      };
+
+      refreshMyItems();
+    }, [userId]),
   );
 
   useEffect(() => {
@@ -159,7 +220,11 @@ export default function MyItems() {
         .select("*")
         .eq("user_id", String(userId))
         .not("status", "in", '("Finished","Recycled")')
-        .not("match_status", "in", '("Finished","Recycled")')
+        .not(
+          "match_status",
+          "in",
+          '("Pending Match","Match Pending","Matched","Finished","Recycled")',
+        )
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -170,7 +235,22 @@ export default function MyItems() {
 
       console.log("MY ITEMS DATA:", data);
 
-      setItems(sortByLatest(data || []));
+      const visibleItems = (data || []).filter((item: any) => {
+        const matchStatus = String(item?.match_status || "")
+          .trim()
+          .toLowerCase();
+
+        return ![
+          "pending match",
+          "match pending",
+          "matched",
+          "finished",
+          "recycled",
+          "completed",
+        ].includes(matchStatus);
+      });
+
+      setItems(sortByLatest(visibleItems));
     } catch (error) {
       console.log("FETCH ITEMS ERROR:", error);
       setItems([]);
@@ -181,6 +261,142 @@ export default function MyItems() {
     setRefreshing(true);
     await fetchItems();
     setRefreshing(false);
+  };
+
+  const notifyNearbyFacilities = async (item: any) => {
+    try {
+      const itemLatitude = Number(item?.latitude);
+      const itemLongitude = Number(item?.longitude);
+
+      if (!Number.isFinite(itemLatitude) || !Number.isFinite(itemLongitude)) {
+        console.log(
+          "NEARBY NOTIFICATION SKIPPED: Item has no valid coordinates.",
+        );
+        return;
+      }
+
+      const { data: facilities, error: facilitiesError } = await supabase
+        .from("profiles")
+        .select(
+          "id, full_name, facility_name, latitude, longitude, accepted_item_types, role, status",
+        );
+
+      if (facilitiesError) {
+        console.log("FETCH FACILITIES ERROR:", facilitiesError);
+        return;
+      }
+
+      const approvedFacilities = (facilities || []).filter((facility: any) => {
+        const role = String(facility?.role || "")
+          .trim()
+          .toLowerCase();
+
+        const status = String(facility?.status || "")
+          .trim()
+          .toLowerCase();
+
+        return role === "facility" && status === "approved";
+      });
+
+      if (approvedFacilities.length === 0) {
+        console.log("No approved facilities found.");
+        return;
+      }
+
+      const itemName = String(item?.item_name || "")
+        .trim()
+        .toLowerCase();
+
+      const notificationsToInsert: any[] = [];
+
+      for (const facility of approvedFacilities) {
+        const facilityLatitude = Number(facility.latitude);
+
+        const facilityLongitude = Number(facility.longitude);
+
+        if (
+          !Number.isFinite(facilityLatitude) ||
+          !Number.isFinite(facilityLongitude)
+        ) {
+          continue;
+        }
+
+        const distanceKm = calculateDistanceKm(
+          itemLatitude,
+          itemLongitude,
+          facilityLatitude,
+          facilityLongitude,
+        );
+
+        console.log(
+          "FACILITY DISTANCE:",
+          facility.facility_name || facility.full_name || facility.id,
+          distanceKm,
+        );
+
+        if (distanceKm > NEARBY_RADIUS_KM) {
+          continue;
+        }
+
+        const acceptedTypes = String(facility.accepted_item_types || "")
+          .toLowerCase()
+          .split(/[,;|]/)
+          .map((value) => value.trim())
+          .filter(Boolean);
+
+        const acceptsItem =
+          acceptedTypes.length === 0 ||
+          acceptedTypes.some(
+            (acceptedType) =>
+              itemName.includes(acceptedType) ||
+              acceptedType.includes(itemName),
+          );
+
+        if (!acceptsItem) {
+          console.log(
+            "ITEM TYPE NOT ACCEPTED:",
+            facility.facility_name || facility.full_name || facility.id,
+          );
+          continue;
+        }
+
+        notificationsToInsert.push({
+          profile_id: facility.id,
+          title: "New Nearby Listing",
+          message: `${item.item_name || "An item"} was listed within ${distanceKm.toFixed(
+            1,
+          )} km of your facility.`,
+          type: "nearby_listing",
+          is_read: false,
+          data: {
+            item_id: item.id,
+            user_id: userId,
+            item_name: item.item_name || "",
+            distance_km: Number(distanceKm.toFixed(2)),
+          },
+        });
+      }
+
+      if (notificationsToInsert.length === 0) {
+        console.log("No matching facilities found within 5 km.");
+        return;
+      }
+
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert(notificationsToInsert);
+
+      if (notificationError) {
+        console.log("CREATE NEARBY NOTIFICATIONS ERROR:", notificationError);
+        return;
+      }
+
+      console.log(
+        `${notificationsToInsert.length} nearby facility notification(s) created.`,
+      );
+    } catch (error) {
+      console.log("NOTIFY NEARBY FACILITIES ERROR:", error);
+    }
   };
 
   const listItem = async (item: any) => {
@@ -223,6 +439,15 @@ export default function MyItems() {
         Alert.alert("List Item", error.message);
         return;
       }
+
+      const listedItem = {
+        ...item,
+        status: "Listed",
+        match_status: "Listed",
+        listed_at: listedAt,
+      };
+
+      await notifyNearbyFacilities(listedItem);
 
       Alert.alert("List Item", "Item listed successfully.");
 
@@ -592,36 +817,39 @@ export default function MyItems() {
     return styles.pending;
   };
 
-const getDisplayStatus = (
-  item: any
-) => {
-  const status =
-    getItemStatus(item);
+  const getDisplayStatus = (item: any) => {
+    const status = getItemStatus(item);
 
-  const approvalSource = String(
-    item?.approval_source || ""
-  ).toLowerCase();
+    const approvalSource = String(item?.approval_source || "").toLowerCase();
 
-  if (
-    status === "Approved"
-  ) {
-    if (
-      approvalSource ===
-      "system"
-    ) {
+    if (status === "Approved") {
+      if (approvalSource === "system") {
+        return "Approved by System";
+      }
+
+      if (approvalSource === "admin") {
+        return "Approved by Admin";
+      }
+    }
+
+    return status;
+  };
+
+  const getApprovalLabel = (item: any) => {
+    const approvalSource = String(item?.approval_source || "")
+      .trim()
+      .toLowerCase();
+
+    if (approvalSource === "system") {
       return "Approved by System";
     }
 
-    if (
-      approvalSource ===
-      "admin"
-    ) {
+    if (approvalSource === "admin") {
       return "Approved by Admin";
     }
-  }
 
-  return status;
-};
+    return "";
+  };
 
   const renderActionButtons = (item: any) => {
     const status = getItemStatus(item);
@@ -725,14 +953,19 @@ const getDisplayStatus = (
               {item.description || "No description"}
             </Text>
 
-            <Text
-              style={[
-                styles.itemStatus,
-                getStatusStyle(status),
-              ]}
-            >
+            <Text style={[styles.itemStatus, getStatusStyle(status)]}>
               {getDisplayStatus(item)}
             </Text>
+
+            {!!getApprovalLabel(item) && (
+              <View style={styles.approvalBadge}>
+                <Text style={styles.approvalBadgeIcon}>✓</Text>
+
+                <Text style={styles.approvalBadgeText}>
+                  {getApprovalLabel(item)}
+                </Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.dots}>⋮</Text>
@@ -944,17 +1177,13 @@ const getDisplayStatus = (
                     <Text
                       style={[
                         styles.readOnlyText,
-                        getStatusStyle(
-                          getItemStatus(editingItem)
-                        ),
+                        getStatusStyle(getItemStatus(editingItem)),
                       ]}
                     >
                       {getDisplayStatus(editingItem)}
                     </Text>
 
-                    <Text style={styles.modalLabel}>
-                      Approval Type
-                    </Text>
+                    <Text style={styles.modalLabel}>Approval Type</Text>
 
                     <Text style={styles.readOnlyText}>
                       {editingItem?.approval_source === "System"
@@ -1074,10 +1303,7 @@ const getDisplayStatus = (
         </View>
       </Modal>
 
-      <UserBottomNav
-        userId={userId}
-        active="profile"
-      />
+      <UserBottomNav userId={userId} active="profile" />
     </SafeAreaView>
   );
 }
@@ -1506,5 +1732,29 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 15,
+  },
+
+  approvalBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#e8f5e9",
+  },
+
+  approvalBadgeIcon: {
+    color: "#1b5e20",
+    fontSize: 11,
+    fontWeight: "800",
+    marginRight: 4,
+  },
+
+  approvalBadgeText: {
+    color: "#1b5e20",
+    fontSize: 11,
+    fontWeight: "700",
   },
 });

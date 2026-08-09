@@ -1,13 +1,18 @@
-import "react-native-url-polyfill/auto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createClient } from "@supabase/supabase-js";
+import "react-native-url-polyfill/auto";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 
-// Temporary logs
-console.log("URL:", process.env.EXPO_PUBLIC_SUPABASE_URL);
-console.log("KEY:", process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+const supabaseKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
+
+if (!supabaseUrl) {
+  throw new Error("Missing EXPO_PUBLIC_SUPABASE_URL in .env");
+}
+
+if (!supabaseKey) {
+  throw new Error("Missing EXPO_PUBLIC_SUPABASE_KEY in .env");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {

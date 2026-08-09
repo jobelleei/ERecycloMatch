@@ -28,6 +28,7 @@ export default function FacilityDashboard() {
 
   const [facility, setFacility] = useState<any>(null);
   const [facilityName, setFacilityName] = useState("");
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>(
     [],
@@ -55,6 +56,37 @@ export default function FacilityDashboard() {
       loadFacility();
     }, []),
   );
+
+  useEffect(() => {
+    const facilityId = facility?.id;
+
+    if (!facilityId) {
+      setUnreadNotificationCount(0);
+      return;
+    }
+
+    fetchUnreadNotificationCount(String(facilityId));
+
+    const channel = supabase
+      .channel(`facility-dashboard-notifications-${facilityId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `profile_id=eq.${facilityId}`,
+        },
+        () => {
+          fetchUnreadNotificationCount(String(facilityId));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [facility?.id]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -212,6 +244,35 @@ export default function FacilityDashboard() {
     }
   };
 
+  const fetchUnreadNotificationCount = async (facilityId: string) => {
+    try {
+      if (!facilityId) {
+        setUnreadNotificationCount(0);
+        return;
+      }
+
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", {
+          count: "exact",
+          head: true,
+        })
+        .eq("profile_id", Number(facilityId))
+        .eq("is_read", false);
+
+      if (error) {
+        console.log("FETCH UNREAD FACILITY NOTIFICATION COUNT ERROR:", error);
+        setUnreadNotificationCount(0);
+        return;
+      }
+
+      setUnreadNotificationCount(count || 0);
+    } catch (error) {
+      console.log("UNREAD FACILITY NOTIFICATION COUNT ERROR:", error);
+      setUnreadNotificationCount(0);
+    }
+  };
+
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -287,6 +348,10 @@ export default function FacilityDashboard() {
 
       setFacility(latestFacility);
       setFacilityName(String(latestName));
+
+      await fetchUnreadNotificationCount(
+        String(latestFacility.id || facilityId),
+      );
 
       checkMissingFacilityProfileDetails(latestFacility);
 
@@ -643,35 +708,31 @@ export default function FacilityDashboard() {
   };
 
   const isVisibleListedItem = (item: any) => {
-    const status = String(item.status || "")
-      .trim()
-      .toLowerCase();
-    const matchStatus = String(item.match_status || "")
+    const status = String(item?.status || "")
       .trim()
       .toLowerCase();
 
-    const isFinishedOrRecycled =
-      status === "finished" ||
-      status === "recycled" ||
-      status === "deleted" ||
-      status === "approved" ||
-      status === "rejected" ||
-      matchStatus === "finished" ||
-      matchStatus === "recycled" ||
-      matchStatus === "deleted" ||
-      matchStatus === "approved" ||
-      matchStatus === "rejected";
+    const matchStatus = String(item?.match_status || "")
+      .trim()
+      .toLowerCase();
 
-    if (isFinishedOrRecycled) return false;
+    return status === "listed" && matchStatus === "listed";
+  };
 
-    return (
-      status === "listed" ||
-      status === "pending match" ||
-      status === "matched" ||
-      matchStatus === "listed" ||
-      matchStatus === "pending match" ||
-      matchStatus === "matched"
-    );
+  const getApprovalLabel = (item: any) => {
+    const approvalSource = String(item?.approval_source || "")
+      .trim()
+      .toLowerCase();
+
+    if (approvalSource === "system") {
+      return "Approved by System";
+    }
+
+    if (approvalSource === "admin") {
+      return "Approved by Admin";
+    }
+
+    return "";
   };
 
   const searchFacilityData = async (keyword: string) => {
@@ -895,9 +956,15 @@ export default function FacilityDashboard() {
               >
                 <Text style={styles.notificationBell}>🔔</Text>
 
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>3</Text>
-                </View>
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>
+                      {unreadNotificationCount > 99
+                        ? "99+"
+                        : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
 
               <Image
@@ -1148,6 +1215,16 @@ export default function FacilityDashboard() {
                         {getDisplayStatus(item)}
                       </Text>
                     </View>
+
+                    {!!getApprovalLabel(item) && (
+                      <View style={styles.approvalBadge}>
+                        <Text style={styles.approvalBadgeIcon}>✓</Text>
+
+                        <Text style={styles.approvalBadgeText}>
+                          {getApprovalLabel(item)}
+                        </Text>
+                      </View>
+                    )}
 
                     <Text style={styles.postUser}>
                       Posted by {item.submitter_name || "Unknown User"}
@@ -1517,6 +1594,30 @@ const styles = StyleSheet.create({
 
   postStatus: {
     fontSize: 12,
+    fontWeight: "700",
+  },
+
+  approvalBadge: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: "#e8f5e9",
+  },
+
+  approvalBadgeIcon: {
+    color: "#1b5e20",
+    fontSize: 11,
+    fontWeight: "800",
+    marginRight: 4,
+  },
+
+  approvalBadgeText: {
+    color: "#1b5e20",
+    fontSize: 11,
     fontWeight: "700",
   },
 
