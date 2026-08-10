@@ -659,6 +659,42 @@ export default function IndividualSignup() {
     return data.publicUrl;
   };
 
+  const checkIdWithOCR = async (imageUrl: string) => {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      "verify-credential",
+      {
+        body: {
+          imageUrl: imageUrl,
+        },
+      }
+    );
+
+    if (error) {
+      console.log("OCR FUNCTION ERROR:", error);
+
+      return {
+        success: false,
+        text: "",
+      };
+    }
+
+    console.log("OCR RESPONSE:", data);
+
+    return {
+      success: data?.success === true,
+      text: data?.text || "",
+    };
+  } catch (error) {
+    console.log("OCR ERROR:", error);
+
+    return {
+      success: false,
+      text: "",
+    };
+  }
+};
+
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
@@ -759,6 +795,13 @@ export default function IndividualSignup() {
 
       const idImageUrl = await uploadIdImage();
 
+console.log("ID IMAGE URL:", idImageUrl);
+
+const ocrResult = await checkIdWithOCR(idImageUrl);
+
+console.log("OCR TEXT FROM ID:");
+console.log(ocrResult.text);
+
       /* CREATE AUTH USER */
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -802,27 +845,6 @@ export default function IndividualSignup() {
           },
         ])
         .select();
-      /*const idImageUrl = await uploadIdImage();
-
-      const { data: insertData, error: insertError } = await supabase
-        .from("profiles")
-        .insert([
-          {
-            name: name.trim(),
-            email: cleanEmail,
-            username: cleanUsername,
-            password: password,
-            role: "user",
-            address: finalAddress,
-            location: finalAddress,
-            id_type: idType,
-            id_image: idImageUrl,
-            profile_image: null,
-            status: "pending",
-            reject_reason: null,
-          },
-        ])
-        .select();*/
 
       console.log("SUPABASE INSERT DATA:", insertData);
       console.log("SUPABASE INSERT ERROR:", insertError);
