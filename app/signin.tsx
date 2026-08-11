@@ -59,6 +59,8 @@ export default function Signin() {
           profile_image,
           status,
           reject_reason,
+          approval_source,
+          approved_at,
           username_changed_at
         `,
         )

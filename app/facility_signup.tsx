@@ -654,6 +654,65 @@ export default function FacilitySignup() {
     );
   };
 
+  const normalizeName = (value: string) => {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
+const isNameMatch = (enteredName: string, ocrText: string) => {
+  const normalizedName = normalizeName(enteredName);
+  const normalizedOCR = normalizeName(ocrText);
+
+  if (!normalizedName || !normalizedOCR) {
+    return false;
+  }
+
+  const nameParts = normalizedName.split(" ");
+
+  return nameParts.every((part) => normalizedOCR.includes(part));
+};
+
+const checkIdWithOCR = async (imageUrl: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke(
+        "verify-credential",
+        {
+          body: {
+            imageUrl: imageUrl,
+          },
+        }
+      );
+
+      if (error) {
+        console.log("OCR FUNCTION ERROR:", error);
+
+        return {
+          success: false,
+          text: "",
+        };
+      }
+
+      console.log("OCR RESPONSE:", data);
+
+      return {
+        success: data?.success === true,
+        text: data?.text || "",
+      };
+    } catch (error) {
+      console.log("OCR ERROR:", error);
+
+      return {
+        success: false,
+        text: "",
+      };
+    }
+  };
+
   const handleSignUp = async () => {
     console.log("FACILITY SIGNUP CLICKED");
 
@@ -727,34 +786,57 @@ export default function FacilitySignup() {
 
       const cleanEmail = email.trim().toLowerCase();
 
-      const { data: existingFacility, error: checkError } = await supabase
-        .from("profiles")
-        .select("id, email")
-        .eq("email", cleanEmail)
-        .maybeSingle();
+console.log("FACILITY SIGNUP EMAIL:", cleanEmail);
 
-      if (checkError) {
-        console.log("CHECK FACILITY ERROR:", checkError);
+// Check if email already exists
+const { data: existingEmail, error: emailCheckError } = await supabase
+  .from("profiles")
+  .select("id")
+  .eq("email", cleanEmail)
+  .maybeSingle();
 
-        Toast.show({
-          type: "error",
-          text1: "Unable to check account",
-          text2: checkError.message,
-        });
+if (emailCheckError) {
+  console.log("EMAIL CHECK ERROR:", emailCheckError);
 
-        return;
-      }
+  Toast.show({
+    type: "error",
+    text1: "Unable to check email",
+    text2: emailCheckError.message,
+  });
 
-      if (existingFacility) {
-        Toast.show({
-          type: "error",
-          text1: "Account already exists",
-          text2: "This email is already used.",
-        });
+  return;
+}
 
-        return;
-      }
+if (existingEmail) {
+  console.log("EMAIL ALREADY EXISTS:", existingEmail);
+
+  Toast.show({
+    type: "error",
+    text1: "Email already exists",
+    text2: "Please use a different email address.",
+  });
+
+  return;
+}
       const certificationUrl = await uploadCertificationImage();
+
+      console.log("CERTIFICATION URL:", certificationUrl);
+
+const ocrResult = await checkIdWithOCR(certificationUrl);
+
+console.log("OCR TEXT FROM CERTIFICATION:");
+console.log(ocrResult.text);
+
+const nameMatches = ocrResult.success
+  ? isNameMatch(name.trim(), ocrResult.text)
+  : false;
+
+const accountStatus = nameMatches ? "approved" : "pending";
+const approvalSource = nameMatches ? "system" : null;
+
+console.log("FACILITY NAME MATCH:", nameMatches);
+console.log("FACILITY ACCOUNT STATUS:", accountStatus);
+console.log("FACILITY APPROVAL SOURCE:", approvalSource);
 
       /* CREATE AUTH USER */
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -795,35 +877,15 @@ export default function FacilitySignup() {
             contact_num: contactNum.trim(),
             certification: certificationUrl,
             profile_image: null,
-            status: "pending",
+            status: accountStatus,
+            approval_source: approvalSource,
+            approved_at: nameMatches
+              ? new Date().toISOString()
+              : null,
             reject_reason: null,
           },
         ])
         .select();
-
-      /*const certificationUrl = await uploadCertificationImage();
-
-      const { data: insertData, error: insertError } = await supabase
-        .from("profiles")
-        .insert([
-          {
-            name: name.trim(),
-            email: cleanEmail,
-            username: null,
-            password: password,
-            role: "facility",
-            address: finalLocation,
-            location: finalLocation,
-            latitude: latitude,
-            longitude: longitude,
-            contact_num: contactNum.trim(),
-            certification: certificationUrl,
-            profile_image: null,
-            status: "pending",
-            reject_reason: null,
-          },
-        ])
-        .select(); */
 
       console.log("SUPABASE FACILITY INSERT DATA:", insertData);
       console.log("SUPABASE FACILITY INSERT ERROR:", insertError);
@@ -838,11 +900,22 @@ export default function FacilitySignup() {
         return;
       }
 
-      Toast.show({
-        type: "success",
-        text1: "Submitted for approval",
-        text2: "Please wait for admin approval before signing in.",
-      });
+      if (nameMatches) {
+  Toast.show({
+    type: "success",
+    text1: "Account approved",
+    text2: "Your certification was verified. You can now sign in.",
+  });
+} else {
+  Toast.show({
+    type: "success",
+    text1: "Submitted for approval",
+    text2:
+      "Your certification could not be automatically verified. Please wait for admin approval.",
+  });
+}
+
+router.push("/signin");
 
       router.push("/signin");
     } catch (error: any) {
