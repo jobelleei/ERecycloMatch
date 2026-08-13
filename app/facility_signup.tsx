@@ -66,7 +66,7 @@ export default function FacilitySignup() {
     ((value: string) => void) | null
   >(null);
 
-  useEffect(() => {
+  useEffect(() => { //Selecting address
     fetchProvinces();
   }, []);
 
@@ -405,7 +405,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const emailRules = [
+  const emailRules = [ //Entering email
     {
       label: "Must be a valid email address",
       met: email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
@@ -581,7 +581,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const getImageExtension = (uri: string) => {
+  const getImageExtension = (uri: string) => { //Caputing photo certificate/document
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
 
@@ -788,36 +788,35 @@ const checkIdWithOCR = async (imageUrl: string) => {
 
 console.log("FACILITY SIGNUP EMAIL:", cleanEmail);
 
-// Check if email already exists
-const { data: existingEmail, error: emailCheckError } = await supabase
-  .from("profiles")
-  .select("id")
-  .eq("email", cleanEmail)
-  .maybeSingle();
+    const { data: existingEmail, error: emailCheckError } = await supabase// Check if email already exists
+      .from("profiles")
+      .select("id")
+      .eq("email", cleanEmail)
+      .maybeSingle();
 
-if (emailCheckError) {
-  console.log("EMAIL CHECK ERROR:", emailCheckError);
+    if (emailCheckError) {
+      console.log("EMAIL CHECK ERROR:", emailCheckError);
 
-  Toast.show({
-    type: "error",
-    text1: "Unable to check email",
-    text2: emailCheckError.message,
-  });
+      Toast.show({
+        type: "error",
+        text1: "Unable to check email",
+        text2: emailCheckError.message,
+      });
 
-  return;
-}
+      return;
+    }
 
-if (existingEmail) {
-  console.log("EMAIL ALREADY EXISTS:", existingEmail);
+    if (existingEmail) {
+      console.log("EMAIL ALREADY EXISTS:", existingEmail);
 
-  Toast.show({
-    type: "error",
-    text1: "Email already exists",
-    text2: "Please use a different email address.",
-  });
+      Toast.show({
+        type: "error",
+        text1: "Email already exists",
+        text2: "Please use a different email address.",
+      });
 
-  return;
-}
+      return;
+    }
       const certificationUrl = await uploadCertificationImage();
 
       console.log("CERTIFICATION URL:", certificationUrl);
@@ -838,7 +837,7 @@ console.log("FACILITY NAME MATCH:", nameMatches);
 console.log("FACILITY ACCOUNT STATUS:", accountStatus);
 console.log("FACILITY APPROVAL SOURCE:", approvalSource);
 
-      /* CREATE AUTH USER */
+      //CREATE AUTH USER
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -860,7 +859,7 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
         return;
       }
 
-      /* SAVE TO PROFILES */
+      //Saving to profile
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
