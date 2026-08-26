@@ -1186,7 +1186,7 @@ useFocusEffect(
                 style={styles.addPostButton}
                 onPress={openCreateModal}
               >
-                <Text style={styles.addPostText}>＋ Create Item Request</Text>
+                <Text style={styles.addPostText}>＋ Create a Post</Text>
               </TouchableOpacity>
             </View>
 
@@ -1205,7 +1205,7 @@ useFocusEffect(
                       styles.activeSectionTabText,
                   ]}
                 >
-                  Item Requests
+                  My Postings
                 </Text>
               </TouchableOpacity>
 

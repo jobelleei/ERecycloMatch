@@ -758,18 +758,33 @@ export default function Profile() {
               </View>
 
               <View style={styles.ratingSummaryBox}>
-                <Text style={styles.ratingSummaryStars}>
-                  {renderStars(Math.round(averageRating))}
-                </Text>
+              <Text style={styles.ratingSummaryStars}>
+                {renderStars(Math.round(averageRating))}
+              </Text>
 
-                <Text style={styles.ratingSummaryText}>
-                  {feedbacks.length > 0
-                    ? `${averageRating.toFixed(1)} out of 5 • ${
-                        feedbacks.length
-                      } feedback${feedbacks.length === 1 ? "" : "s"}`
-                    : "No feedback yet"}
-                </Text>
-              </View>
+              <Text style={styles.ratingSummaryText}>
+                {feedbacks.length > 0
+                  ? `${averageRating.toFixed(1)} out of 5 • ${
+                      feedbacks.length
+                    } feedback${feedbacks.length === 1 ? "" : "s"}`
+                  : "No feedback yet"}
+              </Text>
+            </View>
+
+            <View style={styles.profileActionButtons}>
+              <TouchableOpacity
+                style={styles.profileActionButton}
+                onPress={() => goToPage("/user_dashboard/user_myItems")}
+              >
+                <Text style={styles.profileActionButtonText}>My Items</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.profileActionButton}
+                onPress={() => goToPage("/user_dashboard/user_myListing")}
+              >
+                <Text style={styles.profileActionButtonText}>My Listings</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={styles.sectionTabs}>
@@ -808,10 +823,11 @@ export default function Profile() {
                 </Text>
               </TouchableOpacity>
             </View>
-
-            {renderFeedbackSort()}
+              {renderFeedbackSort()}
           </View>
+        </View>
         }
+
         ListEmptyComponent={
           <Text style={styles.emptyText}>
             {activeSection === "listed"
@@ -1036,6 +1052,28 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginTop: 2,
   },
+
+  profileActionButtons: {
+  flexDirection: "row",
+  width: "90%",
+  gap: 10,
+  marginTop: 12,
+},
+
+profileActionButton: {
+  flex: 1,
+  backgroundColor: "#fff",
+  paddingVertical: 9,
+  borderRadius: 22,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+profileActionButtonText: {
+  color: "#1b5e20",
+  fontWeight: "bold",
+  fontSize: 13,
+},
 
   sectionTabs: {
     flexDirection: "row",
