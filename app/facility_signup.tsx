@@ -42,7 +42,6 @@ export default function FacilitySignup() {
   const [barangays, setBarangays] = useState<string[]>([]);
 
   const [email, setEmail] = useState("");
-  const [contactNum, setContactNum] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
@@ -416,15 +415,6 @@ export default function FacilitySignup() {
     },
   ];
 
-  const contactRules = [
-    { label: "Must start with 09", met: contactNum.startsWith("09") },
-    { label: "Must be exactly 11 digits", met: contactNum.length === 11 },
-    {
-      label: "Numbers only",
-      met: contactNum.length > 0 && /^[0-9]+$/.test(contactNum),
-    },
-  ];
-
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
     {
@@ -725,7 +715,6 @@ const checkIdWithOCR = async (imageUrl: string) => {
       !barangay ||
       !finalLocation ||
       !email.trim() ||
-      !contactNum.trim() ||
       !password ||
       !confirmPass ||
       !image
@@ -752,15 +741,6 @@ const checkIdWithOCR = async (imageUrl: string) => {
         type: "error",
         text1: "Invalid Email",
         text2: "Please enter a valid email address",
-      });
-      return;
-    }
-
-    if (!contactRules.every((r) => r.met)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid contact number",
-        text2: "Must start with 09 and be exactly 11 digits",
       });
       return;
     }
@@ -873,7 +853,6 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
             location: finalLocation,
             latitude: latitude,
             longitude: longitude,
-            contact_num: contactNum.trim(),
             certification: certificationUrl,
             profile_image: null,
             status: accountStatus,
@@ -1298,31 +1277,6 @@ router.push("/signin");
 
         {email.length > 0 && emailRules.some((r) => !r.met) && (
           <RulesBox rules={emailRules.filter((r) => !r.met)} />
-        )}
-
-        <Text style={styles.label}>Contact Number</Text>
-        <View style={styles.inputBox}>
-          <Image
-            source={require("../assets/icons/telephone.png")}
-            style={styles.icon}
-          />
-
-          <TextInput
-            placeholder="09XXXXXXXXX"
-            value={contactNum}
-            onChangeText={(text) => {
-              const cleaned = text.replace(/[^0-9]/g, "").slice(0, 11);
-              setContactNum(cleaned);
-            }}
-            style={styles.input}
-            keyboardType="number-pad"
-            maxLength={11}
-            placeholderTextColor="#7a7a7a"
-          />
-        </View>
-
-        {contactNum.length > 0 && contactRules.some((r) => !r.met) && (
-          <RulesBox rules={contactRules.filter((r) => !r.met)} />
         )}
 
         <Text style={styles.label}>Password</Text>
