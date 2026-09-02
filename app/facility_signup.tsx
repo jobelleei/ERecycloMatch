@@ -42,7 +42,6 @@ export default function FacilitySignup() {
   const [barangays, setBarangays] = useState<string[]>([]);
 
   const [email, setEmail] = useState("");
-  const [contactNum, setContactNum] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
@@ -66,7 +65,7 @@ export default function FacilitySignup() {
     ((value: string) => void) | null
   >(null);
 
-  useEffect(() => {
+  useEffect(() => { //Selecting address
     fetchProvinces();
   }, []);
 
@@ -405,7 +404,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const emailRules = [
+  const emailRules = [ //Entering email
     {
       label: "Must be a valid email address",
       met: email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
@@ -413,15 +412,6 @@ export default function FacilitySignup() {
     {
       label: "No spaces allowed",
       met: email.length > 0 && !/\s/.test(email),
-    },
-  ];
-
-  const contactRules = [
-    { label: "Must start with 09", met: contactNum.startsWith("09") },
-    { label: "Must be exactly 11 digits", met: contactNum.length === 11 },
-    {
-      label: "Numbers only",
-      met: contactNum.length > 0 && /^[0-9]+$/.test(contactNum),
     },
   ];
 
@@ -581,7 +571,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const getImageExtension = (uri: string) => {
+  const getImageExtension = (uri: string) => { //Caputing photo certificate/document
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
 
@@ -725,7 +715,6 @@ const checkIdWithOCR = async (imageUrl: string) => {
       !barangay ||
       !finalLocation ||
       !email.trim() ||
-      !contactNum.trim() ||
       !password ||
       !confirmPass ||
       !image
@@ -756,15 +745,6 @@ const checkIdWithOCR = async (imageUrl: string) => {
       return;
     }
 
-    if (!contactRules.every((r) => r.met)) {
-      Toast.show({
-        type: "error",
-        text1: "Invalid contact number",
-        text2: "Must start with 09 and be exactly 11 digits",
-      });
-      return;
-    }
-
     if (password !== confirmPass) {
       Toast.show({
         type: "error",
@@ -788,36 +768,35 @@ const checkIdWithOCR = async (imageUrl: string) => {
 
 console.log("FACILITY SIGNUP EMAIL:", cleanEmail);
 
-// Check if email already exists
-const { data: existingEmail, error: emailCheckError } = await supabase
-  .from("profiles")
-  .select("id")
-  .eq("email", cleanEmail)
-  .maybeSingle();
+    const { data: existingEmail, error: emailCheckError } = await supabase// Check if email already exists
+      .from("profiles")
+      .select("id")
+      .eq("email", cleanEmail)
+      .maybeSingle();
 
-if (emailCheckError) {
-  console.log("EMAIL CHECK ERROR:", emailCheckError);
+    if (emailCheckError) {
+      console.log("EMAIL CHECK ERROR:", emailCheckError);
 
-  Toast.show({
-    type: "error",
-    text1: "Unable to check email",
-    text2: emailCheckError.message,
-  });
+      Toast.show({
+        type: "error",
+        text1: "Unable to check email",
+        text2: emailCheckError.message,
+      });
 
-  return;
-}
+      return;
+    }
 
-if (existingEmail) {
-  console.log("EMAIL ALREADY EXISTS:", existingEmail);
+    if (existingEmail) {
+      console.log("EMAIL ALREADY EXISTS:", existingEmail);
 
-  Toast.show({
-    type: "error",
-    text1: "Email already exists",
-    text2: "Please use a different email address.",
-  });
+      Toast.show({
+        type: "error",
+        text1: "Email already exists",
+        text2: "Please use a different email address.",
+      });
 
-  return;
-}
+      return;
+    }
       const certificationUrl = await uploadCertificationImage();
 
       console.log("CERTIFICATION URL:", certificationUrl);
@@ -838,7 +817,7 @@ console.log("FACILITY NAME MATCH:", nameMatches);
 console.log("FACILITY ACCOUNT STATUS:", accountStatus);
 console.log("FACILITY APPROVAL SOURCE:", approvalSource);
 
-      /* CREATE AUTH USER */
+      //CREATE AUTH USER
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -860,7 +839,7 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
         return;
       }
 
-      /* SAVE TO PROFILES */
+      //Saving to profile
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
@@ -874,7 +853,6 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
             location: finalLocation,
             latitude: latitude,
             longitude: longitude,
-            contact_num: contactNum.trim(),
             certification: certificationUrl,
             profile_image: null,
             status: accountStatus,
@@ -1299,31 +1277,6 @@ router.push("/signin");
 
         {email.length > 0 && emailRules.some((r) => !r.met) && (
           <RulesBox rules={emailRules.filter((r) => !r.met)} />
-        )}
-
-        <Text style={styles.label}>Contact Number</Text>
-        <View style={styles.inputBox}>
-          <Image
-            source={require("../assets/icons/telephone.png")}
-            style={styles.icon}
-          />
-
-          <TextInput
-            placeholder="09XXXXXXXXX"
-            value={contactNum}
-            onChangeText={(text) => {
-              const cleaned = text.replace(/[^0-9]/g, "").slice(0, 11);
-              setContactNum(cleaned);
-            }}
-            style={styles.input}
-            keyboardType="number-pad"
-            maxLength={11}
-            placeholderTextColor="#7a7a7a"
-          />
-        </View>
-
-        {contactNum.length > 0 && contactRules.some((r) => !r.met) && (
-          <RulesBox rules={contactRules.filter((r) => !r.met)} />
         )}
 
         <Text style={styles.label}>Password</Text>

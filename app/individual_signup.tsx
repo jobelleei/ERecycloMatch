@@ -1,8 +1,7 @@
   import * as FileSystem from "expo-file-system/legacy";
   import * as ImagePicker from "expo-image-picker";
-  import * as Location from "expo-location";
   import { useRouter } from "expo-router";
-  import { useEffect, useRef, useState } from "react";
+  import { useEffect, useState } from "react";
   import {
     Image,
     ImageBackground,
@@ -16,7 +15,6 @@
     TextInput,
     View,
   } from "react-native";
-  import MapView, { Marker } from "react-native-maps";
   import Toast from "react-native-toast-message";
   import styles from "./styles/individual_signup";
   import axios from "axios";
@@ -39,7 +37,6 @@
 
   export default function IndividualSignup() {
     const router = useRouter();
-    const mapRef = useRef<MapView | null>(null);
 
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
@@ -49,7 +46,6 @@
     const [province, setProvince] = useState("");
     const [city, setCity] = useState("");
     const [barangay, setBarangay] = useState("");
-    const [street, setStreet] = useState("");
 
     const [provinces, setProvinces] = useState<string[]>([]);
     const [cities, setCities] = useState<string[]>([]);
@@ -64,12 +60,6 @@
     const [secure1, setSecure1] = useState(true);
     const [secure2, setSecure2] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
-
-    const [mapLatitude, setMapLatitude] = useState<number | null>(null);
-    const [mapLongitude, setMapLongitude] = useState<number | null>(null);
-
-    const [mapSearchText, setMapSearchText] = useState("");
-    const [isSearchingMap, setIsSearchingMap] = useState(false);
 
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [dropdownTitle, setDropdownTitle] = useState("");
@@ -99,19 +89,6 @@
       }
 
       setDropdownVisible(false);
-    };
-
-    const updateFullAddress = (
-      newStreet = street,
-      newBarangay = barangay,
-      newCity = city,
-      newProvince = province,
-    ) => {
-      const parts = [newProvince, newCity, newBarangay, newStreet].filter(
-        (part) => String(part).trim() !== "",
-      );
-
-      setAddress(parts.join(", "));
     };
 
     const fetchProvinces = async () => {
@@ -177,245 +154,6 @@
       } catch (error) {
         console.log("BARANGAY ERROR:", error);
         setBarangays([]);
-      }
-    };
-
-    const moveMapToSelectedAddress = async (
-      selectedProvince: string,
-      selectedCity: string,
-      selectedBarangay: string,
-    ) => {
-      try {
-        const parts = [
-          selectedBarangay,
-          selectedCity,
-          selectedProvince,
-          "Philippines",
-        ].filter((part) => String(part).trim() !== "");
-
-        const searchAddress = parts.join(", ");
-
-        if (!selectedProvince || !selectedCity) {
-          return;
-        }
-
-        console.log("MOVING USER MAP TO:", searchAddress);
-
-        const results = await Location.geocodeAsync(searchAddress);
-
-        console.log("USER MAP GEOCODE RESULT:", results);
-
-        if (results && results.length > 0) {
-          const lat = results[0].latitude;
-          const lng = results[0].longitude;
-
-          setMapLatitude(lat);
-          setMapLongitude(lng);
-          setMapSearchText(searchAddress);
-
-          mapRef.current?.animateToRegion(
-            {
-              latitude: lat,
-              longitude: lng,
-              latitudeDelta: selectedBarangay ? 0.01 : 0.03,
-              longitudeDelta: selectedBarangay ? 0.01 : 0.03,
-            },
-            700,
-          );
-
-          await updateAddressFromPin(
-            lat,
-            lng,
-            selectedProvince,
-            selectedCity,
-            selectedBarangay,
-          );
-        }
-      } catch (error) {
-        console.log("MOVE USER MAP TO SELECTED ADDRESS ERROR:", error);
-      }
-    };
-
-    const updateAddressFromPin = async (
-      lat: number,
-      lng: number,
-      selectedProvince = province,
-      selectedCity = city,
-      selectedBarangay = barangay,
-    ) => {
-      try {
-        const results = await Location.reverseGeocodeAsync({
-          latitude: lat,
-          longitude: lng,
-        });
-
-        console.log("USER REVERSE GEOCODE RESULT:", results);
-
-        let exactStreet = "";
-
-        if (results && results.length > 0) {
-          const place: any = results[0];
-
-          exactStreet = [
-            place.name,
-            place.street,
-            place.district,
-            place.subregion,
-          ]
-            .filter((part) => String(part || "").trim() !== "")
-            .join(", ");
-        }
-
-        if (!exactStreet.trim()) {
-          exactStreet = `Selected location (${lat.toFixed(6)}, ${lng.toFixed(
-            6,
-          )})`;
-        }
-
-        setStreet(exactStreet);
-
-        updateFullAddress(
-          exactStreet,
-          selectedBarangay,
-          selectedCity,
-          selectedProvince,
-        );
-      } catch (error) {
-        console.log("USER REVERSE GEOCODE ERROR:", error);
-
-        const fallbackStreet = `Selected location (${lat.toFixed(
-          6,
-        )}, ${lng.toFixed(6)})`;
-
-        setStreet(fallbackStreet);
-
-        updateFullAddress(
-          fallbackStreet,
-          selectedBarangay,
-          selectedCity,
-          selectedProvince,
-        );
-      }
-    };
-
-    const searchMapLocation = async () => {
-      try {
-        const cleanSearch = mapSearchText.trim();
-
-        if (!cleanSearch) {
-          Toast.show({
-            type: "error",
-            text1: "Enter a location",
-            text2: "Please type an address or place first.",
-          });
-          return;
-        }
-
-        Keyboard.dismiss();
-        setIsSearchingMap(true);
-
-        const searchParts = [cleanSearch, barangay, city, province, "Philippines"]
-          .filter((part) => String(part).trim() !== "")
-          .join(", ");
-
-        console.log("SEARCHING MAP LOCATION:", searchParts);
-
-        const results = await Location.geocodeAsync(searchParts);
-
-        console.log("MAP SEARCH RESULT:", results);
-
-        if (!results || results.length === 0) {
-          Toast.show({
-            type: "error",
-            text1: "Location not found",
-            text2: "Try typing a more specific address.",
-          });
-          return;
-        }
-
-        const lat = results[0].latitude;
-        const lng = results[0].longitude;
-
-        setMapLatitude(lat);
-        setMapLongitude(lng);
-
-        mapRef.current?.animateToRegion(
-          {
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          700,
-        );
-
-        await updateAddressFromPin(lat, lng);
-
-        Toast.show({
-          type: "success",
-          text1: "Location found",
-          text2: "The map pin was moved to the searched location.",
-        });
-      } catch (error) {
-        console.log("SEARCH MAP LOCATION ERROR:", error);
-
-        Toast.show({
-          type: "error",
-          text1: "Search failed",
-          text2: "Unable to search this location.",
-        });
-      } finally {
-        setIsSearchingMap(false);
-      }
-    };
-
-    const getCurrentUserLocation = async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-
-        if (status !== "granted") {
-          Toast.show({
-            type: "error",
-            text1: "Location permission required",
-            text2: "Please allow location access to auto-fill your address.",
-          });
-          return;
-        }
-
-        const loc = await Location.getCurrentPositionAsync({});
-
-        const lat = loc.coords.latitude;
-        const lng = loc.coords.longitude;
-
-        setMapLatitude(lat);
-        setMapLongitude(lng);
-        setMapSearchText("");
-
-        mapRef.current?.animateToRegion(
-          {
-            latitude: lat,
-            longitude: lng,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          700,
-        );
-
-        await updateAddressFromPin(lat, lng);
-
-        Toast.show({
-          type: "success",
-          text1: "Address location set",
-          text2: "This only fills your signup address.",
-        });
-      } catch (error) {
-        console.log("GET USER CURRENT LOCATION ERROR:", error);
-
-        Toast.show({
-          type: "error",
-          text1: "Location error",
-          text2: "Failed to get current location.",
-        });
       }
     };
 
@@ -723,10 +461,10 @@
       console.log("SIGNUP CLICKED");
 
       const finalAddress =
-        address ||
-        [province, city, barangay, street]
-          .filter((part) => String(part).trim() !== "")
-          .join(", ");
+      address ||
+      [province, city, barangay]
+        .filter((part) => String(part).trim() !== "")
+        .join(", ");
 
       if (
         !name.trim() ||
@@ -735,7 +473,6 @@
         !province ||
         !city ||
         !barangay ||
-        !street.trim() ||
         !finalAddress ||
         !password ||
         !confirmpass ||
@@ -1104,14 +841,10 @@ console.log("APPROVAL SOURCE:", approvalSource);
                 setProvince(value);
                 setCity("");
                 setBarangay("");
-                setStreet("");
-                setMapSearchText("");
-                setMapLatitude(null);
-                setMapLongitude(null);
                 setCities([]);
                 setBarangays([]);
 
-                updateFullAddress("", "", "", value);
+                setAddress(value);
 
                 if (value) {
                   fetchCities(value);
@@ -1127,15 +860,12 @@ console.log("APPROVAL SOURCE:", approvalSource);
               onSelect={(value) => {
                 setCity(value);
                 setBarangay("");
-                setStreet("");
-                setMapSearchText("");
                 setBarangays([]);
 
-                updateFullAddress("", "", value, province);
+                setAddress([province, value].filter(Boolean).join(", "));
 
                 if (value) {
                   fetchBarangays(value);
-                  moveMapToSelectedAddress(province, value, "");
                 }
               }}
             />
@@ -1147,221 +877,10 @@ console.log("APPROVAL SOURCE:", approvalSource);
               disabled={!city}
               onSelect={(value) => {
                 setBarangay(value);
-                setStreet("");
-                setMapSearchText("");
 
-                updateFullAddress("", value, city, province);
-
-                if (value) {
-                  moveMapToSelectedAddress(province, city, value);
-                }
+                setAddress([province, city, value].filter(Boolean).join(", "));
               }}
             />
-
-            <View style={styles.inputBox}>
-              <Image
-                source={require("../assets/icons/location.png")}
-                style={styles.icon}
-              />
-
-              <TextInput
-                placeholder="Auto-filled after selecting map location"
-                placeholderTextColor="#7a7a7a"
-                value={street}
-                editable={false}
-                style={styles.input}
-              />
-            </View>
-
-            <Text style={styles.label}>Map Address Auto-Fill</Text>
-
-            <View
-              style={{
-                width: "85%",
-                alignSelf: "center",
-                backgroundColor: "rgba(255, 255, 255, 0.45)",
-                borderRadius: 8,
-                padding: 10,
-                marginBottom: 10,
-                borderWidth: 0.5,
-                borderColor: "rgba(200, 230, 201, 0.6)",
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 12,
-                  color: "#444",
-                  marginBottom: 8,
-                  lineHeight: 16,
-                }}
-              >
-                Type an address above the map, tap the map, or use your current
-                location to auto-fill your address. This will be displayed in your
-                profile.
-              </Text>
-
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 10,
-                }}
-              >
-                <TextInput
-                  placeholder="Search address or place"
-                  placeholderTextColor="#777"
-                  value={mapSearchText}
-                  onChangeText={setMapSearchText}
-                  onSubmitEditing={searchMapLocation}
-                  returnKeyType="search"
-                  style={{
-                    flex: 1,
-                    backgroundColor: "#fff",
-                    borderWidth: 1,
-                    borderColor: "#c8e6c9",
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: Platform.OS === "ios" ? 12 : 9,
-                    fontSize: 13,
-                    color: "#222",
-                  }}
-                />
-
-                {mapSearchText.trim().length > 0 && (
-                  <Pressable
-                    onPress={() => setMapSearchText("")}
-                    style={{
-                      width: 34,
-                      height: 34,
-                      borderRadius: 17,
-                      backgroundColor: "#e8f5e9",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: "#2E7D32",
-                        fontSize: 20,
-                        fontWeight: "700",
-                        marginTop: -2,
-                      }}
-                    >
-                      ×
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-
-              <Pressable
-                onPress={searchMapLocation}
-                disabled={isSearchingMap}
-                style={{
-                  backgroundColor: isSearchingMap ? "#8aa887" : "#2E7D32",
-                  paddingVertical: 11,
-                  borderRadius: 10,
-                  alignItems: "center",
-                  marginBottom: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  {isSearchingMap ? "Searching..." : "Search Location"}
-                </Text>
-              </Pressable>
-
-              <View
-                style={{
-                  height: 260,
-                  borderRadius: 12,
-                  overflow: "hidden",
-                  backgroundColor: "#ddd",
-                }}
-              >
-                <MapView
-                  ref={mapRef}
-                  style={{ flex: 1 }}
-                  initialRegion={{
-                    latitude: mapLatitude || 10.3157,
-                    longitude: mapLongitude || 123.8854,
-                    latitudeDelta: 0.02,
-                    longitudeDelta: 0.02,
-                  }}
-                  onPress={async (event) => {
-                    const lat = event.nativeEvent.coordinate.latitude;
-                    const lng = event.nativeEvent.coordinate.longitude;
-
-                    setMapLatitude(lat);
-                    setMapLongitude(lng);
-
-                    await updateAddressFromPin(lat, lng);
-                  }}
-                >
-                  {mapLatitude !== null && mapLongitude !== null && (
-                    <Marker
-                      coordinate={{
-                        latitude: mapLatitude,
-                        longitude: mapLongitude,
-                      }}
-                      draggable
-                      title="Selected Address"
-                      description="For address auto-fill only"
-                      pinColor="green"
-                      onDragEnd={async (event) => {
-                        const lat = event.nativeEvent.coordinate.latitude;
-                        const lng = event.nativeEvent.coordinate.longitude;
-
-                        setMapLatitude(lat);
-                        setMapLongitude(lng);
-
-                        await updateAddressFromPin(lat, lng);
-                      }}
-                    />
-                  )}
-                </MapView>
-              </View>
-
-              <Pressable
-                onPress={getCurrentUserLocation}
-                style={{
-                  backgroundColor: "#2E7D32",
-                  paddingVertical: 12,
-                  borderRadius: 10,
-                  alignItems: "center",
-                  marginTop: 10,
-                }}
-              >
-                <Text
-                  style={{
-                    color: "#fff",
-                    fontWeight: "700",
-                    fontSize: 13,
-                  }}
-                >
-                  Use Current Location
-                </Text>
-              </Pressable>
-
-              {mapLatitude !== null && mapLongitude !== null && (
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: "#2E7D32",
-                    marginTop: 8,
-                    textAlign: "center",
-                    fontWeight: "600",
-                  }}
-                >
-                  Address location selected.
-                </Text>
-              )}
-            </View>
 
             <Text style={styles.label}>Type of ID</Text>
 
