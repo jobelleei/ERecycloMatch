@@ -585,11 +585,6 @@ export default function UserDashboard() {
                   </View>
                 )}
               </TouchableOpacity>
-
-              <Image
-                source={require("../../assets/icons/icon.png")}
-                style={styles.avatar}
-              />
             </View>
           </View>
 

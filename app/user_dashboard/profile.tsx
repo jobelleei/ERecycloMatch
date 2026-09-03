@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 export default function Profile() {
@@ -433,9 +434,7 @@ export default function Profile() {
               .trim()
               .toLowerCase();
 
-            return (
-              normalizedStatus === "listed" 
-            );
+            return normalizedStatus === "listed";
           },
         );
 
@@ -451,9 +450,7 @@ export default function Profile() {
           .trim()
           .toLowerCase();
 
-        return (
-          normalizedStatus === "listed" 
-        );
+        return normalizedStatus === "listed";
       });
 
       const sortedPosts = sortByLatest(listedPostsOnly);
@@ -758,76 +755,77 @@ export default function Profile() {
               </View>
 
               <View style={styles.ratingSummaryBox}>
-              <Text style={styles.ratingSummaryStars}>
-                {renderStars(Math.round(averageRating))}
-              </Text>
-
-              <Text style={styles.ratingSummaryText}>
-                {feedbacks.length > 0
-                  ? `${averageRating.toFixed(1)} out of 5 • ${
-                      feedbacks.length
-                    } feedback${feedbacks.length === 1 ? "" : "s"}`
-                  : "No feedback yet"}
-              </Text>
-            </View>
-
-            <View style={styles.profileActionButtons}>
-              <TouchableOpacity
-                style={styles.profileActionButton}
-                onPress={() => goToPage("/user_dashboard/user_myItems")}
-              >
-                <Text style={styles.profileActionButtonText}>My Items</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.profileActionButton}
-                onPress={() => goToPage("/user_dashboard/user_myListing")}
-              >
-                <Text style={styles.profileActionButtonText}>My Listings</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.sectionTabs}>
-              <TouchableOpacity
-                style={[
-                  styles.sectionTabButton,
-                  activeSection === "listed" && styles.activeSectionTab,
-                ]}
-                onPress={() => setActiveSection("listed")}
-              >
-                <Text
-                  style={[
-                    styles.sectionTabText,
-                    activeSection === "listed" && styles.activeSectionTabText,
-                  ]}
-                >
-                  Listed Items
+                <Text style={styles.ratingSummaryStars}>
+                  {renderStars(Math.round(averageRating))}
                 </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[
-                  styles.sectionTabButton,
-                  activeSection === "feedbacks" && styles.activeSectionTab,
-                ]}
-                onPress={() => setActiveSection("feedbacks")}
-              >
-                <Text
-                  style={[
-                    styles.sectionTabText,
-                    activeSection === "feedbacks" &&
-                      styles.activeSectionTabText,
-                  ]}
-                >
-                  Feedbacks
+                <Text style={styles.ratingSummaryText}>
+                  {feedbacks.length > 0
+                    ? `${averageRating.toFixed(1)} out of 5 • ${
+                        feedbacks.length
+                      } feedback${feedbacks.length === 1 ? "" : "s"}`
+                    : "No feedback yet"}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+
+              <View style={styles.profileActionButtons}>
+                <TouchableOpacity
+                  style={styles.profileActionButton}
+                  onPress={() => goToPage("/user_dashboard/user_myItems")}
+                >
+                  <Text style={styles.profileActionButtonText}>My Items</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.profileActionButton}
+                  onPress={() => goToPage("/user_dashboard/user_myListing")}
+                >
+                  <Text style={styles.profileActionButtonText}>
+                    My Listings
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.sectionTabs}>
+                <TouchableOpacity
+                  style={[
+                    styles.sectionTabButton,
+                    activeSection === "listed" && styles.activeSectionTab,
+                  ]}
+                  onPress={() => setActiveSection("listed")}
+                >
+                  <Text
+                    style={[
+                      styles.sectionTabText,
+                      activeSection === "listed" && styles.activeSectionTabText,
+                    ]}
+                  >
+                    Listed Items
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.sectionTabButton,
+                    activeSection === "feedbacks" && styles.activeSectionTab,
+                  ]}
+                  onPress={() => setActiveSection("feedbacks")}
+                >
+                  <Text
+                    style={[
+                      styles.sectionTabText,
+                      activeSection === "feedbacks" &&
+                        styles.activeSectionTabText,
+                    ]}
+                  >
+                    Feedbacks
+                  </Text>
+                </TouchableOpacity>
+              </View>
               {renderFeedbackSort()}
+            </View>
           </View>
-        </View>
         }
-
         ListEmptyComponent={
           <Text style={styles.emptyText}>
             {activeSection === "listed"
@@ -837,121 +835,7 @@ export default function Profile() {
         }
       />
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard")}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_scan")}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_scan" && styles.navActive,
-            ]}
-          >
-            Scan
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/user_map")}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/user_map" && styles.navActive,
-            ]}
-          >
-            Map
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/messages")}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/messages" && styles.navActive,
-            ]}
-          >
-            Messages
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/profile")}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/profile" && styles.navActive,
-            ]}
-          >
-            Profile
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => goToPage("/user_dashboard/settings")}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard/settings" && styles.navActive,
-            ]}
-          >
-            Settings
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <UserBottomNav userId={user.id} active="profile" />
     </SafeAreaView>
   );
 }
@@ -1054,26 +938,26 @@ const styles = StyleSheet.create({
   },
 
   profileActionButtons: {
-  flexDirection: "row",
-  width: "90%",
-  gap: 10,
-  marginTop: 12,
-},
+    flexDirection: "row",
+    width: "90%",
+    gap: 10,
+    marginTop: 12,
+  },
 
-profileActionButton: {
-  flex: 1,
-  backgroundColor: "#fff",
-  paddingVertical: 9,
-  borderRadius: 22,
-  alignItems: "center",
-  justifyContent: "center",
-},
+  profileActionButton: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingVertical: 9,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-profileActionButtonText: {
-  color: "#1b5e20",
-  fontWeight: "bold",
-  fontSize: 13,
-},
+  profileActionButtonText: {
+    color: "#1b5e20",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
 
   sectionTabs: {
     flexDirection: "row",
@@ -1345,40 +1229,5 @@ profileActionButtonText: {
     textAlign: "center",
     color: "#777",
     marginTop: 40,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 8,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });
