@@ -5,11 +5,10 @@ import {
   FlatList,
   Image,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import UserBottomNav from "../../components/UserBottomNav";
@@ -84,11 +83,16 @@ export default function Profile() {
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
-    const cleanPath = String(path).trim();
+    let cleanPath = String(path).trim();
 
     if (cleanPath.startsWith("http")) {
       return cleanPath;
     }
+
+    cleanPath = cleanPath.replace(/^\/+/, "");
+    cleanPath = cleanPath.replace(`${bucket}/`, "");
+    cleanPath = cleanPath.replace(`public/${bucket}/`, "");
+    cleanPath = cleanPath.replace(`storage/v1/object/public/${bucket}/`, "");
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
 
@@ -97,7 +101,6 @@ export default function Profile() {
 
   const getProfileImageUrl = (image: string) => {
     if (!image || String(image).trim() === "") return "";
-
     return getPublicImageUrl("profile-images", image);
   };
 
@@ -121,7 +124,6 @@ export default function Profile() {
 
     const cityPart = parts.find((part) => {
       const lowerPart = part.toLowerCase();
-
       return cityKeywords.some((keyword) => lowerPart.includes(keyword));
     });
 
@@ -412,35 +414,7 @@ export default function Profile() {
 
       if (error) {
         console.log("FETCH PROFILE POSTS ERROR:", error);
-
-        const fallbackResult = await supabase
-          .from("items")
-          .select("*")
-          .eq("user_id", String(user.id));
-
-        if (fallbackResult.error) {
-          console.log(
-            "FETCH PROFILE POSTS FALLBACK ERROR:",
-            fallbackResult.error,
-          );
-          setItems([]);
-          return;
-        }
-
-        const fallbackListedPostsOnly = (fallbackResult.data || []).filter(
-          (item: any) => {
-            const status = getPostStatus(item);
-            const normalizedStatus = String(status || "")
-              .trim()
-              .toLowerCase();
-
-            return normalizedStatus === "listed";
-          },
-        );
-
-        const sortedFallbackPosts = sortByLatest(fallbackListedPostsOnly);
-        setItems(sortedFallbackPosts);
-        await fetchIssuePhotosForListings(sortedFallbackPosts);
+        setItems([]);
         return;
       }
 
@@ -470,11 +444,11 @@ export default function Profile() {
         return;
       }
 
+      // Check feedback reviews matching Sophia's user profile ID
       const { data, error } = await supabase
         .from("match_feedbacks")
         .select("*")
-        .eq("rated_id", Number(user.id))
-        .eq("rated_role", "user")
+        .or(`rated_id.eq.${user.id},user_id.eq.${user.id}`)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -492,7 +466,6 @@ export default function Profile() {
           (sum: number, item: any) => sum + Number(item.rating || 0),
           0,
         );
-
         setAverageRating(total / finalData.length);
       } else {
         setAverageRating(0);
@@ -634,7 +607,7 @@ export default function Profile() {
       <View style={styles.feedbackCard}>
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackName}>
-            {item.rater_name || "Anonymous Facility"}
+            {item.rater_name || item.facility_name || "Partnered Facility"}
           </Text>
 
           <Text style={styles.feedbackDate}>
@@ -646,8 +619,10 @@ export default function Profile() {
           {renderStars(Number(item.rating || 0))}
         </Text>
 
-        {item.comment ? (
-          <Text style={styles.feedbackMessage}>{item.comment}</Text>
+        {item.comment || item.feedback || item.review ? (
+          <Text style={styles.feedbackMessage}>
+            {item.comment || item.feedback || item.review}
+          </Text>
         ) : (
           <Text style={styles.feedbackMuted}>No comment provided.</Text>
         )}
@@ -672,11 +647,7 @@ export default function Profile() {
       <View style={styles.filterWrapper}>
         <Text style={styles.filterTitle}>Sort Feedbacks</Text>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterScrollContent}
-        >
+        <View style={styles.filterChipsRow}>
           {options.map((option) => (
             <TouchableOpacity
               key={option.value}
@@ -684,6 +655,7 @@ export default function Profile() {
                 styles.filterChip,
                 feedbackSort === option.value && styles.activeFilterChip,
               ]}
+              activeOpacity={0.8}
               onPress={() => setFeedbackSort(option.value)}
             >
               <Text
@@ -696,7 +668,7 @@ export default function Profile() {
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
     );
   };
@@ -822,20 +794,23 @@ export default function Profile() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              {renderFeedbackSort()}
             </View>
+
+            {renderFeedbackSort()}
           </View>
         }
         ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            {activeSection === "listed"
-              ? "No listed posts yet."
-              : "No feedbacks yet."}
-          </Text>
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {activeSection === "listed"
+                ? "No listed posts yet."
+                : "No feedbacks yet."}
+            </Text>
+          </View>
         }
       />
 
-      <UserBottomNav userId={user.id} active="profile" />
+      {user.id ? <UserBottomNav userId={user.id} active="profile" /> : null}
     </SafeAreaView>
   );
 }
@@ -843,11 +818,11 @@ export default function Profile() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f2f2f2",
+    backgroundColor: "#f4f6f4",
   },
 
   listContent: {
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
 
   profileHeader: {
@@ -963,13 +938,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#fff",
     marginHorizontal: 15,
-    marginTop: 15,
+    marginTop: 18,
     borderRadius: 14,
     padding: 5,
-    elevation: 1,
+    elevation: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.08,
     shadowRadius: 3,
+    width: "90%",
   },
 
   sectionTabButton: {
@@ -994,16 +970,19 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
 
+  /* Fixed Filter Layout */
   filterWrapper: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     marginHorizontal: 15,
-    marginTop: 12,
+    marginTop: 14,
     borderRadius: 14,
     paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: "#e8ede8",
     elevation: 1,
     shadowColor: "#000",
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.04,
     shadowRadius: 3,
   },
 
@@ -1011,20 +990,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#222",
-    marginBottom: 8,
+    marginBottom: 10,
   },
 
-  filterScrollContent: {
+  filterChipsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
   },
 
   filterChip: {
+    flex: 1,
     borderWidth: 1,
     borderColor: "#1b5e20",
     paddingVertical: 7,
-    paddingHorizontal: 12,
     borderRadius: 20,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   activeFilterChip: {
@@ -1038,9 +1022,10 @@ const styles = StyleSheet.create({
   },
 
   activeFilterChipText: {
-    color: "#fff",
+    color: "#ffffff",
   },
 
+  /* Post Card Styles */
   postCard: {
     backgroundColor: "#fff",
     marginHorizontal: 15,
@@ -1174,16 +1159,19 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
+  /* Feedback Card Styles */
   feedbackCard: {
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
     marginHorizontal: 15,
-    marginTop: 15,
-    borderRadius: 15,
-    padding: 15,
+    marginTop: 12,
+    borderRadius: 14,
+    padding: 16,
     elevation: 2,
     shadowColor: "#000",
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.06,
     shadowRadius: 4,
+    borderWidth: 1,
+    borderColor: "#e8ede8",
   },
 
   feedbackHeader: {
@@ -1206,14 +1194,15 @@ const styles = StyleSheet.create({
   },
 
   feedbackStars: {
-    marginTop: 8,
-    fontSize: 18,
+    marginTop: 6,
+    fontSize: 17,
     color: "#fbc02d",
+    letterSpacing: 2,
   },
 
   feedbackMessage: {
     marginTop: 8,
-    color: "#555",
+    color: "#444",
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1221,13 +1210,19 @@ const styles = StyleSheet.create({
   feedbackMuted: {
     marginTop: 8,
     color: "#999",
-    fontSize: 14,
+    fontSize: 13,
     fontStyle: "italic",
+  },
+
+  emptyContainer: {
+    paddingVertical: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   emptyText: {
     textAlign: "center",
     color: "#777",
-    marginTop: 40,
+    fontSize: 14,
   },
 });

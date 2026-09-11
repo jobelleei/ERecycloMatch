@@ -1,203 +1,252 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
-import useUnreadCount from "./hooks/useUnreadCount";
+import { supabase } from "../utils/supabase";
 
-type ActivePage = "home" | "scan" | "map" | "messages" | "profile" | "settings";
-
-type Props = {
+interface UserBottomNavProps {
   userId: string;
-  active: ActivePage;
-};
-
-interface NavItemConfig {
-  key: ActivePage;
-  label: string;
-  iconName: keyof typeof Ionicons.glyphMap;
-  route: string;
+  active: "home" | "scan" | "map" | "messages" | "profile" | "settings";
 }
 
-export default function UserBottomNav({ userId, active }: Props) {
+export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
   const router = useRouter();
-  const unreadCount = useUnreadCount(userId, "user");
+  const [hasUnreadMessages, setHasUnreadMessages] = useState<boolean>(false);
 
-  const go = (route: string) => {
-    router.replace(route as any);
+  const fetchUnreadStatus = async () => {
+    if (!userId) {
+      setHasUnreadMessages(false);
+      return;
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", String(userId))
+        .eq("is_read", false);
+
+      if (!error && count !== null) {
+        setHasUnreadMessages(count > 0);
+      } else {
+        setHasUnreadMessages(false);
+      }
+    } catch (e) {
+      console.log("NAV UNREAD ERROR:", e);
+      setHasUnreadMessages(false);
+    }
   };
 
-  const navItems: NavItemConfig[] = [
-    {
-      key: "home",
-      label: "Home",
-      iconName: "home-outline",
-      route: "/user_dashboard",
-    },
-    {
-      key: "scan",
-      label: "Scan",
-      iconName: "scan-outline",
-      route: "/user_dashboard/user_scan",
-    },
-    {
-      key: "map",
-      label: "Map",
-      iconName: "map-outline",
-      route: "/user_dashboard/user_map",
-    },
-    {
-      key: "messages",
-      label: "Messages",
-      iconName: "chatbubble-ellipses-outline",
-      route: "/user_dashboard/messages",
-    },
-    {
-      key: "profile",
-      label: "Profile",
-      iconName: "person-outline",
-      route: "/user_dashboard/profile",
-    },
-    {
-      key: "settings",
-      label: "Settings",
-      iconName: "settings-outline",
-      route: "/user_dashboard/settings",
-    },
-  ];
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadStatus();
+    }, [userId, active]),
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+
+    fetchUnreadStatus();
+
+    const channelId = `nav-msg-${userId}-${Date.now()}`;
+    const channel = supabase.channel(channelId);
+
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => fetchUnreadStatus(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        () => fetchUnreadStatus(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.bottomNav}>
-        {navItems.map((item) => {
-          const isActive = active === item.key;
-          const iconColor = isActive ? "#2f7d1f" : "#444444";
+    <View style={navStyles.container}>
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard" as any)}
+      >
+        <Ionicons
+          name={active === "home" ? "home" : "home-outline"}
+          size={22}
+          color={active === "home" ? "#2e7d32" : "#777"}
+        />
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "home" && navStyles.activeLabel,
+          ]}
+        >
+          Home
+        </Text>
+      </TouchableOpacity>
 
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.navItem}
-              activeOpacity={0.8}
-              onPress={() => go(item.route)}
-            >
-              {/* Reference notch arch & white dot */}
-              {isActive && (
-                <View style={styles.notchWrapper} pointerEvents="none">
-                  <Svg width="56" height="26" viewBox="0 0 56 26">
-                    {/* The smooth scooped curve connecting to the top edge */}
-                    <Path
-                      d="M0,0 C14,0 18,18 28,18 C38,18 42,0 56,0 L56,0 Z"
-                      fill="#2f7d1f"
-                    />
-                    {/* The floating white dot centered in the scoop */}
-                    <Circle cx="28" cy="8" r="4" fill="#ffffff" />
-                  </Svg>
-                </View>
-              )}
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard/user_scan" as any)}
+      >
+        <Ionicons
+          name={active === "scan" ? "scan" : "scan-outline"}
+          size={22}
+          color={active === "scan" ? "#2e7d32" : "#777"}
+        />
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "scan" && navStyles.activeLabel,
+          ]}
+        >
+          Scan
+        </Text>
+      </TouchableOpacity>
 
-              <View style={styles.iconWrapper}>
-                <Ionicons name={item.iconName} size={22} color={iconColor} />
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard/user_map" as any)}
+      >
+        <Ionicons
+          name={active === "map" ? "map" : "map-outline"}
+          size={22}
+          color={active === "map" ? "#2e7d32" : "#777"}
+        />
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "map" && navStyles.activeLabel,
+          ]}
+        >
+          Map
+        </Text>
+      </TouchableOpacity>
 
-                {item.key === "messages" && unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard/messages" as any)}
+      >
+        <View style={navStyles.iconWrapper}>
+          <Ionicons
+            name={
+              active === "messages"
+                ? "chatbubble-ellipses"
+                : "chatbubble-ellipses-outline"
+            }
+            size={22}
+            color={active === "messages" ? "#2e7d32" : "#777"}
+          />
+          {hasUnreadMessages && <View style={navStyles.redDot} />}
+        </View>
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "messages" && navStyles.activeLabel,
+          ]}
+        >
+          Messages
+        </Text>
+      </TouchableOpacity>
 
-              <Text style={[styles.navLabel, isActive && styles.navActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard/profile" as any)}
+      >
+        <Ionicons
+          name={active === "profile" ? "person" : "person-outline"}
+          size={22}
+          color={active === "profile" ? "#2e7d32" : "#777"}
+        />
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "profile" && navStyles.activeLabel,
+          ]}
+        >
+          Profile
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={navStyles.navItem}
+        onPress={() => router.push("/user_dashboard/settings" as any)}
+      >
+        <Ionicons
+          name={active === "settings" ? "settings" : "settings-outline"}
+          size={22}
+          color={active === "settings" ? "#2e7d32" : "#777"}
+        />
+        <Text
+          style={[
+            navStyles.navLabel,
+            active === "settings" && navStyles.activeLabel,
+          ]}
+        >
+          Settings
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  outerContainer: {
+const navStyles = StyleSheet.create({
+  container: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    alignItems: "center",
-    paddingBottom: 12,
-    backgroundColor: "transparent",
-  },
-
-  bottomNav: {
-    width: "94%",
     height: 64,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 28,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: "#ededed",
+    borderTopWidth: 1,
+    borderTopColor: "#e5e5e5",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingBottom: 6,
   },
-
   navItem: {
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    height: "100%",
-    position: "relative",
-    paddingTop: 8,
   },
-
-  notchWrapper: {
-    position: "absolute",
-    top: -1,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 10,
-  },
-
   iconWrapper: {
     position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
   },
-
+  redDot: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: "#d32f2f",
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
+  },
   navLabel: {
-    fontSize: 10.5,
+    fontSize: 10,
     color: "#777777",
-    marginTop: 3,
+    marginTop: 2,
     fontWeight: "500",
   },
-
-  navActive: {
-    color: "#2f7d1f",
+  activeLabel: {
+    color: "#2e7d32",
     fontWeight: "700",
-  },
-
-  badge: {
-    position: "absolute",
-    top: -4,
-    right: -9,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#E53935",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 3,
-  },
-
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "bold",
   },
 });
 

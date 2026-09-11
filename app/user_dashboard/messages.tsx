@@ -117,16 +117,24 @@ export default function UserMessages() {
     useCallback(() => {
       if (user?.id) {
         fetchConversations(user.id);
+
+        // Instantly mark conversations as read to clear the red dot on visit
+        supabase
+          .from("conversations")
+          .update({ is_read: true })
+          .eq("user_id", String(user.id))
+          .eq("is_read", false)
+          .then();
       }
     }, [user?.id]),
   );
 
-  // Real-time subscription for messages & conversations
   useEffect(() => {
     if (!user?.id) return;
 
+    const convChannelId = `user-conv-${user.id}-${Date.now()}`;
     const convChannel = supabase
-      .channel(`user-conversations-channel-${user.id}`)
+      .channel(convChannelId)
       .on(
         "postgres_changes",
         {
@@ -141,8 +149,9 @@ export default function UserMessages() {
       )
       .subscribe();
 
+    const msgChannelId = `user-msg-${user.id}-${Date.now()}`;
     const msgChannel = supabase
-      .channel(`user-messages-channel-${user.id}`)
+      .channel(msgChannelId)
       .on(
         "postgres_changes",
         {
@@ -317,7 +326,6 @@ export default function UserMessages() {
       const groupedConversations = groupConversationsByFacility(data || []);
       setConversations(groupedConversations);
 
-      // Auto-open specific chat if navigated with conversationId parameter from notification
       if (params?.conversationId) {
         const target = groupedConversations.find(
           (c) => String(c.id) === String(params.conversationId),
@@ -543,24 +551,24 @@ export default function UserMessages() {
   };
 
   const openChat = async (conversation: any) => {
-    // Mark messages and notification as read for this conversation
-    if (!conversation.is_read) {
-      await supabase
-        .from("conversations")
-        .update({ is_read: true })
-        .eq("id", conversation.id);
+    const convId = conversation.id;
+    const currentUserId = Number(user?.id);
 
+    setConversations((prev) =>
+      prev.map((c) => (c.id === convId ? { ...c, is_read: true } : c)),
+    );
+
+    await supabase
+      .from("conversations")
+      .update({ is_read: true })
+      .eq("id", convId);
+
+    if (!isNaN(currentUserId)) {
       await supabase
         .from("notifications")
         .update({ is_read: true })
-        .eq("profile_id", Number(user.id))
-        .contains("data", { conversation_id: conversation.id });
-
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversation.id ? { ...c, is_read: true } : c,
-        ),
-      );
+        .eq("profile_id", currentUserId)
+        .contains("data", { conversation_id: convId });
     }
 
     router.push({

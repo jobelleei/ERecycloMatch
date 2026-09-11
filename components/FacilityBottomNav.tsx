@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import useUnreadCount from "./hooks/useUnreadCount";
+import { supabase } from "../utils/supabase";
 
 type ActivePage = "home" | "map" | "messages" | "profile" | "settings";
 
@@ -14,173 +14,198 @@ type Props = {
 interface NavItemConfig {
   key: ActivePage;
   label: string;
-  iconName: keyof typeof Ionicons.glyphMap;
+  activeIcon: keyof typeof Ionicons.glyphMap;
+  inactiveIcon: keyof typeof Ionicons.glyphMap;
   route: string;
 }
 
 export default function FacilityBottomNav({ facilityId, active }: Props) {
   const router = useRouter();
+  const [hasUnreadMessages, setHasUnreadMessages] = useState<boolean>(false);
 
-  const unreadCount = useUnreadCount(facilityId, "facility");
+  const fetchUnreadStatus = async () => {
+    if (!facilityId) {
+      setHasUnreadMessages(false);
+      return;
+    }
 
-  const go = (route: string) => {
-    router.replace(route as any);
+    try {
+      const { count, error } = await supabase
+        .from("conversations")
+        .select("id", { count: "exact", head: true })
+        .eq("facility_id", String(facilityId))
+        .eq("is_read", false);
+
+      if (!error && count !== null) {
+        setHasUnreadMessages(count > 0);
+      } else {
+        setHasUnreadMessages(false);
+      }
+    } catch (e) {
+      console.log("FACILITY NAV UNREAD ERROR:", e);
+      setHasUnreadMessages(false);
+    }
   };
+
+  // Re-check unread messages status whenever the tab or screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchUnreadStatus();
+    }, [facilityId, active]),
+  );
+
+  // Realtime subscription with unique channel key to avoid duplicate subscription errors
+  useEffect(() => {
+    if (!facilityId) return;
+
+    fetchUnreadStatus();
+
+    const channelId = `facility-nav-msg-${facilityId}-${Date.now()}`;
+    const channel = supabase.channel(channelId);
+
+    channel
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+          filter: `facility_id=eq.${facilityId}`,
+        },
+        () => fetchUnreadStatus(),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        () => fetchUnreadStatus(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [facilityId]);
 
   const navItems: NavItemConfig[] = [
     {
       key: "home",
       label: "Home",
-      iconName: "home-outline",
+      activeIcon: "home",
+      inactiveIcon: "home-outline",
       route: "/facility_dashboard",
     },
     {
       key: "map",
       label: "Map",
-      iconName: "map-outline",
+      activeIcon: "map",
+      inactiveIcon: "map-outline",
       route: "/facility_dashboard/facility_map",
     },
     {
       key: "messages",
       label: "Messages",
-      iconName: "chatbubble-ellipses-outline",
+      activeIcon: "chatbubble-ellipses",
+      inactiveIcon: "chatbubble-ellipses-outline",
       route: "/facility_dashboard/messages",
     },
     {
       key: "profile",
       label: "Profile",
-      iconName: "person-outline",
+      activeIcon: "person",
+      inactiveIcon: "person-outline",
       route: "/facility_dashboard/profile",
     },
     {
       key: "settings",
       label: "Settings",
-      iconName: "settings-outline",
+      activeIcon: "settings",
+      inactiveIcon: "settings-outline",
       route: "/facility_dashboard/settings",
     },
   ];
 
   return (
-    <View style={styles.outerContainer}>
-      <View style={styles.bottomNav}>
-        {navItems.map((item) => {
-          const isActive = active === item.key;
-          const iconColor = isActive ? "#2f7d1f" : "#444444";
+    <View style={navStyles.container}>
+      {navItems.map((item) => {
+        const isActive = active === item.key;
+        const iconName = isActive ? item.activeIcon : item.inactiveIcon;
+        const iconColor = isActive ? "#2e7d32" : "#777777";
 
-          return (
-            <TouchableOpacity
-              key={item.key}
-              style={styles.navItem}
-              activeOpacity={0.7}
-              onPress={() => go(item.route)}
+        return (
+          <TouchableOpacity
+            key={item.key}
+            style={navStyles.navItem}
+            activeOpacity={0.7}
+            onPress={() => router.push(item.route as any)}
+          >
+            <View style={navStyles.iconWrapper}>
+              <Ionicons name={iconName} size={22} color={iconColor} />
+
+              {/* Red dot badge matching UserBottomNav */}
+              {item.key === "messages" && hasUnreadMessages && (
+                <View style={navStyles.redDot} />
+              )}
+            </View>
+
+            <Text
+              style={[navStyles.navLabel, isActive && navStyles.activeLabel]}
             >
-              {isActive && <View style={styles.activeDot} />}
-
-              <View style={styles.iconWrapper}>
-                <Ionicons name={item.iconName} size={23} color={iconColor} />
-
-                {item.key === "messages" && unreadCount > 0 && (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </Text>
-                  </View>
-                )}
-              </View>
-
-              <Text style={[styles.navLabel, isActive && styles.navActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+              {item.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  outerContainer: {
+const navStyles = StyleSheet.create({
+  container: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    alignItems: "center",
-    paddingBottom: 10,
-    backgroundColor: "transparent",
-  },
-
-  bottomNav: {
-    width: "94%",
     height: 64,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
     backgroundColor: "#ffffff",
-    borderRadius: 28,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: "#ededed",
+    borderTopWidth: 1,
+    borderTopColor: "#e5e5e5",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-around",
+    paddingBottom: 6,
   },
-
   navItem: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    height: "100%",
+    flex: 1,
+  },
+  iconWrapper: {
     position: "relative",
   },
-
-  activeDot: {
+  redDot: {
     position: "absolute",
-    top: -5,
+    top: -2,
+    right: -4,
     width: 9,
     height: 9,
     borderRadius: 4.5,
-    backgroundColor: "#2f7d1f",
+    backgroundColor: "#d32f2f",
     borderWidth: 1.5,
     borderColor: "#ffffff",
   },
-
-  iconWrapper: {
-    position: "relative",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
   navLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: "#777777",
-    marginTop: 3,
+    marginTop: 2,
     fontWeight: "500",
   },
-
-  navActive: {
-    color: "#2f7d1f",
+  activeLabel: {
+    color: "#2e7d32",
     fontWeight: "700",
-  },
-
-  badge: {
-    position: "absolute",
-    top: -5,
-    right: -9,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "#E53935",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 3,
-  },
-
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "bold",
   },
 });
 

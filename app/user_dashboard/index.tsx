@@ -72,6 +72,7 @@ export default function UserDashboard() {
     }, [userId]),
   );
 
+  // Fixed Realtime Notification Subscription: uses unique channel key to avoid post-subscribe mutation errors
   useEffect(() => {
     if (!userId) {
       setUnreadNotificationCount(0);
@@ -80,8 +81,10 @@ export default function UserDashboard() {
 
     fetchUnreadNotificationCount(userId);
 
-    const channel = supabase
-      .channel(`dashboard-user-notifications-${userId}`)
+    const channelId = `dashboard-notifs-${userId}-${Date.now()}`;
+    const channel = supabase.channel(channelId);
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -184,6 +187,13 @@ export default function UserDashboard() {
         actualUser?.username ||
         parsed?.username ||
         "User";
+
+      const role = String(actualUser?.role || parsed?.role || "").toLowerCase();
+
+      if (role && role !== "user") {
+        router.replace("/facility_dashboard" as any);
+        return;
+      }
 
       setUserId(String(id || ""));
       setUserEmail(String(email || ""));
@@ -304,7 +314,6 @@ export default function UserDashboard() {
 
         if (fallback.error) {
           console.log("DASHBOARD RECENT ITEMS FALLBACK ERROR:", fallback.error);
-
           setRecentItems([]);
           return;
         }
@@ -314,16 +323,13 @@ export default function UserDashboard() {
         );
 
         setRecentItems(sortByLatestSubmitted(visibleFallbackItems).slice(0, 3));
-
         return;
       }
 
       const visibleItems = (data || []).filter(isVisibleDashboardItem);
-
       setRecentItems(sortByLatestSubmitted(visibleItems).slice(0, 3));
     } catch (error) {
       console.log("FETCH RECENT ITEMS ERROR:", error);
-
       setRecentItems([]);
     }
   };
@@ -791,30 +797,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   welcome: {
     fontSize: 18,
     fontWeight: "600",
     flex: 1,
     marginRight: 10,
   },
-
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   notificationButton: {
     width: 42,
     height: 42,
@@ -827,7 +828,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
     position: "relative",
   },
-
   notificationBadge: {
     position: "absolute",
     top: -2,
@@ -842,24 +842,20 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#f5f5f5",
   },
-
   notificationBadgeText: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "800",
   },
-
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
   },
-
   searchArea: {
     marginTop: 15,
     zIndex: 999,
   },
-
   searchBox: {
     backgroundColor: "#dff0d8",
     borderRadius: 25,
@@ -868,21 +864,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-
   searchInput: {
     flex: 1,
     height: 42,
     fontSize: 14,
     color: "#222",
   },
-
   clearSearch: {
     fontSize: 26,
     color: "#555",
     paddingHorizontal: 5,
     marginBottom: 2,
   },
-
   searchResultsBox: {
     position: "absolute",
     top: 55,
@@ -899,24 +892,20 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 9999,
   },
-
   searchResultScroll: {
     maxHeight: 290,
   },
-
   searchLoading: {
     padding: 18,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
   },
-
   searchLoadingText: {
     marginLeft: 8,
     color: "#555",
     fontSize: 14,
   },
-
   facilitySearchItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -925,41 +914,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-
   searchFacilityImage: {
     width: 45,
     height: 45,
     borderRadius: 23,
     backgroundColor: "#eee",
   },
-
   searchFacilityInfo: {
     flex: 1,
     marginLeft: 12,
   },
-
   searchFacilityName: {
     fontSize: 15,
     fontWeight: "700",
     color: "#222",
   },
-
   searchFacilityLocation: {
     marginTop: 3,
     fontSize: 13,
     color: "#666",
   },
-
   noSearchResult: {
     padding: 18,
     alignItems: "center",
   },
-
   noSearchResultText: {
     color: "#777",
     fontSize: 14,
   },
-
   banner: {
     marginTop: 20,
     height: 180,
@@ -969,41 +951,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.5)",
   },
-
   bannerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     textAlign: "center",
   },
-
   bannerSub: {
     marginTop: 8,
     fontSize: 12,
     textAlign: "center",
   },
-
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 20,
     alignItems: "center",
   },
-
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
   },
-
   viewAll: {
     color: "#777",
     fontWeight: "600",
   },
-
   itemCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1012,48 +987,39 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginTop: 10,
   },
-
   itemImage: {
     width: 50,
     height: 50,
     borderRadius: 10,
     backgroundColor: "#eee",
   },
-
   itemTitle: {
     fontWeight: "bold",
   },
-
   itemSub: {
     color: "#777",
     marginTop: 2,
   },
-
   statusGreen: {
     color: "green",
     fontWeight: "600",
   },
-
   statusBlue: {
     color: "#1976d2",
     fontWeight: "600",
   },
-
   statusOrange: {
     color: "orange",
     fontWeight: "600",
   },
-
   statusRed: {
     color: "red",
     fontWeight: "600",
   },
-
   statusGray: {
     color: "gray",
     fontWeight: "600",
   },
-
   emptyCard: {
     backgroundColor: "#fff",
     padding: 18,
@@ -1061,13 +1027,11 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: "center",
   },
-
   emptyText: {
     color: "gray",
     fontSize: 14,
     marginTop: 5,
   },
-
   facilityCard: {
     width: 165,
     backgroundColor: "#fff",
@@ -1076,21 +1040,18 @@ const styles = StyleSheet.create({
     marginRight: 15,
     marginTop: 10,
   },
-
   facilityImage: {
     width: "100%",
     height: 115,
     borderRadius: 12,
     backgroundColor: "#e0e0e0",
   },
-
   facilityName: {
     marginTop: 8,
     fontWeight: "700",
     fontSize: 14,
     color: "#222",
   },
-
   facilityLocation: {
     marginTop: 3,
     fontSize: 12,
