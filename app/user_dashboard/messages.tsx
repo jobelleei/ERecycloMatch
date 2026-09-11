@@ -1,6 +1,5 @@
-import UserBottomNav from "../../components/UserBottomNav";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 function SwipeableConversation({
@@ -67,7 +67,7 @@ function SwipeableConversation({
           closeRow();
         }
       },
-    })
+    }),
   ).current;
 
   return (
@@ -102,6 +102,7 @@ function SwipeableConversation({
 
 export default function UserMessages() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
   const [user, setUser] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -113,13 +114,53 @@ export default function UserMessages() {
   }, []);
 
   useFocusEffect(
-  useCallback(() => {
-    if (user?.id) {
-      fetchConversations(user.id);
-    }
+    useCallback(() => {
+      if (user?.id) {
+        fetchConversations(user.id);
+      }
+    }, [user?.id]),
+  );
 
-  }, [user?.id])
-);
+  // Real-time subscription for messages & conversations
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const convChannel = supabase
+      .channel(`user-conversations-channel-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversations",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchConversations(user.id);
+        },
+      )
+      .subscribe();
+
+    const msgChannel = supabase
+      .channel(`user-messages-channel-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          fetchConversations(user.id);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(convChannel);
+      supabase.removeChannel(msgChannel);
+    };
+  }, [user?.id]);
 
   const loadUser = async () => {
     try {
@@ -209,7 +250,7 @@ export default function UserMessages() {
         conversation?.facility_id ||
           conversation?.facility_name ||
           conversation?.id ||
-          ""
+          "",
       );
 
       if (!facilityKey) return;
@@ -220,7 +261,7 @@ export default function UserMessages() {
         grouped[facilityKey] = {
           ...conversation,
           related_conversation_ids: [String(conversation.id || "")].filter(
-            Boolean
+            Boolean,
           ),
         };
         return;
@@ -249,7 +290,7 @@ export default function UserMessages() {
 
     return Object.values(grouped).sort(
       (a: any, b: any) =>
-        getConversationTimeValue(b) - getConversationTimeValue(a)
+        getConversationTimeValue(b) - getConversationTimeValue(a),
     );
   };
 
@@ -275,6 +316,16 @@ export default function UserMessages() {
 
       const groupedConversations = groupConversationsByFacility(data || []);
       setConversations(groupedConversations);
+
+      // Auto-open specific chat if navigated with conversationId parameter from notification
+      if (params?.conversationId) {
+        const target = groupedConversations.find(
+          (c) => String(c.id) === String(params.conversationId),
+        );
+        if (target) {
+          openChat(target);
+        }
+      }
     } catch (error) {
       console.log("FETCH USER CONVERSATIONS ERROR:", error);
       setConversations([]);
@@ -286,7 +337,6 @@ export default function UserMessages() {
   const onRefresh = async () => {
     try {
       setRefreshing(true);
-
       if (user?.id) {
         await fetchConversations(user.id);
       }
@@ -297,12 +347,8 @@ export default function UserMessages() {
 
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
-
     let cleanPath = String(path).trim();
-
-    if (cleanPath.startsWith("http")) {
-      return cleanPath;
-    }
+    if (cleanPath.startsWith("http")) return cleanPath;
 
     cleanPath = cleanPath.replace(/^\/+/, "");
     cleanPath = cleanPath.replace(`${bucket}/`, "");
@@ -314,15 +360,10 @@ export default function UserMessages() {
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
-
     const cleanPath = normalizeStoragePath(path, bucket);
-
-    if (cleanPath.startsWith("http")) {
-      return cleanPath;
-    }
+    if (cleanPath.startsWith("http")) return cleanPath;
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
-
     return data?.publicUrl || "";
   };
 
@@ -346,7 +387,6 @@ export default function UserMessages() {
     }
 
     const imageUrl = getPublicImageUrl("profile-images", String(imagePath));
-
     if (!imageUrl) {
       return require("../../assets/icons/avatar.png");
     }
@@ -360,9 +400,7 @@ export default function UserMessages() {
 
   const formatDate = (value: string) => {
     if (!value) return "";
-
     const date = new Date(value);
-
     if (isNaN(date.getTime())) return "";
 
     return date.toLocaleString("en-PH", {
@@ -381,7 +419,7 @@ export default function UserMessages() {
   const isPendingRequest = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const requestStatus = String(
-      conversation?.request_status || ""
+      conversation?.request_status || "",
     ).toLowerCase();
 
     return (
@@ -445,10 +483,7 @@ export default function UserMessages() {
       "Delete Conversation",
       "Are you sure you want to delete this conversation?",
       [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
@@ -464,14 +499,10 @@ export default function UserMessages() {
                 return;
               }
 
-              const { error: messagesError } = await supabase
+              await supabase
                 .from("messages")
                 .delete()
                 .in("conversation_id", conversationIds);
-
-              if (messagesError) {
-                console.log("DELETE MESSAGES ERROR:", messagesError);
-              }
 
               const { error: conversationsError } = await supabase
                 .from("conversations")
@@ -492,9 +523,9 @@ export default function UserMessages() {
                       : [String(item.id || "")].filter(Boolean);
 
                   return !itemIds.some((id: string) =>
-                    conversationIds.includes(id)
+                    conversationIds.includes(id),
                   );
-                })
+                }),
               );
 
               Alert.alert("Deleted", "Conversation deleted successfully.");
@@ -502,16 +533,36 @@ export default function UserMessages() {
               console.log("DELETE CONVERSATION ERROR:", error);
               Alert.alert(
                 "Delete Failed",
-                error?.message || "Unable to delete conversation."
+                error?.message || "Unable to delete conversation.",
               );
             }
           },
         },
-      ]
+      ],
     );
   };
 
-  const openChat = (conversation: any) => {
+  const openChat = async (conversation: any) => {
+    // Mark messages and notification as read for this conversation
+    if (!conversation.is_read) {
+      await supabase
+        .from("conversations")
+        .update({ is_read: true })
+        .eq("id", conversation.id);
+
+      await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("profile_id", Number(user.id))
+        .contains("data", { conversation_id: conversation.id });
+
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === conversation.id ? { ...c, is_read: true } : c,
+        ),
+      );
+    }
+
     router.push({
       pathname: "/user_dashboard/chat" as any,
       params: {
@@ -529,58 +580,64 @@ export default function UserMessages() {
   };
 
   const renderConversation = ({ item }: any) => {
+    const isUnread = !item.is_read;
+
     return (
       <SwipeableConversation item={item} onDelete={deleteConversation}>
         <TouchableOpacity
-          style={styles.conversationCard}
+          style={[
+            styles.conversationCard,
+            isUnread && styles.unreadConversationCard,
+          ]}
           activeOpacity={0.85}
           onPress={() => openChat(item)}
         >
-          <Image source={getFacilityImageSource(item)} style={styles.avatar} />
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={getFacilityImageSource(item)}
+              style={styles.avatar}
+            />
+            {isUnread && <View style={styles.unreadAvatarDot} />}
+          </View>
 
           <View style={styles.conversationInfo}>
-  <View style={styles.topRow}>
-    <Text
-      style={styles.facilityName}
-      numberOfLines={1}
-    >
-      {item.facility_name || "Facility"}
-    </Text>
+            <View style={styles.topRow}>
+              <Text
+                style={[
+                  styles.facilityName,
+                  isUnread && styles.unreadFacilityName,
+                ]}
+                numberOfLines={1}
+              >
+                {item.facility_name || "Facility"}
+              </Text>
 
-    <Text
-      style={[
-        styles.timeText,
-        item.is_read
-          ? styles.readItemText
-          : styles.unreadItemText,
-      ]}
-    >
-      {formatDate(item.updated_at || item.created_at)}
-    </Text>
-  </View>
+              <Text
+                style={[
+                  styles.timeText,
+                  isUnread ? styles.unreadItemText : styles.readItemText,
+                ]}
+              >
+                {formatDate(item.updated_at || item.created_at)}
+              </Text>
+            </View>
 
- <Text
-  style={[
-    styles.itemName,
-    item.is_read
-      ? styles.readItemText
-      : styles.unreadItemText,
-  ]}
->
-    Latest item: {item.item_name || "Unnamed Item"}
-  </Text>
+            <Text
+              style={[
+                styles.itemName,
+                isUnread ? styles.unreadItemText : styles.readItemText,
+              ]}
+              numberOfLines={1}
+            >
+              Latest item: {item.item_name || "Unnamed Item"}
+            </Text>
 
-  <View style={styles.statusRow}>
-    <Text
-      style={[
-        styles.statusText,
-        getStatusStyle(item),
-      ]}
-    >
-      {getConversationStatus(item)}
-    </Text>
-  </View>
-</View>
+            <View style={styles.statusRow}>
+              <Text style={[styles.statusText, getStatusStyle(item)]}>
+                {getConversationStatus(item)}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
       </SwipeableConversation>
     );
@@ -613,7 +670,6 @@ export default function UserMessages() {
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Text style={styles.emptyTitle}>No messages yet</Text>
-
             <Text style={styles.emptyText}>
               Your match conversations with facilities will appear here.
             </Text>
@@ -621,10 +677,7 @@ export default function UserMessages() {
         }
       />
 
-        <UserBottomNav
-          userId={user.id}
-          active="messages"
-        />
+      {user?.id && <UserBottomNav userId={user.id} active="messages" />}
     </SafeAreaView>
   );
 }
@@ -636,20 +689,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-
   loadingContainer: {
     flex: 1,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
   },
-
   loadingText: {
     marginTop: 10,
     color: "#1b5e20",
     fontWeight: "600",
   },
-
   header: {
     fontSize: 24,
     fontWeight: "bold",
@@ -657,23 +707,19 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 15,
   },
-
   listContent: {
     paddingBottom: 110,
   },
-
   swipeWrapper: {
     marginBottom: 12,
     position: "relative",
     overflow: "hidden",
     borderRadius: 14,
   },
-
   swipeForeground: {
     backgroundColor: "#fff",
     borderRadius: 14,
   },
-
   deleteActionBehind: {
     position: "absolute",
     right: 0,
@@ -685,7 +731,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#d32f2f",
     borderRadius: 14,
   },
-
   conversationCard: {
     flexDirection: "row",
     backgroundColor: "#f7f7f7",
@@ -695,7 +740,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
   },
-
+  unreadConversationCard: {
+    backgroundColor: "#f2f8f2",
+    borderColor: "#b6dfb8",
+  },
   deleteSwipeButton: {
     width: 92,
     height: "100%",
@@ -704,93 +752,90 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
   },
-
   deleteSwipeText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
   },
-
+  avatarWrapper: {
+    position: "relative",
+    marginRight: 12,
+  },
   avatar: {
     width: 58,
     height: 58,
     borderRadius: 29,
     backgroundColor: "#ddd",
-    marginRight: 12,
   },
-
+  unreadAvatarDot: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#2e7d32",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
   conversationInfo: {
     flex: 1,
   },
-
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   timeText: {
     fontSize: 11,
-    color: "#777",
   },
-
   itemName: {
     marginTop: 3,
     fontSize: 13,
-    color: "#111",
+  },
+  readItemText: {
+    color: "#777",
     fontWeight: "400",
   },
-
-  readItemText: {
-  color: "#888",
-  fontWeight: "400",
-},
-
-unreadItemText: {
-  color: "#111",
-  fontWeight: "600",
-},
-
+  unreadItemText: {
+    color: "#1b5e20",
+    fontWeight: "700",
+  },
   statusRow: {
     marginTop: 7,
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
   },
-
   statusText: {
     fontSize: 12,
     fontWeight: "bold",
   },
-
   pendingStatus: {
     color: "#fbc02d",
   },
-
   matchedStatus: {
     color: "#1976d2",
   },
-
   finishedStatus: {
     color: "green",
   },
-
   cancelledStatus: {
     color: "red",
   },
-
   defaultStatus: {
     color: "#555",
   },
-
-facilityName: {
-  flex: 1,
-  fontSize: 16,
-  color: "#111",
-  fontWeight: "bold",
-  marginRight: 8,
-},
-
+  facilityName: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111",
+    fontWeight: "bold",
+    marginRight: 8,
+  },
+  unreadFacilityName: {
+    color: "#1b5e20",
+  },
   emptyBox: {
     backgroundColor: "#f5f5f5",
     marginTop: 40,
@@ -798,14 +843,12 @@ facilityName: {
     borderRadius: 14,
     alignItems: "center",
   },
-
   emptyTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#222",
     marginBottom: 6,
   },
-
   emptyText: {
     fontSize: 14,
     color: "#666",

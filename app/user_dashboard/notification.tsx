@@ -4,13 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 type NotificationItem = {
@@ -246,6 +246,7 @@ export default function UserNotifications() {
         return "✓";
 
       case "nearby_facility":
+      case "facility_match":
         return "📍";
 
       default:
@@ -259,6 +260,7 @@ export default function UserNotifications() {
     const type = String(item.type || "")
       .trim()
       .toLowerCase();
+    const data = item.data || {};
 
     if (
       type === "message" ||
@@ -267,6 +269,23 @@ export default function UserNotifications() {
       type === "match_accepted" ||
       type === "match_request"
     ) {
+      if (data?.conversation_id) {
+        router.push({
+          pathname: "/user_dashboard/chat" as any,
+          params: {
+            conversationId: String(data.conversation_id),
+            facility_id: String(data.facility_id || ""),
+            facility_name: String(data.facility_name || "Facility"),
+            profile_image: String(data.facility_profile_image || ""),
+            item_id: String(data.item_id || ""),
+            item_name: String(data.item_name || ""),
+            status: String(data.status || ""),
+            requested_by: String(data.requested_by || ""),
+            request_status: String(data.request_status || ""),
+          },
+        });
+        return;
+      }
       router.push("/user_dashboard/messages" as any);
       return;
     }
@@ -283,13 +302,21 @@ export default function UserNotifications() {
     if (
       type === "approval" ||
       type === "item_approved" ||
-      type === "listing_approved"
+      type === "listing_approved" ||
+      type === "item_rejected"
     ) {
       router.push("/user_dashboard/user_myItems" as any);
       return;
     }
 
-    if (type === "nearby_facility") {
+    if (type === "nearby_facility" || type === "facility_match") {
+      if (data?.facility_id) {
+        router.push({
+          pathname: "/user_dashboard/facility_details" as any,
+          params: { facilityId: String(data.facility_id) },
+        });
+        return;
+      }
       router.push("/user_dashboard/user_map" as any);
       return;
     }
@@ -366,13 +393,13 @@ export default function UserNotifications() {
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Notifications</Text>
 
-          <Text style={styles.headerSubtitle}>
-            {unreadCount > 0
-              ? `${unreadCount} unread notification${
-                  unreadCount === 1 ? "" : "s"
-                }`
-              : "You're all caught up"}
-          </Text>
+          {unreadCount > 0 && (
+            <Text style={styles.headerSubtitle}>
+              {`${unreadCount} unread notification${
+                unreadCount === 1 ? "" : "s"
+              }`}
+            </Text>
+          )}
         </View>
 
         <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
@@ -414,80 +441,7 @@ export default function UserNotifications() {
         }
       />
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/home.png")}
-            style={styles.navImage}
-          />
-          <Text
-            style={[
-              styles.navLabel,
-              pathname === "/user_dashboard" && styles.navActive,
-            ]}
-          >
-            Home
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_scan" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/scan.png")}
-            style={styles.navImage}
-          />
-          <Text style={styles.navLabel}>Scan</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/user_map" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/map.png")}
-            style={styles.navImage}
-          />
-          <Text style={styles.navLabel}>Map</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/messages" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/chatting.png")}
-            style={styles.navImage}
-          />
-          <Text style={styles.navLabel}>Messages</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/profile" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/user.png")}
-            style={styles.navImage}
-          />
-          <Text style={styles.navLabel}>Profile</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.navItem}
-          onPress={() => router.push("/user_dashboard/settings" as any)}
-        >
-          <Image
-            source={require("../../assets/icons/setting_1.png")}
-            style={styles.navImage}
-          />
-          <Text style={styles.navLabel}>Settings</Text>
-        </TouchableOpacity>
-      </View>
+      {userId ? <UserBottomNav userId={userId} active="home" /> : null}
     </SafeAreaView>
   );
 }
@@ -550,7 +504,7 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 14,
     paddingTop: 14,
-    paddingBottom: 100,
+    paddingBottom: 110,
   },
 
   emptyListContent: {
@@ -673,42 +627,5 @@ const styles = StyleSheet.create({
     color: "#777777",
     fontSize: 13,
     lineHeight: 19,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    minHeight: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: "#dddddd",
-    paddingBottom: 8,
-    paddingTop: 7,
-  },
-
-  navItem: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  navImage: {
-    width: 23,
-    height: 23,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    color: "#777777",
-    fontSize: 11,
-  },
-
-  navActive: {
-    color: "#1b5e20",
-    fontWeight: "800",
   },
 });

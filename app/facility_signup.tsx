@@ -1,3 +1,6 @@
+import { Ionicons } from "@expo/vector-icons";
+import axios from "axios";
+import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
@@ -11,17 +14,16 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import Toast from "react-native-toast-message";
-import styles from "./styles/facility_signup";
-import axios from "axios";
-import { Ionicons } from "@expo/vector-icons";
-import { decode } from "base64-arraybuffer";
 import { supabase } from "../utils/supabase";
+import styles from "./styles/facility_signup";
 
 const PSGC_API = "https://psgc.gitlab.io/api";
 
@@ -58,6 +60,9 @@ export default function FacilitySignup() {
   const [mapSearchText, setMapSearchText] = useState("");
   const [isSearchingMap, setIsSearchingMap] = useState(false);
 
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [dropdownTitle, setDropdownTitle] = useState("");
   const [dropdownOptions, setDropdownOptions] = useState<string[]>([]);
@@ -65,9 +70,22 @@ export default function FacilitySignup() {
     ((value: string) => void) | null
   >(null);
 
-  useEffect(() => { //Selecting address
+  useEffect(() => {
     fetchProvinces();
   }, []);
+
+  const handleCheckboxClick = () => {
+    if (!termsAccepted) {
+      setShowTermsModal(true);
+    } else {
+      setTermsAccepted(false);
+    }
+  };
+
+  const handleAcceptTerms = () => {
+    setTermsAccepted(true);
+    setShowTermsModal(false);
+  };
 
   const openDropdown = (
     title: string,
@@ -404,7 +422,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const emailRules = [ //Entering email
+  const emailRules = [
     {
       label: "Must be a valid email address",
       met: email.length > 0 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
@@ -571,7 +589,7 @@ export default function FacilitySignup() {
     }
   };
 
-  const getImageExtension = (uri: string) => { //Caputing photo certificate/document
+  const getImageExtension = (uri: string) => {
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
 
@@ -645,29 +663,29 @@ export default function FacilitySignup() {
   };
 
   const normalizeName = (value: string) => {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-};
+    return value
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
 
-const isNameMatch = (enteredName: string, ocrText: string) => {
-  const normalizedName = normalizeName(enteredName);
-  const normalizedOCR = normalizeName(ocrText);
+  const isNameMatch = (enteredName: string, ocrText: string) => {
+    const normalizedName = normalizeName(enteredName);
+    const normalizedOCR = normalizeName(ocrText);
 
-  if (!normalizedName || !normalizedOCR) {
-    return false;
-  }
+    if (!normalizedName || !normalizedOCR) {
+      return false;
+    }
 
-  const nameParts = normalizedName.split(" ");
+    const nameParts = normalizedName.split(" ");
 
-  return nameParts.every((part) => normalizedOCR.includes(part));
-};
+    return nameParts.every((part) => normalizedOCR.includes(part));
+  };
 
-const checkIdWithOCR = async (imageUrl: string) => {
+  const checkIdWithOCR = async (imageUrl: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(
         "verify-credential",
@@ -675,7 +693,7 @@ const checkIdWithOCR = async (imageUrl: string) => {
           body: {
             imageUrl: imageUrl,
           },
-        }
+        },
       );
 
       if (error) {
@@ -726,6 +744,15 @@ const checkIdWithOCR = async (imageUrl: string) => {
       return;
     }
 
+    if (!termsAccepted) {
+      Toast.show({
+        type: "error",
+        text1: "Terms & Conditions Required",
+        text2: "Please review and agree to the Terms and Conditions.",
+      });
+      return;
+    }
+
     if (latitude === null || longitude === null) {
       Toast.show({
         type: "error",
@@ -766,58 +793,58 @@ const checkIdWithOCR = async (imageUrl: string) => {
 
       const cleanEmail = email.trim().toLowerCase();
 
-console.log("FACILITY SIGNUP EMAIL:", cleanEmail);
+      console.log("FACILITY SIGNUP EMAIL:", cleanEmail);
 
-    const { data: existingEmail, error: emailCheckError } = await supabase// Check if email already exists
-      .from("profiles")
-      .select("id")
-      .eq("email", cleanEmail)
-      .maybeSingle();
+      const { data: existingEmail, error: emailCheckError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", cleanEmail)
+        .maybeSingle();
 
-    if (emailCheckError) {
-      console.log("EMAIL CHECK ERROR:", emailCheckError);
+      if (emailCheckError) {
+        console.log("EMAIL CHECK ERROR:", emailCheckError);
 
-      Toast.show({
-        type: "error",
-        text1: "Unable to check email",
-        text2: emailCheckError.message,
-      });
+        Toast.show({
+          type: "error",
+          text1: "Unable to check email",
+          text2: emailCheckError.message,
+        });
 
-      return;
-    }
+        return;
+      }
 
-    if (existingEmail) {
-      console.log("EMAIL ALREADY EXISTS:", existingEmail);
+      if (existingEmail) {
+        console.log("EMAIL ALREADY EXISTS:", existingEmail);
 
-      Toast.show({
-        type: "error",
-        text1: "Email already exists",
-        text2: "Please use a different email address.",
-      });
+        Toast.show({
+          type: "error",
+          text1: "Email already exists",
+          text2: "Please use a different email address.",
+        });
 
-      return;
-    }
+        return;
+      }
+
       const certificationUrl = await uploadCertificationImage();
 
       console.log("CERTIFICATION URL:", certificationUrl);
 
-const ocrResult = await checkIdWithOCR(certificationUrl);
+      const ocrResult = await checkIdWithOCR(certificationUrl);
 
-console.log("OCR TEXT FROM CERTIFICATION:");
-console.log(ocrResult.text);
+      console.log("OCR TEXT FROM CERTIFICATION:");
+      console.log(ocrResult.text);
 
-const nameMatches = ocrResult.success
-  ? isNameMatch(name.trim(), ocrResult.text)
-  : false;
+      const nameMatches = ocrResult.success
+        ? isNameMatch(name.trim(), ocrResult.text)
+        : false;
 
-const accountStatus = nameMatches ? "approved" : "pending";
-const approvalSource = nameMatches ? "system" : null;
+      const accountStatus = nameMatches ? "approved" : "pending";
+      const approvalSource = nameMatches ? "system" : null;
 
-console.log("FACILITY NAME MATCH:", nameMatches);
-console.log("FACILITY ACCOUNT STATUS:", accountStatus);
-console.log("FACILITY APPROVAL SOURCE:", approvalSource);
+      console.log("FACILITY NAME MATCH:", nameMatches);
+      console.log("FACILITY ACCOUNT STATUS:", accountStatus);
+      console.log("FACILITY APPROVAL SOURCE:", approvalSource);
 
-      //CREATE AUTH USER
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -839,7 +866,6 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
         return;
       }
 
-      //Saving to profile
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
@@ -857,9 +883,7 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
             profile_image: null,
             status: accountStatus,
             approval_source: approvalSource,
-            approved_at: nameMatches
-              ? new Date().toISOString()
-              : null,
+            approved_at: nameMatches ? new Date().toISOString() : null,
             reject_reason: null,
           },
         ])
@@ -879,21 +903,19 @@ console.log("FACILITY APPROVAL SOURCE:", approvalSource);
       }
 
       if (nameMatches) {
-  Toast.show({
-    type: "success",
-    text1: "Account approved",
-    text2: "Your certification was verified. You can now sign in.",
-  });
-} else {
-  Toast.show({
-    type: "success",
-    text1: "Submitted for approval",
-    text2:
-      "Your certification could not be automatically verified. Please wait for admin approval.",
-  });
-}
-
-router.push("/signin");
+        Toast.show({
+          type: "success",
+          text1: "Account approved",
+          text2: "Your certification was verified. You can now sign in.",
+        });
+      } else {
+        Toast.show({
+          type: "success",
+          text1: "Submitted for approval",
+          text2:
+            "Your certification could not be automatically verified. Please wait for admin approval.",
+        });
+      }
 
       router.push("/signin");
     } catch (error: any) {
@@ -931,6 +953,7 @@ router.push("/signin");
           styles.scrollContent,
           {
             backgroundColor: "transparent",
+            paddingBottom: 40,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -1424,15 +1447,41 @@ router.push("/signin");
           This helps us verify your facility is legitimate and compliant
         </Text>
 
+        {/* Terms & Conditions Checkbox */}
+        <View style={localStyles.termsCheckboxContainer}>
+          <TouchableOpacity
+            style={[
+              localStyles.checkboxBox,
+              termsAccepted && localStyles.checkboxBoxChecked,
+            ]}
+            onPress={handleCheckboxClick}
+            activeOpacity={0.7}
+          >
+            {termsAccepted && (
+              <Ionicons name="checkmark" size={16} color="#ffffff" />
+            )}
+          </TouchableOpacity>
+
+          <Pressable
+            onPress={handleCheckboxClick}
+            style={localStyles.termsTextContainer}
+          >
+            <Text style={localStyles.termsLabel}>
+              I agree to the{" "}
+              <Text style={localStyles.termsLink}>Terms and Conditions</Text>
+            </Text>
+          </Pressable>
+        </View>
+
         <Pressable
           style={[
             styles.button,
             {
-              opacity: isSubmitting ? 0.6 : 1,
+              opacity: isSubmitting || !termsAccepted ? 0.6 : 1,
             },
           ]}
           onPress={handleSignUp}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !termsAccepted}
         >
           <Text style={styles.buttonText}>
             {isSubmitting ? "Submitting..." : "Sign Up"}
@@ -1444,6 +1493,256 @@ router.push("/signin");
         </Pressable>
       </ScrollView>
 
+      {/* Terms and Conditions Modal */}
+      <Modal
+        visible={showTermsModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={localStyles.modalOverlay}>
+          <View style={localStyles.modalContainer}>
+            <View style={localStyles.modalHeader}>
+              <Text style={localStyles.modalTitle}>Terms and Conditions</Text>
+              <TouchableOpacity
+                onPress={() => setShowTermsModal(false)}
+                style={localStyles.closeHeaderButton}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={localStyles.modalBody}
+              showsVerticalScrollIndicator={true}
+            >
+              <Text style={localStyles.termsPreamble}>
+                By registering an account, accessing, or using the Platform, you
+                acknowledge that you have read, understood, and agree to be
+                bound by these Terms. If you do not agree, please discontinue
+                using the App immediately.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                1. Platform Purpose & Overview
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                ERecycloMatch is a matchmaking and logistical facilitation
+                platform designed to connect individuals seeking to dispose of
+                recyclable materials, electronics, and electronic waste
+                ("e-waste") with verified recycling facilities, scrap centers,
+                and junk shops.
+                {"\n\n"}
+                ERecycloMatch acts solely as a venue and technological
+                intermediary. Unless explicitly stated otherwise, the App does
+                not own, purchase, sell, store, inspect, or recycle any listed
+                items directly.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                2. User Accounts & Eligibility
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                •{" "}
+                <Text style={localStyles.boldText}>Account Authenticity:</Text>{" "}
+                You agree to provide accurate, current, and complete details
+                during registration and profile creation.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>Account Security:</Text> You
+                are responsible for safeguarding your login credentials and are
+                solely liable for all activities conducted under your account.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                3. Contributor / General User Obligations
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                • <Text style={localStyles.boldText}>Item Accuracy:</Text> When
+                listing an item for matching or recycling, you must provide
+                truthful descriptions, disclose known defects, battery
+                health/leak risks, and upload clear, unaltered photographs.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>Lawful Ownership:</Text> You
+                warrant and represent that you are the lawful owner of any
+                listed item or are authorized to dispose of it, and that the
+                item is free of any liens, claims, or stolen origins.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>Data Sanitization:</Text> You
+                are solely responsible for wiping and permanently removing all
+                personal, financial, confidential, or sensitive digital
+                information from any computer, mobile device, hard drive, or
+                memory unit prior to handover. ERecycloMatch and partnered
+                facilities accept no liability for data recovery or data
+                breaches originating from disposed devices.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>Prohibited Items:</Text> You
+                may not list hazardous chemicals, biological materials, military
+                munitions, non-recyclable industrial toxins, or stolen
+                electronics.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                4. Facility & Junk Shop Obligations
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                •{" "}
+                <Text style={localStyles.boldText}>
+                  Accreditation and Verification:
+                </Text>{" "}
+                Partnered recycling centers and junk shops must submit authentic
+                business permits, facility credentials, and environmental
+                compliance documents during admin verification.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>
+                  Safe Handling & Environmental Compliance:
+                </Text>{" "}
+                Facilities agree to process, dismantle, recycle, and dispose of
+                accepted e-waste in strict accordance with the laws of the
+                Republic of the Philippines, including:
+                {"\n"} - Republic Act No. 6969 (Toxic Substances and Hazardous
+                and Nuclear Wastes Control Act)
+                {"\n"} - Republic Act No. 9003 (Ecological Solid Waste
+                Management Act)
+                {"\n"} - Relevant Department of Environment and Natural
+                Resources (DENR) regulations.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>
+                  Inspection & Acceptance:
+                </Text>{" "}
+                Facilities reserve the right to inspect incoming items and
+                reject any delivery that deviates significantly from the user's
+                item listing description or contains non-disclosed hazardous
+                substances.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                5. Matchmaking, Communication, and Interactions
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                •{" "}
+                <Text style={localStyles.boldText}>
+                  Independent Arrangements:
+                </Text>{" "}
+                Any scheduling, physical drop-off, pickup, pricing negotiation,
+                or monetary transactions (e.g., junk valuation payouts) arranged
+                between a Contributor and a Facility occur independently.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>Platform In-App Chat:</Text>{" "}
+                Users agree not to use the platform messaging system for
+                harassment, abusive behavior, fraud, or spam.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>On-Site Safety:</Text>{" "}
+                ERecycloMatch is not liable for accidents, injuries, or property
+                damage sustained during transport, physical drop-off, or
+                facility visits.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                6. Content, Media, and Intellectual Property
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                • <Text style={localStyles.boldText}>User Content:</Text> By
+                uploading item photos, facility logos, issue reports, or text
+                descriptions to the Platform, you grant ERecycloMatch a
+                non-exclusive, royalty-free license to use, store, display, and
+                process this content for operational, verification, and
+                promotional purposes.
+                {"\n"}• <Text style={localStyles.boldText}>Platform IP:</Text>{" "}
+                All trademarks, app interfaces, codebases, design layouts, and
+                algorithms of ERecycloMatch remain the exclusive property of
+                ERecycloMatch.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                7. Reviews, Feedback, and Ratings
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                Users and Facilities may submit ratings and feedback following a
+                transaction. Reviews must reflect genuine personal experiences
+                and must not contain defamatory, obscene, or abusive remarks.
+                ERecycloMatch reserves the right to remove non-compliant or
+                fraudulent reviews.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                8. Disclaimer of Warranties & Limitation of Liability
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                • <Text style={localStyles.boldText}>"As-Is" Service:</Text> The
+                Platform is provided on an "as is" and "as available" basis
+                without warranties of any kind, whether express or implied.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>No Guarantee of Match:</Text>{" "}
+                ERecycloMatch does not guarantee that every submitted item will
+                find a matching facility or scrap buyer.
+                {"\n"}•{" "}
+                <Text style={localStyles.boldText}>
+                  Limitation of Liability:
+                </Text>{" "}
+                To the maximum extent permitted by applicable law, ERecycloMatch
+                shall not be liable for any indirect, incidental, punitive, or
+                consequential damages resulting from item transactions, loss of
+                stored device data, or interactions between users and partnered
+                facilities.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                9. Account Suspension and Termination
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                We reserve the right to temporarily suspend or permanently ban
+                any account, reject listings, or delist facilities without prior
+                notice if we detect:
+                {"\n"}• Breach of these Terms.
+                {"\n"}• Submission of falsified identity or facility
+                verification documentation.
+                {"\n"}• Listing of prohibited, stolen, or hazardous materials.
+                {"\n"}• Repeated negative ratings, fraud, or unethical recycling
+                practices.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>10. Governing Law</Text>
+              <Text style={localStyles.sectionContent}>
+                These Terms are governed by and construed in accordance with the
+                laws of the Republic of the Philippines. Any disputes arising
+                under these Terms shall be submitted to the exclusive
+                jurisdiction of the competent courts of the Philippines.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>
+                11. Contact Information
+              </Text>
+              <Text style={[localStyles.sectionContent, { marginBottom: 20 }]}>
+                For questions, regulatory compliance concerns, or technical
+                support regarding these Terms, contact us at:
+                {"\n"}• Email: erecyclomatch@gmail.com
+                {"\n"}• Platform Administration: ERecycloMatch Operations Team
+              </Text>
+            </ScrollView>
+
+            <View style={localStyles.modalFooter}>
+              <TouchableOpacity
+                style={localStyles.declineButton}
+                onPress={() => {
+                  setTermsAccepted(false);
+                  setShowTermsModal(false);
+                }}
+              >
+                <Text style={localStyles.declineButtonText}>Decline</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={localStyles.agreeButton}
+                onPress={handleAcceptTerms}
+              >
+                <Text style={localStyles.agreeButtonText}>I Agree</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Dropdown Modal */}
       <Modal
         visible={dropdownVisible}
         transparent
@@ -1535,3 +1834,140 @@ router.push("/signin");
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  termsCheckboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "85%",
+    alignSelf: "center",
+    marginTop: 6,
+    marginBottom: 16,
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.8,
+    borderColor: "#2E7D32",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+    marginRight: 10,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: "#2E7D32",
+  },
+  termsTextContainer: {
+    flex: 1,
+  },
+  termsLabel: {
+    fontSize: 13,
+    color: "#555555",
+  },
+  termsLink: {
+    color: "#2E7D32",
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContainer: {
+    width: "100%",
+    maxHeight: "82%",
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    overflow: "hidden",
+    elevation: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    backgroundColor: "#fafafa",
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: "bold",
+    color: "#2E7D32",
+  },
+  closeHeaderButton: {
+    padding: 4,
+  },
+  modalBody: {
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  termsPreamble: {
+    fontSize: 13,
+    color: "#444",
+    lineHeight: 19,
+    marginBottom: 14,
+    fontStyle: "italic",
+  },
+  sectionHeading: {
+    fontSize: 14,
+    fontWeight: "bold",
+    color: "#222",
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  sectionContent: {
+    fontSize: 12.5,
+    color: "#555",
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  boldText: {
+    fontWeight: "700",
+    color: "#333",
+  },
+  modalFooter: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: "#eeeeee",
+    gap: 10,
+    backgroundColor: "#ffffff",
+  },
+  declineButton: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: "#eeeeee",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  declineButtonText: {
+    color: "#666666",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  agreeButton: {
+    flex: 1.4,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: "#2E7D32",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  agreeButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+});
