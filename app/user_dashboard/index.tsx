@@ -72,7 +72,6 @@ export default function UserDashboard() {
     }, [userId]),
   );
 
-  // Fixed Realtime Notification Subscription: uses unique channel key to avoid post-subscribe mutation errors
   useEffect(() => {
     if (!userId) {
       setUnreadNotificationCount(0);
@@ -562,8 +561,9 @@ export default function UserDashboard() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.welcome}>
+            <Text style={styles.welcome} numberOfLines={1}>
               Welcome Back{userName ? `, ${userName}` : ""}!
             </Text>
 
@@ -594,6 +594,7 @@ export default function UserDashboard() {
             </View>
           </View>
 
+          {/* Search Bar */}
           <View style={styles.searchArea}>
             <View style={styles.searchBox}>
               <TextInput
@@ -612,10 +613,14 @@ export default function UserDashboard() {
                 style={styles.searchInput}
               />
 
-              {searchText.length > 0 && (
-                <TouchableOpacity onPress={clearSearch}>
+              {searchText.length > 0 ? (
+                <TouchableOpacity onPress={clearSearch} activeOpacity={0.7}>
                   <Text style={styles.clearSearch}>×</Text>
                 </TouchableOpacity>
+              ) : (
+                <View style={styles.searchIconContainer}>
+                  <Ionicons name="search-outline" size={20} color="#555" />
+                </View>
               )}
             </View>
 
@@ -742,7 +747,9 @@ export default function UserDashboard() {
             </Text>
 
             <TouchableOpacity
-              onPress={() => router.push("/user_dashboard/user_map" as any)}
+              onPress={() =>
+                router.push("/user_dashboard/facility_list" as any)
+              }
             >
               <Text style={styles.viewAll}>View More</Text>
             </TouchableOpacity>
@@ -869,6 +876,11 @@ const styles = StyleSheet.create({
     height: 42,
     fontSize: 14,
     color: "#222",
+  },
+  searchIconContainer: {
+    paddingHorizontal: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
   clearSearch: {
     fontSize: 26,

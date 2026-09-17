@@ -1,7 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
@@ -41,6 +44,7 @@ export default function UserChat() {
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [facilityProfile, setFacilityProfile] = useState({
     name: "Facility",
@@ -393,8 +397,6 @@ export default function UserChat() {
     if (isNaN(date.getTime())) return "";
 
     return date.toLocaleString("en-PH", {
-      month: "short",
-      day: "numeric",
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
@@ -541,15 +543,6 @@ export default function UserChat() {
     }
   };
 
-  /*
-  |--------------------------------------------------------------------------
-  | Mark Received Messages as Read
-  |--------------------------------------------------------------------------
-  | When the user opens this conversation, every unread message addressed
-  | to this user in this conversation is marked as read.
-  |--------------------------------------------------------------------------
-  */
-
   const markMessagesAsRead = async () => {
     try {
       if (!conversationId || !user?.id) {
@@ -577,11 +570,6 @@ export default function UserChat() {
         return;
       }
 
-      /*
-       * Keep the conversation-level read flag in sync as well.
-       * The unread badge now uses messages as its source of truth,
-       * but other screens may still read conversations.is_read.
-       */
       const { error: conversationReadError } = await supabase
         .from("conversations")
         .update({
@@ -1257,7 +1245,7 @@ export default function UserChat() {
   };
 
   const getInputPlaceholder = () => {
-    if (isAcceptedMatch()) return "Type a message...";
+    if (isAcceptedMatch()) return "Message";
 
     if (isCurrentAccountRequester()) {
       return hasCurrentAccountSentOffer()
@@ -1270,6 +1258,96 @@ export default function UserChat() {
     }
 
     return "Chat is locked until the match is active";
+  };
+
+  const handlePickAndUploadImage = async () => {
+    if (!canSendMessage()) {
+      Alert.alert(
+        "Chat Locked",
+        "You can only send attachments once the match is active.",
+      );
+      return;
+    }
+
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission Denied",
+        "Please grant photo gallery permission to upload files.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return;
+    }
+
+    const asset = result.assets[0];
+    setUploadingImage(true);
+
+    try {
+      const fileExt = asset.uri.split(".").pop() || "jpg";
+      const fileName = `chat_${conversationId}_${Date.now()}.${fileExt}`;
+      const filePath = `chat_uploads/${fileName}`;
+
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+
+      const { error: uploadError } = await supabase.storage
+        .from("item-images")
+        .upload(filePath, blob, {
+          contentType: `image/${fileExt}`,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("item-images")
+        .getPublicUrl(filePath);
+
+      const uploadedUrl = publicUrlData?.publicUrl || filePath;
+      const receiverId = String(
+        conversation?.facility_id || facilityIdParam || "",
+      );
+
+      const { error: messageError } = await supabase.from("messages").insert([
+        {
+          conversation_id: String(conversationId),
+          sender_id: Number(user?.id),
+          sender_name: user?.name || "User",
+          sender_role: "user",
+          sender_type: "user",
+          receiver_id: receiverId ? Number(receiverId) : null,
+          type: "image",
+          message_type: "image",
+          message: uploadedUrl,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+
+      if (messageError) throw messageError;
+
+      await updateConversation({
+        last_message: "📷 Sent a photo",
+      });
+
+      fetchMessages();
+      fetchConversation();
+    } catch (err: any) {
+      console.log("IMAGE UPLOAD ERROR:", err);
+      Alert.alert("Upload Failed", err.message || "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const sendMessage = async () => {
@@ -1345,13 +1423,13 @@ export default function UserChat() {
     if (status === "match_pending") return "Match request pending";
     if (status === "cancelled") return "Match cancelled";
     if (status === "rejected") return "Match rejected";
-    if (status === "accepted") return "Match accepted";
-    if (status === "active") return "Match accepted";
-    if (status === "matched") return "Match accepted";
+    if (status === "accepted") return "Online";
+    if (status === "active") return "Online";
+    if (status === "matched") return "Online";
     if (status === "finish_pending") return "Waiting for other side";
     if (status === "finished") return "Match finished";
 
-    return "Chat";
+    return "Online";
   };
 
   const renderTopButtons = () => {
@@ -1498,6 +1576,15 @@ export default function UserChat() {
     const isMine =
       item.sender_id !== null && String(item.sender_id) === String(user?.id);
 
+    const isImage =
+      item.type === "image" ||
+      item.message_type === "image" ||
+      (messageLower.startsWith("http") &&
+        (messageLower.endsWith(".jpg") ||
+          messageLower.endsWith(".jpeg") ||
+          messageLower.endsWith(".png") ||
+          messageLower.endsWith(".webp")));
+
     const isSystem =
       item.type === "system" ||
       item.sender_type === "system" ||
@@ -1562,19 +1649,37 @@ export default function UserChat() {
     return (
       <View
         style={[
-          styles.messageBubble,
-          isMine ? styles.myMessage : styles.otherMessage,
+          styles.messageRow,
+          isMine ? styles.myMessageRow : styles.otherMessageRow,
         ]}
       >
-        <Text style={[styles.senderName, isMine && styles.mySenderName]}>
-          {isMine
-            ? "You"
-            : item.sender_name || facilityProfile.name || "Facility"}
-        </Text>
+        <View
+          style={[
+            styles.messageBubble,
+            isMine ? styles.myMessage : styles.otherMessage,
+          ]}
+        >
+          {/* Only render other sender name; removed "You" */}
+          {!isMine && (
+            <Text style={styles.senderName}>
+              {item.sender_name || facilityProfile.name || "Facility"}
+            </Text>
+          )}
 
-        <Text style={isMine ? styles.myMessageText : styles.otherMessageText}>
-          {item.message}
-        </Text>
+          {isImage ? (
+            <Image
+              source={{ uri: messageTextValue }}
+              style={styles.chatImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Text
+              style={isMine ? styles.myMessageText : styles.otherMessageText}
+            >
+              {item.message}
+            </Text>
+          )}
+        </View>
 
         {timeText ? (
           <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
@@ -1596,65 +1701,100 @@ export default function UserChat() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView style={styles.container}>
+          {/* iOS Style Clean Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.replace("/user_dashboard/messages" as any)}
+              style={styles.backButton}
             >
-              <Text style={styles.back}>‹</Text>
+              <Ionicons name="chevron-back" size={28} color="#222" />
             </TouchableOpacity>
 
             <Image source={getFacilityImage()} style={styles.avatarImage} />
 
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.title}>{headerName}</Text>
+            <View style={styles.headerInfo}>
+              <Text style={styles.title} numberOfLines={1}>
+                {headerName}
+              </Text>
               <Text style={styles.subtitle}>{getSubtitle()}</Text>
             </View>
           </View>
 
           {renderTopButtons()}
 
+          {/* Messages list with "Today" Pill */}
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(item, index) => String(item.id || index)}
             renderItem={renderMessage}
             contentContainerStyle={styles.messagesList}
+            ListHeaderComponent={
+              <View style={styles.todayPillContainer}>
+                <View style={styles.todayPill}>
+                  <Text style={styles.todayPillText}>Today</Text>
+                </View>
+              </View>
+            }
             ListEmptyComponent={
               <Text style={styles.emptyText}>No messages yet.</Text>
             }
           />
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
-            <View style={styles.inputRow}>
+          {uploadingImage && (
+            <View style={styles.uploadingBar}>
+              <ActivityIndicator size="small" color="#16A34A" />
+              <Text style={styles.uploadingText}>Uploading photo...</Text>
+            </View>
+          )}
+
+          {/* Modern Bottom Input with Gallery Attachment Button */}
+          <View style={styles.bottomBar}>
+            <TouchableOpacity
+              style={styles.attachButton}
+              onPress={handlePickAndUploadImage}
+              disabled={chatLocked || uploadingImage}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="add"
+                size={22}
+                color={chatLocked ? "#B0B0B0" : "#555"}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.inputPill}>
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
                 placeholder={getInputPlaceholder()}
-                placeholderTextColor="#777"
-                style={[styles.input, chatLocked && styles.disabledInput]}
+                placeholderTextColor="#999"
+                style={styles.input}
                 editable={canSendMessage()}
+                multiline={false}
               />
-
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  (sending || !canSendMessage()) && styles.disabledButton,
-                ]}
-                onPress={sendMessage}
-                disabled={sending || !canSendMessage()}
-              >
-                <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
-              </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
 
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                (sending || !canSendMessage() || !messageText.trim()) &&
+                  styles.disabledButton,
+              ]}
+              onPress={sendMessage}
+              disabled={sending || !canSendMessage() || !messageText.trim()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-up" size={20} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Feedback Modal */}
           <Modal
             visible={feedbackModalVisible}
             transparent
@@ -1821,7 +1961,7 @@ export default function UserChat() {
                         <TouchableOpacity
                           style={[
                             styles.modalSubmitButton,
-                            submittingFeedback && styles.disabledButton,
+                            submittingFeedback && styles.disabledModalButton,
                           ]}
                           onPress={submitFeedback}
                           disabled={submittingFeedback}
@@ -1846,237 +1986,287 @@ export default function UserChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
 
   header: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#eee",
+    borderColor: "#f0f0f0",
+    backgroundColor: "#ffffff",
   },
 
-  back: {
-    fontSize: 36,
-    marginRight: 15,
+  backButton: {
+    padding: 4,
+    marginRight: 4,
   },
 
   avatarImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#ddd",
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#eee",
+  },
+
+  headerInfo: {
+    marginLeft: 12,
+    flex: 1,
   },
 
   title: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#000",
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#111",
   },
 
   subtitle: {
-    color: "gray",
-    marginTop: 2,
+    color: "#8E8E93",
+    fontSize: 12,
+    marginTop: 1,
   },
 
   matchActionBox: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#eee",
-    backgroundColor: "#fff",
+    backgroundColor: "#ffffff",
   },
 
   cancelMatchButton: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: "#ff3b30",
-    paddingVertical: 11,
-    borderRadius: 10,
+    borderColor: "#E53E3E",
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: "center",
     backgroundColor: "#fff",
   },
 
   cancelMatchText: {
-    color: "#ff3b30",
-    fontWeight: "bold",
-    fontSize: 15,
+    color: "#E53E3E",
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   finishButton: {
     flex: 1,
-    backgroundColor: "#1b5e20",
-    paddingVertical: 11,
-    borderRadius: 10,
+    backgroundColor: "#15803D",
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: "center",
   },
 
   finishText: {
     color: "#fff",
-    fontWeight: "bold",
-    fontSize: 15,
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   cancelButton: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: "#ff3b30",
-    paddingVertical: 11,
-    borderRadius: 10,
+    borderColor: "#E53E3E",
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: "center",
     backgroundColor: "#fff",
   },
 
   cancelText: {
-    color: "#ff3b30",
-    fontWeight: "bold",
-    fontSize: 15,
+    color: "#E53E3E",
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   feedbackButton: {
     flex: 1,
-    backgroundColor: "#1b5e20",
-    paddingVertical: 11,
-    borderRadius: 10,
+    backgroundColor: "#15803D",
+    paddingVertical: 10,
+    borderRadius: 12,
     alignItems: "center",
   },
 
   disabledFeedbackButton: {
-    backgroundColor: "#999",
+    backgroundColor: "#9CA3AF",
   },
 
   feedbackText: {
     color: "#fff",
-    fontWeight: "bold",
-    fontSize: 15,
+    fontWeight: "700",
+    fontSize: 14,
   },
 
   statusBox: {
     padding: 12,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F9FAFB",
     alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
   },
 
   statusText: {
-    fontWeight: "bold",
-    color: "#555",
+    fontWeight: "600",
+    color: "#6B7280",
     textAlign: "center",
+    fontSize: 13,
   },
 
   messagesList: {
-    padding: 15,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexGrow: 1,
+  },
+
+  todayPillContainer: {
+    alignItems: "center",
+    marginVertical: 14,
+  },
+
+  todayPill: {
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  todayPillText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
   },
 
   emptyText: {
     textAlign: "center",
-    color: "#777",
+    color: "#9CA3AF",
     marginTop: 40,
+    fontSize: 14,
+  },
+
+  messageRow: {
+    marginBottom: 14,
+  },
+
+  myMessageRow: {
+    alignItems: "flex-end",
+  },
+
+  otherMessageRow: {
+    alignItems: "flex-start",
   },
 
   messageBubble: {
-    maxWidth: "80%",
-    padding: 10,
-    borderRadius: 12,
-    marginBottom: 10,
+    maxWidth: "78%",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
   },
 
   myMessage: {
-    alignSelf: "flex-end",
-    backgroundColor: "#1b5e20",
+    backgroundColor: "#15803D",
+    borderBottomRightRadius: 4,
   },
 
   otherMessage: {
-    alignSelf: "flex-start",
-    backgroundColor: "#eee",
+    backgroundColor: "#F2F3F5",
+    borderBottomLeftRadius: 4,
   },
 
   senderName: {
-    fontSize: 11,
-    color: "gray",
-    marginBottom: 3,
-  },
-
-  mySenderName: {
-    color: "#d8f3dc",
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
+    marginBottom: 4,
   },
 
   myMessageText: {
-    color: "#fff",
+    color: "#ffffff",
+    fontSize: 15,
+    lineHeight: 20,
   },
 
   otherMessageText: {
-    color: "#000",
+    color: "#1F2937",
+    fontSize: 15,
+    lineHeight: 20,
+  },
+
+  chatImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 12,
   },
 
   messageTime: {
-    fontSize: 10,
-    color: "#777",
-    marginTop: 5,
-    alignSelf: "flex-end",
+    fontSize: 11,
+    color: "#9CA3AF",
+    marginTop: 4,
+    marginHorizontal: 4,
   },
 
   myMessageTime: {
-    color: "#d8f3dc",
+    textAlign: "right",
   },
 
   systemMessage: {
     alignSelf: "center",
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F3F4F6",
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-    maxWidth: "90%",
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginVertical: 10,
+    maxWidth: "88%",
   },
 
   acceptedSystemMessage: {
-    backgroundColor: "#e8f5e9",
+    backgroundColor: "#DCFCE7",
   },
 
   rejectedSystemMessage: {
-    backgroundColor: "#ffebee",
+    backgroundColor: "#FEE2E2",
   },
 
   cancelledSystemMessage: {
-    backgroundColor: "#ffebee",
+    backgroundColor: "#FEE2E2",
   },
 
   finishSystemMessage: {
-    backgroundColor: "#e3f2fd",
+    backgroundColor: "#DBEAFE",
   },
 
   systemText: {
-    color: "#555",
-    fontWeight: "bold",
+    color: "#4B5563",
+    fontWeight: "600",
     fontSize: 12,
     textAlign: "center",
   },
 
   acceptedSystemText: {
-    color: "green",
+    color: "#15803D",
   },
 
   rejectedSystemText: {
-    color: "#d32f2f",
+    color: "#B91C1C",
   },
 
   cancelledSystemText: {
-    color: "#d32f2f",
+    color: "#B91C1C",
   },
 
   finishSystemText: {
-    color: "#1976d2",
+    color: "#1D4ED8",
   },
 
   systemTime: {
-    marginTop: 5,
+    marginTop: 4,
     fontSize: 10,
     textAlign: "center",
-    color: "#777",
+    color: "#9CA3AF",
   },
 
   requestItemCard: {
@@ -2087,13 +2277,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ddd",
+    borderColor: "#E5E7EB",
     minWidth: 230,
   },
 
   requestItemImage: {
-    width: 48,
-    height: 48,
+    width: 44,
+    height: 44,
     borderRadius: 8,
     backgroundColor: "#eee",
   },
@@ -2105,62 +2295,81 @@ const styles = StyleSheet.create({
 
   requestItemLabel: {
     fontSize: 10,
-    color: "#777",
+    color: "#6B7280",
     fontWeight: "700",
     marginBottom: 2,
   },
 
   requestItemName: {
     fontSize: 13,
-    color: "#1b5e20",
+    color: "#15803D",
     fontWeight: "bold",
   },
 
-  inputRow: {
+  uploadingBar: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 6,
+    backgroundColor: "#F0FDF4",
+  },
+
+  uploadingText: {
+    marginLeft: 8,
+    fontSize: 12,
+    color: "#15803D",
+    fontWeight: "500",
+  },
+
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderTopWidth: 1,
-    borderColor: "#eee",
-    backgroundColor: "#fff",
+    borderColor: "#F0F0F0",
+    backgroundColor: "#ffffff",
+  },
+
+  attachButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
+  },
+
+  inputPill: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 22,
+    paddingHorizontal: 14,
+    minHeight: 42,
   },
 
   input: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 25,
-    paddingHorizontal: 18,
-    minHeight: 50,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    color: "#000",
-  },
-
-  disabledInput: {
-    backgroundColor: "#eee",
-    color: "#777",
+    fontSize: 15,
+    color: "#1F2937",
+    paddingVertical: 8,
   },
 
   sendButton: {
-    marginLeft: 10,
-    backgroundColor: "#1b5e20",
-    height: 50,
-    minWidth: 90,
+    marginLeft: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#15803D",
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 25,
   },
 
   disabledButton: {
-    backgroundColor: "#8aa887",
-  },
-
-  sendText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 18,
+    backgroundColor: "#D1D5DB",
   },
 
   modalOverlay: {
@@ -2177,46 +2386,49 @@ const styles = StyleSheet.create({
 
   feedbackBox: {
     backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 20,
+    borderRadius: 20,
+    padding: 22,
   },
 
   feedbackTitle: {
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#1b5e20",
+    color: "#15803D",
   },
 
   feedbackSubtitle: {
     textAlign: "center",
     color: "#555",
-    marginTop: 8,
-    marginBottom: 15,
+    marginTop: 6,
+    marginBottom: 16,
+    fontSize: 14,
   },
 
   starsRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 15,
+    marginBottom: 16,
   },
 
   star: {
     fontSize: 34,
-    color: "#ccc",
+    color: "#E5E7EB",
     marginHorizontal: 4,
   },
 
   selectedStar: {
-    color: "#fbc02d",
+    color: "#FBBF24",
   },
 
   feedbackInput: {
-    backgroundColor: "#f1f1f1",
-    borderRadius: 10,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
     padding: 12,
-    minHeight: 90,
+    minHeight: 80,
     color: "#222",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
 
   modalButtons: {
@@ -2227,22 +2439,26 @@ const styles = StyleSheet.create({
   },
 
   modalCancelButton: {
-    backgroundColor: "#ccc",
+    backgroundColor: "#F3F4F6",
     paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 20,
+    borderRadius: 14,
   },
 
   modalCancelText: {
-    color: "#333",
+    color: "#4B5563",
     fontWeight: "bold",
   },
 
   modalSubmitButton: {
-    backgroundColor: "#1b5e20",
+    backgroundColor: "#15803D",
     paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 20,
+    borderRadius: 14,
+  },
+
+  disabledModalButton: {
+    backgroundColor: "#86EFAC",
   },
 
   modalSubmitText: {
@@ -2253,7 +2469,7 @@ const styles = StyleSheet.create({
   reportSection: {
     marginTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    borderTopColor: "#eee",
     paddingTop: 14,
   },
 
@@ -2263,24 +2479,24 @@ const styles = StyleSheet.create({
   },
 
   reportCheckbox: {
-    width: 22,
-    height: 22,
+    width: 20,
+    height: 20,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: "#777",
+    borderColor: "#9CA3AF",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
   },
 
   reportCheckboxSelected: {
-    backgroundColor: "#1b5e20",
-    borderColor: "#1b5e20",
+    backgroundColor: "#15803D",
+    borderColor: "#15803D",
   },
 
   reportCheckmark: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "bold",
   },
 
@@ -2290,16 +2506,16 @@ const styles = StyleSheet.create({
   },
 
   reportToggleTitle: {
-    color: "#b3261e",
-    fontSize: 15,
+    color: "#DC2626",
+    fontSize: 14,
     fontWeight: "700",
   },
 
   reportToggleDescription: {
-    marginTop: 3,
-    color: "#666",
+    marginTop: 2,
+    color: "#6B7280",
     fontSize: 12,
-    lineHeight: 17,
+    lineHeight: 16,
   },
 
   reportForm: {
@@ -2307,78 +2523,78 @@ const styles = StyleSheet.create({
   },
 
   reportQuestion: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
-    color: "#222",
-    marginBottom: 10,
+    color: "#1F2937",
+    marginBottom: 8,
   },
 
   reportReason: {
-    minHeight: 44,
+    minHeight: 40,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    marginBottom: 8,
+    marginBottom: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#dddddd",
+    borderColor: "#E5E7EB",
     backgroundColor: "#ffffff",
   },
 
   reportReasonSelected: {
-    borderColor: "#1b5e20",
-    backgroundColor: "#f1f8f2",
+    borderColor: "#15803D",
+    backgroundColor: "#F0FDF4",
   },
 
   reportRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
-    borderColor: "#888",
+    borderColor: "#9CA3AF",
     alignItems: "center",
     justifyContent: "center",
   },
 
   reportRadioSelected: {
-    borderColor: "#1b5e20",
+    borderColor: "#15803D",
   },
 
   reportRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#1b5e20",
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#15803D",
   },
 
   reportReasonText: {
     flex: 1,
     marginLeft: 10,
     fontSize: 13,
-    color: "#444",
+    color: "#4B5563",
   },
 
   reportReasonTextSelected: {
-    color: "#1b5e20",
+    color: "#15803D",
     fontWeight: "600",
   },
 
   reportDetailsInput: {
-    minHeight: 90,
+    minHeight: 80,
     marginTop: 6,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#cccccc",
-    backgroundColor: "#fafafa",
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FAFAFA",
     color: "#222",
-    fontSize: 14,
+    fontSize: 13,
   },
 
   reportCharacterCount: {
     marginTop: 4,
     textAlign: "right",
     fontSize: 11,
-    color: "#888",
+    color: "#9CA3AF",
   },
 });

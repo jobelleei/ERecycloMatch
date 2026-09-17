@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
-import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -20,6 +19,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
 
 const ITEM_OPTIONS = [
@@ -177,7 +177,7 @@ export default function FacilityProfile() {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
   const [activeSection, setActiveSection] = useState<"postings" | "feedbacks">(
-    "postings"
+    "postings",
   );
 
   const [feedbackSort, setFeedbackSort] = useState<
@@ -206,7 +206,7 @@ export default function FacilityProfile() {
     if (!showDropdown || !itemName.trim()) return [];
 
     return ITEM_OPTIONS.filter((item) =>
-      item.toLowerCase().includes(itemName.toLowerCase())
+      item.toLowerCase().includes(itemName.toLowerCase()),
     ).slice(0, 20);
   }, [itemName, showDropdown]);
 
@@ -246,11 +246,11 @@ export default function FacilityProfile() {
     loadFacility();
   }, []);
 
-useFocusEffect(
-  useCallback(() => {
-    loadFacility();
-  }, [])
-);
+  useFocusEffect(
+    useCallback(() => {
+      loadFacility();
+    }, []),
+  );
 
   useEffect(() => {
     if (facility.id) {
@@ -258,7 +258,6 @@ useFocusEffect(
       fetchFeedbacks();
     }
   }, [facility.id]);
-
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
@@ -283,7 +282,7 @@ useFocusEffect(
 
     splitCommaValues(value).forEach((item) => {
       const alreadyExists = uniqueValues.some(
-        (existing) => existing.toLowerCase() === item.toLowerCase()
+        (existing) => existing.toLowerCase() === item.toLowerCase(),
       );
 
       if (!alreadyExists) {
@@ -307,31 +306,31 @@ useFocusEffect(
     }
 
     return CONDITION_OPTIONS.filter((option) =>
-      option.toLowerCase().includes(keyword)
+      option.toLowerCase().includes(keyword),
     ).slice(0, 25);
   };
 
   const isConditionSelected = (currentValue: string, option: string) => {
     return splitCommaValues(currentValue).some(
-      (item) => item.toLowerCase() === option.toLowerCase()
+      (item) => item.toLowerCase() === option.toLowerCase(),
     );
   };
 
   const toggleConditionOption = (
     currentValue: string,
     option: string,
-    setter: (value: string) => void
+    setter: (value: string) => void,
   ) => {
     const values = splitCommaValues(currentValue);
     const currentTypingValue = getCurrentTypingValue(currentValue);
 
     const alreadySelected = values.some(
-      (item) => item.toLowerCase() === option.toLowerCase()
+      (item) => item.toLowerCase() === option.toLowerCase(),
     );
 
     if (alreadySelected) {
       const updatedValues = values.filter(
-        (item) => item.toLowerCase() !== option.toLowerCase()
+        (item) => item.toLowerCase() !== option.toLowerCase(),
       );
 
       setter(updatedValues.join(", "));
@@ -354,7 +353,7 @@ useFocusEffect(
   const renderStars = (rating: number) => {
     const cleanRating = Math.max(
       0,
-      Math.min(5, Math.round(Number(rating || 0)))
+      Math.min(5, Math.round(Number(rating || 0))),
     );
 
     return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
@@ -441,31 +440,21 @@ useFocusEffect(
         profileImage: finalProfileImage,
 
         openingDaysFrom:
-          actualUser?.opening_days_from ||
-          parsed?.opening_days_from ||
-          "",
+          actualUser?.opening_days_from || parsed?.opening_days_from || "",
 
         openingDaysTo:
-          actualUser?.opening_days_to ||
-          parsed?.opening_days_to ||
-          "",
+          actualUser?.opening_days_to || parsed?.opening_days_to || "",
 
         operatingHoursFrom:
           actualUser?.operating_hours_from ||
           parsed?.operating_hours_from ||
           "",
         operatingHoursTo:
-          actualUser?.operating_hours_to ||
-          parsed?.operating_hours_to ||
-          "",
+          actualUser?.operating_hours_to || parsed?.operating_hours_to || "",
         acceptedItems:
-          actualUser?.accepted_item_types ||
-          parsed?.accepted_item_types ||
-          "",
+          actualUser?.accepted_item_types || parsed?.accepted_item_types || "",
         availableServices:
-          actualUser?.available_services ||
-          parsed?.available_services ||
-          "",
+          actualUser?.available_services || parsed?.available_services || "",
       };
 
       setFacility(facilityData);
@@ -480,7 +469,7 @@ useFocusEffect(
 
   const fetchFacilityFromSupabase = async (
     facilityId: string,
-    fallbackData: any
+    fallbackData: any,
   ) => {
     try {
       const { data, error } = await supabase
@@ -499,31 +488,30 @@ useFocusEffect(
         : fallbackData.profileImage;
 
       const updatedFacility = {
-      id: String(data.id || fallbackData.id),
-      name: data.name || fallbackData.name,
-      email: data.email || fallbackData.email,
-      location: data.location || data.address || fallbackData.location,
-      address: data.address || data.location || fallbackData.address,
-      profileImage,
+        id: String(data.id || fallbackData.id),
+        name: data.name || fallbackData.name,
+        email: data.email || fallbackData.email,
+        location: data.location || data.address || fallbackData.location,
+        address: data.address || data.location || fallbackData.address,
+        profileImage,
 
-      openingDaysFrom:
-        data.opening_days_from || fallbackData.openingDaysFrom || "",
+        openingDaysFrom:
+          data.opening_days_from || fallbackData.openingDaysFrom || "",
 
-      openingDaysTo:
-        data.opening_days_to || fallbackData.openingDaysTo || "",
+        openingDaysTo: data.opening_days_to || fallbackData.openingDaysTo || "",
 
-      operatingHoursFrom:
-        data.operating_hours_from || fallbackData.operatingHoursFrom || "",
+        operatingHoursFrom:
+          data.operating_hours_from || fallbackData.operatingHoursFrom || "",
 
-      operatingHoursTo:
-        data.operating_hours_to || fallbackData.operatingHoursTo || "",
+        operatingHoursTo:
+          data.operating_hours_to || fallbackData.operatingHoursTo || "",
 
-      acceptedItems:
-        data.accepted_item_types || fallbackData.acceptedItems || "",
+        acceptedItems:
+          data.accepted_item_types || fallbackData.acceptedItems || "",
 
-      availableServices:
-        data.available_services || fallbackData.availableServices || "",
-    };
+        availableServices:
+          data.available_services || fallbackData.availableServices || "",
+      };
 
       setFacility(updatedFacility);
 
@@ -586,7 +574,7 @@ useFocusEffect(
 
         await AsyncStorage.setItem(
           "user",
-          JSON.stringify(updatedStoredFacility)
+          JSON.stringify(updatedStoredFacility),
         );
       }
     } catch (error) {
@@ -622,7 +610,10 @@ useFocusEffect(
     );
   };
 
-  const isPostingUsedByActiveMatch = (posting: any, activeConversation: any) => {
+  const isPostingUsedByActiveMatch = (
+    posting: any,
+    activeConversation: any,
+  ) => {
     const postingId = String(posting?.id || "").trim();
 
     const conversationPostingId = String(
@@ -630,10 +621,14 @@ useFocusEffect(
         activeConversation?.posting_id ||
         activeConversation?.facility_post_id ||
         activeConversation?.post_id ||
-        ""
+        "",
     ).trim();
 
-    if (postingId && conversationPostingId && postingId === conversationPostingId) {
+    if (
+      postingId &&
+      conversationPostingId &&
+      postingId === conversationPostingId
+    ) {
       return true;
     }
 
@@ -642,7 +637,7 @@ useFocusEffect(
         posting?.item_name ||
         posting?.item_type ||
         posting?.name ||
-        ""
+        "",
     );
 
     const conversationItem = normalizeMatchText(
@@ -652,11 +647,12 @@ useFocusEffect(
         activeConversation?.item_name ||
         activeConversation?.item_type ||
         activeConversation?.name ||
-        ""
+        "",
     );
 
     if (!postingItem || !conversationItem) return false;
-    if (postingItem === "unknown" || conversationItem === "unknown") return false;
+    if (postingItem === "unknown" || conversationItem === "unknown")
+      return false;
 
     return (
       postingItem === conversationItem ||
@@ -684,24 +680,29 @@ useFocusEffect(
         return;
       }
 
-      const { data: conversationData, error: conversationError } = await supabase
-        .from("conversations")
-        .select("*")
-        .eq("facility_id", String(facility.id));
+      const { data: conversationData, error: conversationError } =
+        await supabase
+          .from("conversations")
+          .select("*")
+          .eq("facility_id", String(facility.id));
 
       if (conversationError) {
-        console.log("FETCH FACILITY MATCHED CONVERSATIONS ERROR:", conversationError);
+        console.log(
+          "FETCH FACILITY MATCHED CONVERSATIONS ERROR:",
+          conversationError,
+        );
         setPostings(postingData || []);
         return;
       }
 
       const activeMatchedConversations = (conversationData || []).filter(
-        isActiveMatchedConversation
+        isActiveMatchedConversation,
       );
 
       const visiblePostings = (postingData || []).filter((posting: any) => {
         const alreadyMatched = activeMatchedConversations.some(
-          (conversation: any) => isPostingUsedByActiveMatch(posting, conversation)
+          (conversation: any) =>
+            isPostingUsedByActiveMatch(posting, conversation),
         );
 
         return !alreadyMatched;
@@ -742,7 +743,7 @@ useFocusEffect(
       if (finalData.length > 0) {
         const total = finalData.reduce(
           (sum: number, item: any) => sum + Number(item.rating || 0),
-          0
+          0,
         );
 
         setAverageRating(total / finalData.length);
@@ -891,7 +892,7 @@ useFocusEffect(
     setter: (value: string) => void,
     visible: boolean,
     setVisible: (value: boolean) => void,
-    placeholder: string
+    placeholder: string,
   ) => {
     const filteredConditions = getFilteredConditions(value);
 
@@ -1075,8 +1076,7 @@ useFocusEffect(
               <Text
                 style={[
                   styles.filterChipText,
-                  feedbackSort === option.value &&
-                    styles.activeFilterChipText,
+                  feedbackSort === option.value && styles.activeFilterChipText,
                 ]}
               >
                 {option.label}
@@ -1142,31 +1142,31 @@ useFocusEffect(
               </View>
 
               <View style={styles.headerInfoBox}>
-              {renderHeaderInfoRow(
-                "Opening Days",
-                `${facility.openingDaysFrom || "Not specified"} - ${
-                  facility.openingDaysTo || ""
-                }`
-              )}
+                {renderHeaderInfoRow(
+                  "Opening Days",
+                  `${facility.openingDaysFrom || "Not specified"} - ${
+                    facility.openingDaysTo || ""
+                  }`,
+                )}
 
-              {renderHeaderInfoRow(
-                "Operating Hours",
-                formatOperatingHours(
-                  facility.operatingHoursFrom,
-                  facility.operatingHoursTo
-                )
-              )}
+                {renderHeaderInfoRow(
+                  "Operating Hours",
+                  formatOperatingHours(
+                    facility.operatingHoursFrom,
+                    facility.operatingHoursTo,
+                  ),
+                )}
 
-              {renderHeaderInfoRow(
-                "Accepted Items",
-                formatCommaText(facility.acceptedItems)
-              )}
+                {renderHeaderInfoRow(
+                  "Accepted Items",
+                  formatCommaText(facility.acceptedItems),
+                )}
 
-              {renderHeaderInfoRow(
-                "Available Services",
-                formatCommaText(facility.availableServices)
-              )}
-            </View>
+                {renderHeaderInfoRow(
+                  "Available Services",
+                  formatCommaText(facility.availableServices),
+                )}
+              </View>
 
               <View style={styles.ratingSummaryBox}>
                 <Text style={styles.ratingSummaryStars}>
@@ -1181,13 +1181,6 @@ useFocusEffect(
                     : "No feedback yet"}
                 </Text>
               </View>
-
-              <TouchableOpacity
-                style={styles.addPostButton}
-                onPress={openCreateModal}
-              >
-                <Text style={styles.addPostText}>＋ Create a Post</Text>
-              </TouchableOpacity>
             </View>
 
             <View style={styles.sectionTabs}>
@@ -1201,8 +1194,7 @@ useFocusEffect(
                 <Text
                   style={[
                     styles.sectionTabText,
-                    activeSection === "postings" &&
-                      styles.activeSectionTabText,
+                    activeSection === "postings" && styles.activeSectionTabText,
                   ]}
                 >
                   My Postings
@@ -1316,7 +1308,7 @@ useFocusEffect(
                   setConditionsAccepted,
                   showAcceptedConditionsDropdown,
                   setShowAcceptedConditionsDropdown,
-                  "Type condition to search, example: screen cracked"
+                  "Type condition to search, example: screen cracked",
                 )}
 
                 {renderConditionInput(
@@ -1325,7 +1317,7 @@ useFocusEffect(
                   setConditionsRejected,
                   showRejectedConditionsDropdown,
                   setShowRejectedConditionsDropdown,
-                  "Type condition to search, example: hazardous substances"
+                  "Type condition to search, example: hazardous substances",
                 )}
 
                 <View style={styles.modalButtons}>
@@ -1355,10 +1347,7 @@ useFocusEffect(
         </View>
       </Modal>
 
-      <FacilityBottomNav
-        facilityId={facility.id}
-        active="profile"
-      />
+      <FacilityBottomNav facilityId={facility.id} active="profile" />
     </SafeAreaView>
   );
 }
@@ -1481,20 +1470,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#fff",
     marginTop: 2,
-  },
-
-  addPostButton: {
-    backgroundColor: "#fff",
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-  },
-
-  addPostText: {
-    color: "#1b5e20",
-    fontWeight: "bold",
-    fontSize: 13,
   },
 
   sectionTabs: {

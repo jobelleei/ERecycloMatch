@@ -1,4 +1,4 @@
-import { Feather } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,6 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
@@ -54,7 +55,6 @@ export default function FacilityDashboard() {
     }, []),
   );
 
-  // Safe Realtime channel subscription with timestamp to avoid callback collisions
   useEffect(() => {
     const facilityId = facility?.id;
 
@@ -207,17 +207,9 @@ export default function FacilityDashboard() {
 
     const missingFields: string[] = [];
 
-    if (!hasOperatingHours) {
-      missingFields.push("Operating Hours");
-    }
-
-    if (!hasAcceptedItems) {
-      missingFields.push("Accepted Items");
-    }
-
-    if (!hasAvailableServices) {
-      missingFields.push("Available Services");
-    }
+    if (!hasOperatingHours) missingFields.push("Operating Hours");
+    if (!hasAcceptedItems) missingFields.push("Accepted Items");
+    if (!hasAvailableServices) missingFields.push("Available Services");
 
     setMissingProfileFields(missingFields);
     setShowProfileReminder(missingFields.length > 0);
@@ -231,10 +223,7 @@ export default function FacilityDashboard() {
           ", ",
         )} in Edit Profile at Settings.`,
         [
-          {
-            text: "Later",
-            style: "cancel",
-          },
+          { text: "Later", style: "cancel" },
           {
             text: "Go to Settings",
             onPress: () => router.push("/facility_dashboard/settings" as any),
@@ -253,22 +242,17 @@ export default function FacilityDashboard() {
 
       const { count, error } = await supabase
         .from("notifications")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
+        .select("id", { count: "exact", head: true })
         .eq("profile_id", Number(facilityId))
         .eq("is_read", false);
 
       if (error) {
-        console.log("FETCH UNREAD FACILITY NOTIFICATION COUNT ERROR:", error);
         setUnreadNotificationCount(0);
         return;
       }
 
       setUnreadNotificationCount(count || 0);
-    } catch (error) {
-      console.log("UNREAD FACILITY NOTIFICATION COUNT ERROR:", error);
+    } catch {
       setUnreadNotificationCount(0);
     }
   };
@@ -355,26 +339,22 @@ export default function FacilityDashboard() {
         role: "facility",
       };
 
-      if (parsed.user) {
+      if (parsed.user)
         updatedStoredFacility.user = {
           ...parsed.user,
           ...latestFacility,
           role: "facility",
         };
-      }
-
-      if (parsed.data) {
+      if (parsed.data)
         updatedStoredFacility.data = {
           ...parsed.data,
           ...latestFacility,
           role: "facility",
         };
-      }
 
       await AsyncStorage.setItem("user", JSON.stringify(updatedStoredFacility));
       fetchRandomListedItems(latestFacility);
-    } catch (error) {
-      console.log("LOAD FACILITY ERROR:", error);
+    } catch {
       hideFacilityProfileReminder();
     }
   };
@@ -383,10 +363,7 @@ export default function FacilityDashboard() {
     if (!path || String(path).trim() === "") return "";
 
     let cleanPath = String(path).trim();
-
-    if (cleanPath.startsWith("http")) {
-      return cleanPath;
-    }
+    if (cleanPath.startsWith("http")) return cleanPath;
 
     cleanPath = cleanPath.replace(/^\/+/, "");
     cleanPath = cleanPath.replace(`${bucket}/`, "");
@@ -400,11 +377,7 @@ export default function FacilityDashboard() {
   const getUserProfileUrl = (user: any) => {
     const imagePath =
       user.profile_image || user.profileImage || user.profile_image_url || "";
-
-    if (!imagePath) {
-      return "";
-    }
-
+    if (!imagePath) return "";
     return getPublicImageUrl("profile-images", imagePath);
   };
 
@@ -418,11 +391,7 @@ export default function FacilityDashboard() {
       item.photo ||
       item.photo_url ||
       "";
-
-    if (!imagePath) {
-      return "";
-    }
-
+    if (!imagePath) return "";
     return getPublicImageUrl("item-images", imagePath);
   };
 
@@ -433,28 +402,16 @@ export default function FacilityDashboard() {
       user.user_location ||
       user.user_address ||
       "";
-
     const rawLocation = String(location).trim();
-
-    if (!rawLocation) {
-      return "No location provided";
-    }
+    if (!rawLocation) return "No location provided";
 
     const parts = rawLocation
       .split(",")
       .map((part) => part.trim())
       .filter(Boolean);
-
     const cityPart = parts.find((part) => /city|municipality/i.test(part));
-
-    if (cityPart) {
-      return cityPart;
-    }
-
-    if (parts.length >= 2) {
-      return parts[parts.length - 2];
-    }
-
+    if (cityPart) return cityPart;
+    if (parts.length >= 2) return parts[parts.length - 2];
     return parts[0];
   };
 
@@ -462,274 +419,36 @@ export default function FacilityDashboard() {
     if (user.username && String(user.username).trim() !== "") {
       return `@${user.username}`;
     }
-
     return "@No username";
-  };
-
-  const getDisplayStatus = (item: any) => {
-    const status = String(item.status || "")
-      .trim()
-      .toLowerCase();
-    const matchStatus = String(item.match_status || "")
-      .trim()
-      .toLowerCase();
-
-    if (matchStatus === "pending match") return "Pending Match";
-    if (matchStatus === "matched") return "Matched";
-    if (matchStatus === "listed") return "Listed";
-    if (matchStatus === "finished") return "Finished";
-    if (matchStatus === "rejected") return "Rejected";
-    if (matchStatus === "pending") return "Pending";
-
-    if (status === "listed") return "Listed";
-    if (status === "pending match") return "Pending Match";
-    if (status === "matched") return "Matched";
-    if (status === "finished") return "Finished";
-    if (status === "rejected") return "Rejected";
-    if (status === "pending") return "Pending";
-    if (status === "approved") return "Approved";
-
-    return item.match_status || item.status || "Listed";
-  };
-
-  const getStatusStyle = (statusValue: string) => {
-    const cleanStatus = String(statusValue || "")
-      .trim()
-      .toLowerCase();
-
-    if (cleanStatus.includes("pending")) return styles.pending;
-    if (cleanStatus.includes("approved")) return styles.approved;
-    if (cleanStatus.includes("matched")) return styles.approved;
-    if (cleanStatus.includes("finished")) return styles.approved;
-    if (cleanStatus.includes("listed")) return styles.listed;
-    if (cleanStatus.includes("rejected")) return styles.rejected;
-
-    return styles.pending;
-  };
-
-  const normalizeMatchText = (value: any) => {
-    return String(value || "")
-      .toLowerCase()
-      .replace(/\s*\([^)]*\)/g, " ")
-      .replace(/[^a-z0-9\s,/|-]/g, " ")
-      .replace(/[\n\r\t]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  };
-
-  const splitMatchValues = (value: any) => {
-    const cleanValue = normalizeMatchText(value);
-
-    if (!cleanValue) return [];
-
-    return cleanValue
-      .split(/[,/|;]+/)
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
-  };
-
-  const getFacilityAcceptedItems = (profile: any) => {
-    const acceptedItems = getProfileValue(profile, [
-      "accepted_items",
-      "acceptedItems",
-      "accepted_item_types",
-      "acceptedItemTypes",
-      "items_accepted",
-      "itemsAccepted",
-      "item_needed",
-      "itemNeeded",
-      "needed_items",
-      "neededItems",
-      "preferred_items",
-      "preferredItems",
-    ]);
-
-    return splitMatchValues(acceptedItems);
-  };
-
-  const getFacilityAcceptedConditions = (profile: any) => {
-    const conditions = getProfileValue(profile, [
-      "conditions_accepted",
-      "conditionsAccepted",
-      "accepted_conditions",
-      "acceptedConditions",
-      "condition_accepted",
-      "conditionAccepted",
-      "acceptable_conditions",
-      "acceptableConditions",
-    ]);
-
-    return splitMatchValues(conditions);
-  };
-
-  const getFacilityRejectedConditions = (profile: any) => {
-    const conditions = getProfileValue(profile, [
-      "conditions_rejected",
-      "conditionsRejected",
-      "rejected_conditions",
-      "rejectedConditions",
-      "condition_rejected",
-      "conditionRejected",
-      "unacceptable_conditions",
-      "unacceptableConditions",
-    ]);
-
-    return splitMatchValues(conditions);
-  };
-
-  const getItemNameText = (item: any) => {
-    return normalizeMatchText(
-      [item.item_name, item.item_type, item.name, item.title]
-        .filter(Boolean)
-        .join(" "),
-    );
-  };
-
-  const getItemConditionText = (item: any) => {
-    return normalizeMatchText(
-      [
-        item.issues,
-        item.issue,
-        item.selected_issues,
-        item.selectedIssues,
-        item.conditions,
-        item.condition,
-        item.item_condition,
-        item.itemCondition,
-        item.damage_description,
-        item.damageDescription,
-        item.description,
-      ]
-        .filter(Boolean)
-        .join(" "),
-    );
-  };
-
-  const valueMatchesText = (value: string, text: string) => {
-    const cleanValue = normalizeMatchText(value);
-    const cleanText = normalizeMatchText(text);
-
-    if (!cleanValue || !cleanText) return false;
-
-    if (cleanText.includes(cleanValue) || cleanValue.includes(cleanText)) {
-      return true;
-    }
-
-    const words = cleanValue
-      .split(" ")
-      .map((word) => word.trim())
-      .filter((word) => word.length > 2);
-
-    if (words.length === 0) return false;
-
-    return words.every((word) => cleanText.includes(word));
-  };
-
-  const countMatches = (values: string[], text: string) => {
-    return values.filter((value) => valueMatchesText(value, text)).length;
-  };
-
-  const getItemMatchScore = (item: any, profile: any) => {
-    const acceptedItems = getFacilityAcceptedItems(profile);
-    const acceptedConditions = getFacilityAcceptedConditions(profile);
-    const rejectedConditions = getFacilityRejectedConditions(profile);
-
-    const itemNameText = getItemNameText(item);
-    const itemConditionText = getItemConditionText(item);
-
-    const itemNameMatches = countMatches(acceptedItems, itemNameText);
-    const acceptedConditionMatches = countMatches(
-      acceptedConditions,
-      itemConditionText,
-    );
-    const rejectedConditionMatches = countMatches(
-      rejectedConditions,
-      itemConditionText,
-    );
-
-    let score = 0;
-
-    if (itemNameMatches > 0) {
-      score += itemNameMatches * 100;
-    }
-
-    if (acceptedConditionMatches > 0) {
-      score += acceptedConditionMatches * 80;
-    }
-
-    if (acceptedConditions.length > 0 && acceptedConditionMatches === 0) {
-      score -= 20;
-    }
-
-    if (rejectedConditionMatches > 0) {
-      score -= rejectedConditionMatches * 200;
-    } else if (rejectedConditions.length > 0) {
-      score += 20;
-    }
-
-    return score;
-  };
-
-  const getItemTimeValue = (item: any) => {
-    const dateValue =
-      item.listed_at ||
-      item.date_listed ||
-      item.submitted_at ||
-      item.created_at ||
-      item.updated_at ||
-      item.date_created ||
-      item.date_submitted ||
-      item.id ||
-      0;
-
-    const date = new Date(dateValue);
-
-    if (!isNaN(date.getTime())) {
-      return date.getTime();
-    }
-
-    const numberValue = Number(dateValue);
-    return isNaN(numberValue) ? 0 : numberValue;
-  };
-
-  const sortListedItemsForFacility = (itemsList: any[], profile: any) => {
-    return [...itemsList].sort((a, b) => {
-      const scoreA = getItemMatchScore(a, profile);
-      const scoreB = getItemMatchScore(b, profile);
-
-      if (scoreB !== scoreA) {
-        return scoreB - scoreA;
-      }
-
-      return getItemTimeValue(b) - getItemTimeValue(a);
-    });
   };
 
   const isVisibleListedItem = (item: any) => {
     const status = String(item?.status || "")
       .trim()
       .toLowerCase();
-
     const matchStatus = String(item?.match_status || "")
       .trim()
       .toLowerCase();
 
-    return status === "listed" && matchStatus === "listed";
+    if (
+      status === "finished" ||
+      status === "recycled" ||
+      status === "rejected" ||
+      matchStatus === "finished" ||
+      matchStatus === "recycled" ||
+      matchStatus === "rejected"
+    ) {
+      return false;
+    }
+    return true;
   };
 
   const getApprovalLabel = (item: any) => {
     const approvalSource = String(item?.approval_source || "")
       .trim()
       .toLowerCase();
-
-    if (approvalSource === "system") {
-      return "Approved by System";
-    }
-
-    if (approvalSource === "admin") {
-      return "Approved by Admin";
-    }
-
+    if (approvalSource === "system") return "Approved by System";
+    if (approvalSource === "admin") return "Approved by Admin";
     return "";
   };
 
@@ -740,20 +459,11 @@ export default function FacilityDashboard() {
 
       const cleanKeyword = `%${keyword}%`;
 
+      // 1. Search Users
       const { data: usersData, error: usersError } = await supabase
         .from("profiles")
         .select(
-          `
-          id,
-          name,
-          username,
-          email,
-          address,
-          location,
-          profile_image,
-          role,
-          status
-        `,
+          `id, name, username, email, address, location, profile_image, role, status`,
         )
         .eq("role", "user")
         .eq("status", "approved")
@@ -763,31 +473,27 @@ export default function FacilityDashboard() {
         .order("id", { ascending: false })
         .limit(8);
 
-      if (usersError) {
-        setSearchedUsers([]);
-      } else {
-        setSearchedUsers(usersData || []);
-      }
+      if (usersError) setSearchedUsers([]);
+      else setSearchedUsers(usersData || []);
 
+      // 2. Search Items
       const { data: itemsData, error: itemsError } = await supabase
         .from("items")
         .select("*")
         .or(
-          `item_name.ilike.${cleanKeyword},description.ilike.${cleanKeyword},location.ilike.${cleanKeyword},address.ilike.${cleanKeyword},submitter_name.ilike.${cleanKeyword}`,
+          `item_name.ilike.${cleanKeyword},item_type.ilike.${cleanKeyword},description.ilike.${cleanKeyword}`,
         )
         .order("created_at", { ascending: false });
 
       if (itemsError) {
         setSearchedItems([]);
       } else {
-        const listedItems = (itemsData || []).filter((item: any) =>
+        const availableItems = (itemsData || []).filter((item: any) =>
           isVisibleListedItem(item),
         );
-
-        setSearchedItems(sortListedItemsForFacility(listedItems, facility));
+        setSearchedItems(availableItems);
       }
-    } catch (error) {
-      console.log("FACILITY SEARCH ERROR:", error);
+    } catch {
       setSearchedUsers([]);
       setSearchedItems([]);
     } finally {
@@ -810,11 +516,8 @@ export default function FacilityDashboard() {
       const listedItems = (data || []).filter((item: any) =>
         isVisibleListedItem(item),
       );
-
-      const sortedItems = sortListedItemsForFacility(listedItems, profileData);
-      setRandomListedItems(sortedItems);
-    } catch (error) {
-      console.log("FETCH LISTED ITEMS ERROR:", error);
+      setRandomListedItems(listedItems);
+    } catch {
       setRandomListedItems([]);
     }
   };
@@ -828,9 +531,7 @@ export default function FacilityDashboard() {
   };
 
   const openUserProfile = (user: any) => {
-    Keyboard.dismiss();
-    setShowSearchResults(false);
-
+    clearSearch();
     router.push({
       pathname: "/facility_dashboard/user_view_profile" as any,
       params: {
@@ -842,6 +543,14 @@ export default function FacilityDashboard() {
     });
   };
 
+  const openItemDetails = (item: any) => {
+    clearSearch();
+    router.push({
+      pathname: "/facility_dashboard/item_details" as any,
+      params: { item_id: String(item.id) },
+    });
+  };
+
   const openEditProfileSettings = () => {
     router.push("/facility_dashboard/settings" as any);
   };
@@ -849,16 +558,15 @@ export default function FacilityDashboard() {
   const hasResults = searchedUsers.length > 0 || searchedItems.length > 0;
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+    <SafeAreaView
+      style={{ flex: 1, backgroundColor: "#f5f5f5" }}
+      edges={["top"]}
+    >
       <View style={{ flex: 1 }}>
-        <ScrollView
-          style={styles.container}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
+        {/* Top Header & Search Bar */}
+        <View style={styles.topFixedSection}>
           <View style={styles.header}>
-            <Text style={styles.welcome}>
+            <Text style={styles.welcome} numberOfLines={1}>
               Welcome Back{facilityName ? `, ${facilityName}` : ""}!
             </Text>
 
@@ -873,7 +581,6 @@ export default function FacilityDashboard() {
                 }
               >
                 <Feather name="bell" size={24} color="#000000" />
-
                 {unreadNotificationCount > 0 && (
                   <View style={styles.notificationBadge}>
                     <Text style={styles.notificationBadgeText}>
@@ -887,6 +594,180 @@ export default function FacilityDashboard() {
             </View>
           </View>
 
+          {/* Search Box */}
+          <View style={styles.searchBox}>
+            <TextInput
+              placeholder="Search for users, usernames, or listed items"
+              placeholderTextColor="#777"
+              value={searchText}
+              onChangeText={(text) => {
+                setSearchText(text);
+                setShowSearchResults(true);
+              }}
+              onFocus={() => {
+                if (searchText.trim().length > 0) {
+                  setShowSearchResults(true);
+                }
+              }}
+              style={styles.searchInput}
+            />
+
+            {searchText.length > 0 ? (
+              <TouchableOpacity onPress={clearSearch} activeOpacity={0.7}>
+                <Text style={styles.clearSearch}>×</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.searchIconBox}>
+                <Ionicons name="search-outline" size={19} color="#666" />
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Backdrop overlay */}
+        {showSearchResults && searchText.trim().length > 0 && (
+          <TouchableWithoutFeedback onPress={() => setShowSearchResults(false)}>
+            <View style={styles.searchBackdrop} />
+          </TouchableWithoutFeedback>
+        )}
+
+        {/* Floating Dropdown Results */}
+        {showSearchResults && searchText.trim().length > 0 && (
+          <View style={styles.floatingSearchResultsBox}>
+            {isSearching ? (
+              <View style={styles.searchLoading}>
+                <ActivityIndicator size="small" color="#2f7d1f" />
+                <Text style={styles.searchLoadingText}>Searching...</Text>
+              </View>
+            ) : hasResults ? (
+              <ScrollView
+                nestedScrollEnabled
+                keyboardShouldPersistTaps="handled"
+                style={styles.searchResultScroll}
+              >
+                {/* Users List */}
+                {searchedUsers.length > 0 && (
+                  <View>
+                    <Text style={styles.resultSectionTitle}>
+                      Users ({searchedUsers.length})
+                    </Text>
+
+                    {searchedUsers.map((user) => {
+                      const profileImage = getUserProfileUrl(user);
+
+                      return (
+                        <TouchableOpacity
+                          key={`user-${user.id}`}
+                          style={styles.searchResultItem}
+                          activeOpacity={0.8}
+                          onPress={() => openUserProfile(user)}
+                        >
+                          <Image
+                            source={
+                              profileImage
+                                ? { uri: profileImage }
+                                : require("../../assets/icons/avatar.png")
+                            }
+                            style={styles.searchRoundImage}
+                          />
+
+                          <View style={styles.searchInfo}>
+                            <Text style={styles.searchTitle}>
+                              {user.name || "No name"}
+                            </Text>
+
+                            <Text style={styles.usernameText}>
+                              {getUsername(user)}
+                            </Text>
+
+                            <Text style={styles.searchSubtitle}>
+                              {getUserLocation(user)}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* Items List */}
+                {searchedItems.length > 0 && (
+                  <View
+                    style={{
+                      marginTop: searchedUsers.length > 0 ? 8 : 0,
+                    }}
+                  >
+                    <Text style={styles.resultSectionTitle}>
+                      Available Items ({searchedItems.length})
+                    </Text>
+
+                    {searchedItems.map((item, index) => {
+                      const itemImage = getItemImageUrl(item);
+
+                      return (
+                        <TouchableOpacity
+                          key={`search-item-${item.id}-${index}`}
+                          style={styles.searchResultItem}
+                          activeOpacity={0.8}
+                          onPress={() => openItemDetails(item)}
+                        >
+                          <Image
+                            source={
+                              itemImage
+                                ? { uri: itemImage }
+                                : require("../../assets/icons/icon.png")
+                            }
+                            style={styles.searchSquareImage}
+                          />
+
+                          <View style={styles.searchInfo}>
+                            <View style={styles.itemTitleStatusRow}>
+                              <Text
+                                style={styles.searchTitle}
+                                numberOfLines={1}
+                              >
+                                {item.item_name ||
+                                  item.item_type ||
+                                  "No item name"}
+                              </Text>
+                            </View>
+
+                            <Text style={styles.usernameText}>
+                              By: {item.submitter_name || "Community User"}
+                            </Text>
+
+                            <Text
+                              style={styles.searchSubtitle}
+                              numberOfLines={1}
+                            >
+                              {item.description ||
+                                item.location ||
+                                "Tap to review details"}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </ScrollView>
+            ) : (
+              <View style={styles.noSearchResult}>
+                <Text style={styles.noSearchResultText}>
+                  No users or items found for "{searchText}".
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Main Content Area */}
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {showProfileReminder && missingProfileFields.length > 0 && (
             <View style={styles.profileReminderBox}>
               <View style={styles.profileReminderHeader}>
@@ -915,149 +796,6 @@ export default function FacilityDashboard() {
               </TouchableOpacity>
             </View>
           )}
-
-          <View style={styles.searchArea}>
-            <View style={styles.searchBox}>
-              <TextInput
-                placeholder="Search for users or their username"
-                placeholderTextColor="#777"
-                value={searchText}
-                onChangeText={(text) => {
-                  setSearchText(text);
-                  setShowSearchResults(true);
-                }}
-                onFocus={() => {
-                  if (searchText.trim().length > 0) {
-                    setShowSearchResults(true);
-                  }
-                }}
-                style={styles.searchInput}
-              />
-
-              {searchText.length > 0 && (
-                <TouchableOpacity onPress={clearSearch}>
-                  <Text style={styles.clearSearch}>×</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {showSearchResults && searchText.trim().length > 0 && (
-              <View style={styles.searchResultsBox}>
-                {isSearching ? (
-                  <View style={styles.searchLoading}>
-                    <ActivityIndicator size="small" color="#2f7d1f" />
-                    <Text style={styles.searchLoadingText}>Searching...</Text>
-                  </View>
-                ) : hasResults ? (
-                  <ScrollView
-                    nestedScrollEnabled
-                    keyboardShouldPersistTaps="handled"
-                    style={styles.searchResultScroll}
-                  >
-                    {searchedUsers.length > 0 && (
-                      <View>
-                        <Text style={styles.resultSectionTitle}>Users</Text>
-
-                        {searchedUsers.map((user) => {
-                          const profileImage = getUserProfileUrl(user);
-
-                          return (
-                            <TouchableOpacity
-                              key={`user-${user.id}`}
-                              style={styles.searchResultItem}
-                              activeOpacity={0.8}
-                              onPress={() => openUserProfile(user)}
-                            >
-                              <Image
-                                source={
-                                  profileImage
-                                    ? { uri: profileImage }
-                                    : require("../../assets/icons/avatar.png")
-                                }
-                                style={styles.searchRoundImage}
-                              />
-
-                              <View style={styles.searchInfo}>
-                                <Text style={styles.searchTitle}>
-                                  {user.name || "No name"}
-                                </Text>
-
-                                <Text style={styles.usernameText}>
-                                  {getUsername(user)}
-                                </Text>
-
-                                <Text style={styles.searchSubtitle}>
-                                  {getUserLocation(user)}
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-
-                    {searchedItems.length > 0 && (
-                      <View>
-                        <Text style={styles.resultSectionTitle}>Items</Text>
-
-                        {searchedItems.map((item, index) => {
-                          const itemImage = getItemImageUrl(item);
-
-                          return (
-                            <TouchableOpacity
-                              key={`item-${item.id}-${index}`}
-                              style={styles.searchResultItem}
-                              activeOpacity={0.8}
-                              onPress={() =>
-                                router.push({
-                                  pathname:
-                                    "/facility_dashboard/item_details" as any,
-                                  params: {
-                                    item_id: String(item.id),
-                                  },
-                                })
-                              }
-                            >
-                              <Image
-                                source={
-                                  itemImage
-                                    ? { uri: itemImage }
-                                    : require("../../assets/icons/icon.png")
-                                }
-                                style={styles.searchSquareImage}
-                              />
-
-                              <View style={styles.searchInfo}>
-                                <Text style={styles.searchTitle}>
-                                  {item.item_name ||
-                                    item.item_type ||
-                                    "No item name"}
-                                </Text>
-
-                                <Text style={styles.usernameText}>
-                                  {item.submitter_name || "No submitter"}
-                                </Text>
-
-                                <Text style={styles.searchSubtitle}>
-                                  Tap to view item details
-                                </Text>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                  </ScrollView>
-                ) : (
-                  <View style={styles.noSearchResult}>
-                    <Text style={styles.noSearchResultText}>
-                      No results found.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
 
           <ImageBackground
             source={require("../../assets/images/ewaste-banner.jpg")}
@@ -1095,14 +833,7 @@ export default function FacilityDashboard() {
                   key={`random-listed-${item.id}-${index}`}
                   style={styles.postCard}
                   activeOpacity={0.8}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/facility_dashboard/item_details" as any,
-                      params: {
-                        item_id: String(item.id),
-                      },
-                    })
-                  }
+                  onPress={() => openItemDetails(item)}
                 >
                   <Image
                     source={
@@ -1114,25 +845,16 @@ export default function FacilityDashboard() {
                   />
 
                   <View style={styles.postContent}>
+                    {/* Item Card Header without status */}
                     <View style={styles.postHeader}>
                       <Text style={styles.postTitle}>
                         {item.item_name || item.item_type || "Unnamed Item"}
-                      </Text>
-
-                      <Text
-                        style={[
-                          styles.postStatus,
-                          getStatusStyle(getDisplayStatus(item)),
-                        ]}
-                      >
-                        {getDisplayStatus(item)}
                       </Text>
                     </View>
 
                     {!!getApprovalLabel(item) && (
                       <View style={styles.approvalBadge}>
                         <Text style={styles.approvalBadgeIcon}>✓</Text>
-
                         <Text style={styles.approvalBadgeText}>
                           {getApprovalLabel(item)}
                         </Text>
@@ -1154,7 +876,6 @@ export default function FacilityDashboard() {
                         source={require("../../assets/icons/location.png")}
                         style={styles.locationIcon}
                       />
-
                       <Text style={styles.postLocation} numberOfLines={1}>
                         {item.location || item.address || "No location"}
                       </Text>
@@ -1181,14 +902,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
+  topFixedSection: {
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 10,
+    zIndex: 100,
+  },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 6,
     paddingBottom: 100,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 12,
   },
   welcome: {
     fontSize: 18,
@@ -1209,7 +939,6 @@ const styles = StyleSheet.create({
     borderColor: "#e5e5e5",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 10,
     position: "relative",
   },
   notificationBadge: {
@@ -1231,13 +960,136 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
   },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  searchBox: {
+    backgroundColor: "#dff0d8",
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 4,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchInput: {
+    flex: 1,
+    height: 42,
+    fontSize: 14,
+    color: "#222",
+  },
+  searchIconBox: {
+    paddingHorizontal: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  clearSearch: {
+    fontSize: 26,
+    color: "#555",
+    paddingHorizontal: 5,
+    marginBottom: 2,
+  },
+  searchBackdrop: {
+    position: "absolute",
+    top: 110,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 998,
+  },
+  floatingSearchResultsBox: {
+    position: "absolute",
+    top: 112,
+    left: 20,
+    right: 20,
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    paddingVertical: 8,
+    maxHeight: 400,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 12,
+    zIndex: 999,
+  },
+  searchResultScroll: {
+    maxHeight: 390,
+  },
+  resultSectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#2f7d1f",
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 5,
+    backgroundColor: "#fafafa",
+  },
+  searchLoading: {
+    padding: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+  },
+  searchLoadingText: {
+    marginLeft: 8,
+    color: "#555",
+    fontSize: 14,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  searchRoundImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#eee",
+  },
+  searchSquareImage: {
+    width: 50,
+    height: 50,
+    borderRadius: 10,
+    backgroundColor: "#eee",
+  },
+  searchInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  itemTitleStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  searchTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222",
+    flex: 1,
+  },
+  usernameText: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#2f7d1f",
+    fontWeight: "600",
+  },
+  searchSubtitle: {
+    marginTop: 3,
+    fontSize: 12,
+    color: "#666",
+  },
+  noSearchResult: {
+    padding: 18,
+    alignItems: "center",
+  },
+  noSearchResultText: {
+    color: "#777",
+    fontSize: 14,
+    textAlign: "center",
   },
   profileReminderBox: {
-    marginTop: 15,
+    marginTop: 10,
+    marginBottom: 10,
     backgroundColor: "#fff8e1",
     borderRadius: 15,
     padding: 14,
@@ -1280,118 +1132,8 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 13,
   },
-  searchArea: {
-    marginTop: 15,
-    zIndex: 999,
-  },
-  searchBox: {
-    backgroundColor: "#dff0d8",
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 4,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  searchInput: {
-    flex: 1,
-    height: 42,
-    fontSize: 14,
-    color: "#222",
-  },
-  clearSearch: {
-    fontSize: 26,
-    color: "#555",
-    paddingHorizontal: 5,
-    marginBottom: 2,
-  },
-  searchResultsBox: {
-    position: "absolute",
-    top: 55,
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    borderRadius: 15,
-    paddingVertical: 8,
-    maxHeight: 370,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 3 },
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 9999,
-  },
-  searchResultScroll: {
-    maxHeight: 360,
-  },
-  resultSectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#2f7d1f",
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 5,
-  },
-  searchLoading: {
-    padding: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "row",
-  },
-  searchLoadingText: {
-    marginLeft: 8,
-    color: "#555",
-    fontSize: 14,
-  },
-  searchResultItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  searchRoundImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#eee",
-  },
-  searchSquareImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: "#eee",
-  },
-  searchInfo: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  searchTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#222",
-  },
-  usernameText: {
-    marginTop: 2,
-    fontSize: 13,
-    color: "#2f7d1f",
-    fontWeight: "600",
-  },
-  searchSubtitle: {
-    marginTop: 3,
-    fontSize: 13,
-    color: "#666",
-  },
-  noSearchResult: {
-    padding: 18,
-    alignItems: "center",
-  },
-  noSearchResultText: {
-    color: "#777",
-    fontSize: 14,
-  },
   banner: {
-    marginTop: 20,
+    marginTop: 10,
     height: 180,
     borderRadius: 15,
     overflow: "hidden",
@@ -1455,11 +1197,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#222",
-    marginRight: 10,
-  },
-  postStatus: {
-    fontSize: 12,
-    fontWeight: "700",
   },
   approvalBadge: {
     alignSelf: "flex-start",
@@ -1509,18 +1246,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     color: "#777",
-  },
-  pending: {
-    color: "#fbc02d",
-  },
-  approved: {
-    color: "#1976d2",
-  },
-  listed: {
-    color: "green",
-  },
-  rejected: {
-    color: "red",
   },
   emptyCard: {
     backgroundColor: "#fff",

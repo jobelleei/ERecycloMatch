@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -39,6 +40,9 @@ export default function FacilityChat() {
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(
+    null,
+  );
 
   const [userProfile, setUserProfile] = useState({
     name: "User",
@@ -199,7 +203,7 @@ export default function FacilityChat() {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", String(targetUserId))
+        .eq("id", Number(targetUserId))
         .maybeSingle();
 
       if (error || !data) {
@@ -238,7 +242,7 @@ export default function FacilityChat() {
             user_name: finalName,
             user_profile_image: finalProfileImage,
           })
-          .eq("id", conversation.id);
+          .eq("id", String(conversation.id));
       }
     } catch (error) {
       console.log("FETCH USER PROFILE ERROR:", error);
@@ -336,10 +340,13 @@ export default function FacilityChat() {
     try {
       if (!targetItemId) return;
 
+      const numericItemId = Number(targetItemId);
+      if (isNaN(numericItemId)) return;
+
       const { data, error } = await supabase
         .from("items")
         .select("*")
-        .eq("id", String(targetItemId))
+        .eq("id", numericItemId)
         .maybeSingle();
 
       if (error) {
@@ -372,11 +379,21 @@ export default function FacilityChat() {
     }
   };
 
-  const formatMessageTime = (value: string) => {
+  const formatMessageTimeOnly = (value: string) => {
     if (!value) return "";
-
     const date = new Date(value);
+    if (isNaN(date.getTime())) return "";
 
+    return date.toLocaleTimeString("en-PH", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatMessageDateTime = (value: string) => {
+    if (!value) return "";
+    const date = new Date(value);
     if (isNaN(date.getTime())) return "";
 
     return date.toLocaleString("en-PH", {
@@ -449,62 +466,6 @@ export default function FacilityChat() {
       message === "request sent" ||
       message === "match request sent" ||
       message.startsWith("request sent for ")
-    );
-  };
-
-  const isMatchAcceptedMessage = (item: any) => {
-    const message = String(item?.message || "")
-      .trim()
-      .toLowerCase();
-
-    return (
-      message === "match accepted" ||
-      message.includes("match accepted") ||
-      message.includes("you can now chat")
-    );
-  };
-
-  const isMatchRejectedMessage = (item: any) => {
-    const message = String(item?.message || "")
-      .trim()
-      .toLowerCase();
-
-    return (
-      message === "match rejected" ||
-      message === "request rejected" ||
-      message === "match request rejected" ||
-      message.includes("match rejected") ||
-      message.includes("request rejected") ||
-      message.includes("rejected")
-    );
-  };
-
-  const isMatchCancelledMessage = (item: any) => {
-    const message = String(item?.message || "")
-      .trim()
-      .toLowerCase();
-
-    return (
-      message === "match cancelled" ||
-      message === "match canceled" ||
-      message.includes("match cancelled") ||
-      message.includes("match canceled") ||
-      message.includes("cancelled") ||
-      message.includes("canceled")
-    );
-  };
-
-  const isFinishClickedMessage = (item: any) => {
-    const message = String(item?.message || "")
-      .trim()
-      .toLowerCase();
-
-    return (
-      message.includes("clicked finish this match") ||
-      message.includes("waiting for you to click the button too") ||
-      message.includes("waiting for facility to finish") ||
-      message.includes("waiting for user to finish") ||
-      message.includes("marked this match as finished")
     );
   };
 
@@ -630,6 +591,14 @@ export default function FacilityChat() {
   const addSystemMessage = async (text: string) => {
     try {
       const now = new Date().toISOString();
+      const targetReceiverId = conversation?.user_id
+        ? Number(conversation.user_id)
+        : null;
+      const facilityIdNum = conversation?.facility_id
+        ? Number(conversation.facility_id)
+        : facility?.id
+          ? Number(facility.id)
+          : null;
 
       const { error: messageError } = await supabase.from("messages").insert([
         {
@@ -661,6 +630,23 @@ export default function FacilityChat() {
         console.log("UPDATE FACILITY SYSTEM CONVERSATION ERROR:", updateError);
       }
 
+      if (targetReceiverId && !isNaN(targetReceiverId)) {
+        await supabase.from("notifications").insert([
+          {
+            profile_id: targetReceiverId,
+            type: "match_update",
+            title: "Match Update",
+            message: text,
+            is_read: false,
+            data: {
+              conversation_id: String(conversationId),
+              facility_id: facilityIdNum,
+            },
+            created_at: now,
+          },
+        ]);
+      }
+
       fetchMessages();
       fetchConversation();
     } catch (error) {
@@ -683,8 +669,8 @@ export default function FacilityChat() {
       const { data: otherPendingMatches, error: pendingError } = await supabase
         .from("conversations")
         .select("id")
-        .eq("user_id", currentUserId)
-        .eq("facility_id", currentFacilityId)
+        .eq("user_id", Number(currentUserId))
+        .eq("facility_id", Number(currentFacilityId))
         .neq("id", String(conversationId))
         .or(
           "status.eq.match_pending,status.eq.pending,status.eq.request_pending,request_status.eq.pending",
@@ -738,14 +724,17 @@ export default function FacilityChat() {
               });
 
               if (conversation?.item_id) {
-                await supabase
-                  .from("items")
-                  .update({
-                    status: "Listed",
-                    match_status: "Matched",
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", String(conversation.item_id));
+                const itemIdNum = Number(conversation.item_id);
+                if (!isNaN(itemIdNum)) {
+                  await supabase
+                    .from("items")
+                    .update({
+                      status: "Listed",
+                      match_status: "Matched",
+                      updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", itemIdNum);
+                }
               }
 
               await addSystemMessage("Match accepted. You can now chat.");
@@ -777,18 +766,22 @@ export default function FacilityChat() {
           try {
             await updateConversation({
               status: "rejected",
+              request_status: "rejected",
               last_message: "Match rejected",
             });
 
             if (conversation?.item_id) {
-              await supabase
-                .from("items")
-                .update({
-                  status: "Listed",
-                  match_status: "Listed",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", String(conversation.item_id));
+              const itemIdNum = Number(conversation.item_id);
+              if (!isNaN(itemIdNum)) {
+                await supabase
+                  .from("items")
+                  .update({
+                    status: "Listed",
+                    match_status: "Listed",
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", itemIdNum);
+              }
             }
 
             await addSystemMessage("Match rejected");
@@ -843,14 +836,17 @@ export default function FacilityChat() {
             });
 
             if (conversation?.item_id) {
-              await supabase
-                .from("items")
-                .update({
-                  status: "Listed",
-                  match_status: "Listed",
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", String(conversation.item_id));
+              const itemIdNum = Number(conversation.item_id);
+              if (!isNaN(itemIdNum)) {
+                await supabase
+                  .from("items")
+                  .update({
+                    status: "Listed",
+                    match_status: "Listed",
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", itemIdNum);
+              }
             }
 
             await addSystemMessage("Match cancelled");
@@ -873,17 +869,20 @@ export default function FacilityChat() {
       let itemData: any = null;
 
       if (conversation?.item_id) {
-        const { data, error } = await supabase
-          .from("items")
-          .select("*")
-          .eq("id", String(conversation.item_id))
-          .maybeSingle();
+        const itemIdNum = Number(conversation.item_id);
+        if (!isNaN(itemIdNum)) {
+          const { data, error } = await supabase
+            .from("items")
+            .select("*")
+            .eq("id", itemIdNum)
+            .maybeSingle();
 
-        if (error) {
-          console.log("FETCH ITEM FOR HISTORY ERROR:", error);
+          if (error) {
+            console.log("FETCH ITEM FOR HISTORY ERROR:", error);
+          }
+
+          itemData = data;
         }
-
-        itemData = data;
       }
 
       const { data: existingHistory, error: findHistoryError } = await supabase
@@ -898,21 +897,24 @@ export default function FacilityChat() {
 
       if (existingHistory) return;
 
+      const userIdNum = Number(conversation?.user_id || userIdParam);
+      const facilityIdNum = Number(conversation?.facility_id || facility?.id);
+
       const { error } = await supabase.from("recycling_history").insert([
         {
           conversation_id: String(conversationId),
-          user_id: String(conversation?.user_id || userIdParam || ""),
+          user_id: isNaN(userIdNum) ? null : userIdNum,
           user_name: String(
             conversation?.user_name || userProfile.name || "User",
           ),
-          facility_id: String(conversation?.facility_id || facility?.id || ""),
+          facility_id: isNaN(facilityIdNum) ? null : facilityIdNum,
           facility_name: String(
             conversation?.facility_name || facility?.name || "Facility",
           ),
           matched_with: String(
             conversation?.facility_name || facility?.name || "Facility",
           ),
-          item_id: String(conversation?.item_id || ""),
+          item_id: conversation?.item_id ? String(conversation.item_id) : null,
           item_name: String(
             conversation?.item_name ||
               itemData?.item_name ||
@@ -968,15 +970,18 @@ export default function FacilityChat() {
                 });
 
                 if (conversation?.item_id) {
-                  await supabase
-                    .from("items")
-                    .update({
-                      status: "Finished",
-                      match_status: "Finished",
-                      finished_at: now,
-                      updated_at: now,
-                    })
-                    .eq("id", String(conversation.item_id));
+                  const itemIdNum = Number(conversation.item_id);
+                  if (!isNaN(itemIdNum)) {
+                    await supabase
+                      .from("items")
+                      .update({
+                        status: "Finished",
+                        match_status: "Finished",
+                        finished_at: now,
+                        updated_at: now,
+                      })
+                      .eq("id", itemIdNum);
+                  }
                 }
 
                 await createRecyclingHistoryRecord(now);
@@ -1050,11 +1055,12 @@ export default function FacilityChat() {
       setSubmittingFeedback(true);
 
       const ratedName = userProfile.name || conversation.user_name || "User";
+      const raterIdNum = Number(facility.id);
 
       const { error } = await supabase.from("match_feedbacks").insert([
         {
           conversation_id: String(conversationId),
-          rater_id: Number(facility.id),
+          rater_id: isNaN(raterIdNum) ? null : raterIdNum,
           rater_name: facility.name || "Facility",
           rater_role: "facility",
           rated_id: ratedId,
@@ -1213,7 +1219,7 @@ export default function FacilityChat() {
   };
 
   const getInputPlaceholder = () => {
-    if (isAcceptedMatch()) return "Type a message...";
+    if (isAcceptedMatch()) return "Message";
 
     if (isCurrentAccountRequester()) {
       return hasCurrentAccountSentOffer()
@@ -1258,15 +1264,17 @@ export default function FacilityChat() {
       setSending(true);
 
       const receiverId = String(conversation?.user_id || userIdParam || "");
+      const senderIdNum = Number(facility?.id);
+      const receiverIdNum = Number(receiverId);
 
       const { error } = await supabase.from("messages").insert([
         {
           conversation_id: String(conversationId),
-          sender_id: Number(facility?.id),
+          sender_id: isNaN(senderIdNum) ? null : senderIdNum,
           sender_name: facility.name || "Facility",
           sender_role: "facility",
           sender_type: "facility",
-          receiver_id: receiverId ? Number(receiverId) : null,
+          receiver_id: isNaN(receiverIdNum) ? null : receiverIdNum,
           type: sendingOffer ? "offer" : "text",
           message_type: sendingOffer ? "offer" : "text",
           message: text,
@@ -1308,7 +1316,6 @@ export default function FacilityChat() {
     return "Chat";
   };
 
-  // NEW: color for the small status dot next to the subtitle
   const getSubtitleDotColor = () => {
     const status = conversation?.status || "match_pending";
 
@@ -1488,45 +1495,32 @@ export default function FacilityChat() {
       item.sender_type === "system" ||
       isMatchRequestMessage(item);
 
-    const timeText = formatMessageTime(item.created_at);
     const requestMessage = isMatchRequestMessage(item);
-    const acceptedMessage = isMatchAcceptedMessage(item);
-    const rejectedMessage = isMatchRejectedMessage(item);
-    const cancelledMessage = isMatchCancelledMessage(item);
-    const finishClickedMessage = isFinishClickedMessage(item);
+    const isExpanded = expandedMessageId === String(item.id);
+    const timeOnlyText = formatMessageTimeOnly(item.created_at);
+    const dateTimeText = formatMessageDateTime(item.created_at);
 
     if (isSystem) {
       return (
-        <View
-          style={[
-            styles.systemMessage,
-            acceptedMessage && styles.acceptedSystemMessage,
-            rejectedMessage && styles.rejectedSystemMessage,
-            cancelledMessage && styles.cancelledSystemMessage,
-            finishClickedMessage && styles.finishSystemMessage,
-          ]}
-        >
-          <Text
-            style={[
-              styles.systemText,
-              acceptedMessage && styles.acceptedSystemText,
-              rejectedMessage && styles.rejectedSystemText,
-              cancelledMessage && styles.cancelledSystemText,
-              finishClickedMessage && styles.finishSystemText,
-            ]}
-          >
-            {requestMessage
-              ? "Match request sent"
-              : rejectedMessage
-                ? "Match rejected"
-                : cancelledMessage
-                  ? "Match cancelled"
-                  : item.message}
+        <View style={styles.plainSystemContainer}>
+          <Text style={styles.plainSystemText}>
+            {requestMessage ? "Match request sent" : item.message}
           </Text>
 
           {requestMessage && renderRequestItemCard()}
 
-          {timeText ? <Text style={styles.systemTime}>{timeText}</Text> : null}
+          {/* Always show time underneath by default, tap to show full date/time */}
+          <TouchableOpacity
+            onPress={() =>
+              setExpandedMessageId((prev) =>
+                prev === String(item.id) ? null : String(item.id),
+              )
+            }
+          >
+            <Text style={styles.plainSystemTime}>
+              {isExpanded ? dateTimeText : timeOnlyText}
+            </Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -1534,23 +1528,49 @@ export default function FacilityChat() {
     return (
       <View
         style={[
-          styles.messageBubble,
-          isMine ? styles.myMessage : styles.otherMessage,
+          styles.messageContainer,
+          isMine ? styles.myMessageContainer : styles.otherMessageContainer,
         ]}
       >
-        <Text style={[styles.senderName, isMine && styles.mySenderName]}>
-          {isMine ? "You" : item.sender_name || "User"}
-        </Text>
+        <TouchableOpacity
+          activeOpacity={0.95}
+          onPress={() =>
+            setExpandedMessageId((prev) =>
+              prev === String(item.id) ? null : String(item.id),
+            )
+          }
+        >
+          <View
+            style={[
+              styles.messageBubble,
+              isMine ? styles.myMessage : styles.otherMessage,
+            ]}
+          >
+            <Text
+              style={isMine ? styles.myMessageText : styles.otherMessageText}
+            >
+              {item.message}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
-        <Text style={isMine ? styles.myMessageText : styles.otherMessageText}>
-          {item.message}
-        </Text>
-
-        {timeText ? (
-          <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
-            {timeText}
+        {/* Always show the time underneath by default; tapping toggles to full date/time */}
+        <TouchableOpacity
+          onPress={() =>
+            setExpandedMessageId((prev) =>
+              prev === String(item.id) ? null : String(item.id),
+            )
+          }
+        >
+          <Text
+            style={[
+              styles.messageTime,
+              isMine ? styles.myMessageTime : styles.otherMessageTime,
+            ]}
+          >
+            {isExpanded ? dateTimeText : timeOnlyText}
           </Text>
-        ) : null}
+        </TouchableOpacity>
       </View>
     );
   };
@@ -1561,57 +1581,55 @@ export default function FacilityChat() {
   const chatLocked = !canSendMessage();
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 80}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <SafeAreaView style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Text style={styles.back}>‹</Text>
-            </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={["top"]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={{ flex: 1 }}>
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text style={styles.back}>‹</Text>
+              </TouchableOpacity>
 
-            <Image source={getUserImage()} style={styles.avatarImage} />
+              <Image source={getUserImage()} style={styles.avatarImage} />
 
-            <View style={{ marginLeft: 12, flex: 1 }}>
-              <Text style={styles.title}>{headerName}</Text>
+              <View style={{ marginLeft: 12, flex: 1 }}>
+                <Text style={styles.title}>{headerName}</Text>
 
-              <View style={styles.subtitleRow}>
-                <View
-                  style={[
-                    styles.subtitleDot,
-                    { backgroundColor: getSubtitleDotColor() },
-                  ]}
-                />
-                <Text style={styles.subtitle}>{getSubtitle()}</Text>
+                <View style={styles.subtitleRow}>
+                  <View
+                    style={[
+                      styles.subtitleDot,
+                      { backgroundColor: getSubtitleDotColor() },
+                    ]}
+                  />
+                  <Text style={styles.subtitle}>{getSubtitle()}</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {renderTopButtons()}
+            {renderTopButtons()}
 
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={(item, index) => String(item.id || index)}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.messagesList}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No messages yet.</Text>
-            }
-          />
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item, index) => String(item.id || index)}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.messagesList}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No messages yet.</Text>
+              }
+            />
 
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-          >
             <View style={styles.inputRow}>
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
                 placeholder={getInputPlaceholder()}
-                placeholderTextColor="#777"
+                placeholderTextColor="#999"
                 style={[styles.input, chatLocked && styles.disabledInput]}
                 editable={canSendMessage()}
               />
@@ -1619,202 +1637,202 @@ export default function FacilityChat() {
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  (sending || !canSendMessage()) && styles.disabledButton,
+                  (sending || !canSendMessage() || !messageText.trim()) &&
+                    styles.disabledButton,
                 ]}
                 onPress={sendMessage}
-                disabled={sending || !canSendMessage()}
+                disabled={sending || !canSendMessage() || !messageText.trim()}
               >
-                <Text style={styles.sendText}>{sending ? "..." : "Send"}</Text>
+                <Ionicons name="arrow-up" size={18} color="#fff" />
               </TouchableOpacity>
             </View>
-          </KeyboardAvoidingView>
+          </View>
+        </TouchableWithoutFeedback>
 
-          <Modal
-            visible={feedbackModalVisible}
-            transparent
-            animationType="fade"
-            onRequestClose={() => {
-              Keyboard.dismiss();
-              setFeedbackModalVisible(false);
-            }}
-          >
-            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-              <View style={styles.modalOverlay}>
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === "ios" ? "padding" : "height"}
-                  style={styles.modalKeyboardView}
-                >
-                  <TouchableWithoutFeedback>
-                    <View style={styles.feedbackBox}>
-                      <Text style={styles.feedbackTitle}>Rate User</Text>
+        <Modal
+          visible={feedbackModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            Keyboard.dismiss();
+            setFeedbackModalVisible(false);
+          }}
+        >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <View style={styles.modalOverlay}>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={styles.modalKeyboardView}
+              >
+                <TouchableWithoutFeedback>
+                  <View style={styles.feedbackBox}>
+                    <Text style={styles.feedbackTitle}>Rate User</Text>
 
-                      <Text style={styles.feedbackSubtitle}>
-                        How was your match with {headerName}?
-                      </Text>
+                    <Text style={styles.feedbackSubtitle}>
+                      How was your match with {headerName}?
+                    </Text>
 
-                      <View style={styles.starsRow}>
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <TouchableOpacity
-                            key={star}
-                            onPress={() => {
-                              Keyboard.dismiss();
-                              setSelectedRating(star);
-                            }}
-                          >
-                            <Text
-                              style={[
-                                styles.star,
-                                selectedRating >= star && styles.selectedStar,
-                              ]}
-                            >
-                              ★
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-
-                      <TextInput
-                        value={feedbackComment}
-                        onChangeText={setFeedbackComment}
-                        placeholder="Optional comment..."
-                        placeholderTextColor="#777"
-                        style={styles.feedbackInput}
-                        multiline
-                        textAlignVertical="top"
-                        returnKeyType="done"
-                        blurOnSubmit={true}
-                        onSubmitEditing={Keyboard.dismiss}
-                      />
-
-                      <View style={styles.reportSection}>
+                    <View style={styles.starsRow}>
+                      {[1, 2, 3, 4, 5].map((star) => (
                         <TouchableOpacity
-                          style={styles.reportToggle}
-                          onPress={() => {
-                            const nextValue = !includeReport;
-                            setIncludeReport(nextValue);
-
-                            if (!nextValue) {
-                              setReportReason("");
-                              setReportDetails("");
-                            }
-                          }}
-                        >
-                          <View
-                            style={[
-                              styles.reportCheckbox,
-                              includeReport && styles.reportCheckboxSelected,
-                            ]}
-                          >
-                            {includeReport && (
-                              <Text style={styles.reportCheckmark}>✓</Text>
-                            )}
-                          </View>
-
-                          <View style={styles.reportToggleContent}>
-                            <Text style={styles.reportToggleTitle}>
-                              Report this user
-                            </Text>
-
-                            <Text style={styles.reportToggleDescription}>
-                              Select this only if a serious issue occurred
-                              during the transaction.
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {includeReport && (
-                          <View style={styles.reportForm}>
-                            <Text style={styles.reportQuestion}>
-                              Why are you reporting this user?
-                            </Text>
-
-                            {reportReasons.map((reason) => {
-                              const selected = reportReason === reason;
-
-                              return (
-                                <TouchableOpacity
-                                  key={reason}
-                                  style={[
-                                    styles.reportReason,
-                                    selected && styles.reportReasonSelected,
-                                  ]}
-                                  onPress={() => setReportReason(reason)}
-                                >
-                                  <View
-                                    style={[
-                                      styles.reportRadio,
-                                      selected && styles.reportRadioSelected,
-                                    ]}
-                                  >
-                                    {selected && (
-                                      <View style={styles.reportRadioInner} />
-                                    )}
-                                  </View>
-
-                                  <Text
-                                    style={[
-                                      styles.reportReasonText,
-                                      selected &&
-                                        styles.reportReasonTextSelected,
-                                    ]}
-                                  >
-                                    {reason}
-                                  </Text>
-                                </TouchableOpacity>
-                              );
-                            })}
-
-                            <TextInput
-                              value={reportDetails}
-                              onChangeText={setReportDetails}
-                              placeholder="Describe what happened (optional)"
-                              placeholderTextColor="#888"
-                              multiline
-                              maxLength={500}
-                              style={styles.reportDetailsInput}
-                              textAlignVertical="top"
-                            />
-
-                            <Text style={styles.reportCharacterCount}>
-                              {reportDetails.length}/500
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      <View style={styles.modalButtons}>
-                        <TouchableOpacity
-                          style={styles.modalCancelButton}
+                          key={star}
                           onPress={() => {
                             Keyboard.dismiss();
-                            setFeedbackModalVisible(false);
+                            setSelectedRating(star);
                           }}
                         >
-                          <Text style={styles.modalCancelText}>Cancel</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[
-                            styles.modalSubmitButton,
-                            submittingFeedback && styles.disabledButton,
-                          ]}
-                          onPress={submitFeedback}
-                          disabled={submittingFeedback}
-                        >
-                          <Text style={styles.modalSubmitText}>
-                            {submittingFeedback ? "Submitting..." : "Submit"}
+                          <Text
+                            style={[
+                              styles.star,
+                              selectedRating >= star && styles.selectedStar,
+                            ]}
+                          >
+                            ★
                           </Text>
                         </TouchableOpacity>
-                      </View>
+                      ))}
                     </View>
-                  </TouchableWithoutFeedback>
-                </KeyboardAvoidingView>
-              </View>
-            </TouchableWithoutFeedback>
-          </Modal>
-        </SafeAreaView>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+
+                    <TextInput
+                      value={feedbackComment}
+                      onChangeText={setFeedbackComment}
+                      placeholder="Optional comment..."
+                      placeholderTextColor="#777"
+                      style={styles.feedbackInput}
+                      multiline
+                      textAlignVertical="top"
+                      returnKeyType="done"
+                      blurOnSubmit={true}
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+
+                    <View style={styles.reportSection}>
+                      <TouchableOpacity
+                        style={styles.reportToggle}
+                        onPress={() => {
+                          const nextValue = !includeReport;
+                          setIncludeReport(nextValue);
+
+                          if (!nextValue) {
+                            setReportReason("");
+                            setReportDetails("");
+                          }
+                        }}
+                      >
+                        <View
+                          style={[
+                            styles.reportCheckbox,
+                            includeReport && styles.reportCheckboxSelected,
+                          ]}
+                        >
+                          {includeReport && (
+                            <Text style={styles.reportCheckmark}>✓</Text>
+                          )}
+                        </View>
+
+                        <View style={styles.reportToggleContent}>
+                          <Text style={styles.reportToggleTitle}>
+                            Report this user
+                          </Text>
+
+                          <Text style={styles.reportToggleDescription}>
+                            Select this only if a serious issue occurred during
+                            the transaction.
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      {includeReport && (
+                        <View style={styles.reportForm}>
+                          <Text style={styles.reportQuestion}>
+                            Why are you reporting this user?
+                          </Text>
+
+                          {reportReasons.map((reason) => {
+                            const selected = reportReason === reason;
+
+                            return (
+                              <TouchableOpacity
+                                key={reason}
+                                style={[
+                                  styles.reportReason,
+                                  selected && styles.reportReasonSelected,
+                                ]}
+                                onPress={() => setReportReason(reason)}
+                              >
+                                <View
+                                  style={[
+                                    styles.reportRadio,
+                                    selected && styles.reportRadioSelected,
+                                  ]}
+                                >
+                                  {selected && (
+                                    <View style={styles.reportRadioInner} />
+                                  )}
+                                </View>
+
+                                <Text
+                                  style={[
+                                    styles.reportReasonText,
+                                    selected && styles.reportReasonTextSelected,
+                                  ]}
+                                >
+                                  {reason}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+
+                          <TextInput
+                            value={reportDetails}
+                            onChangeText={setReportDetails}
+                            placeholder="Describe what happened (optional)"
+                            placeholderTextColor="#888"
+                            multiline
+                            maxLength={500}
+                            style={styles.reportDetailsInput}
+                            textAlignVertical="top"
+                          />
+
+                          <Text style={styles.reportCharacterCount}>
+                            {reportDetails.length}/500
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.modalButtons}>
+                      <TouchableOpacity
+                        style={styles.modalCancelButton}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setFeedbackModalVisible(false);
+                        }}
+                      >
+                        <Text style={styles.modalCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.modalSubmitButton,
+                          submittingFeedback && styles.disabledButton,
+                        ]}
+                        onPress={submitFeedback}
+                        disabled={submittingFeedback}
+                      >
+                        <Text style={styles.modalSubmitText}>
+                          {submittingFeedback ? "Submitting..." : "Submit"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </TouchableWithoutFeedback>
+              </KeyboardAvoidingView>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -1964,31 +1982,32 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
 
-  messageBubble: {
+  messageContainer: {
     maxWidth: "80%",
-    padding: 10,
-    borderRadius: 12,
     marginBottom: 10,
   },
 
-  myMessage: {
+  myMessageContainer: {
     alignSelf: "flex-end",
+    alignItems: "flex-end",
+  },
+
+  otherMessageContainer: {
+    alignSelf: "flex-start",
+    alignItems: "flex-start",
+  },
+
+  messageBubble: {
+    padding: 10,
+    borderRadius: 12,
+  },
+
+  myMessage: {
     backgroundColor: "#1b5e20",
   },
 
   otherMessage: {
-    alignSelf: "flex-start",
     backgroundColor: "#eee",
-  },
-
-  senderName: {
-    fontSize: 11,
-    color: "gray",
-    marginBottom: 3,
-  },
-
-  mySenderName: {
-    color: "#d8f3dc",
   },
 
   myMessageText: {
@@ -2002,68 +2021,37 @@ const styles = StyleSheet.create({
   messageTime: {
     fontSize: 10,
     color: "#777",
-    marginTop: 5,
-    alignSelf: "flex-end",
+    marginTop: 3,
   },
 
   myMessageTime: {
-    color: "#d8f3dc",
+    textAlign: "right",
   },
 
-  systemMessage: {
+  otherMessageTime: {
+    textAlign: "left",
+  },
+
+  plainSystemContainer: {
     alignSelf: "center",
-    backgroundColor: "#f5f5f5",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 10,
+    marginVertical: 8,
+    alignItems: "center",
     maxWidth: "90%",
+    paddingHorizontal: 10,
   },
 
-  acceptedSystemMessage: {
-    backgroundColor: "#e8f5e9",
-  },
-
-  rejectedSystemMessage: {
-    backgroundColor: "#ffebee",
-  },
-
-  cancelledSystemMessage: {
-    backgroundColor: "#ffebee",
-  },
-
-  finishSystemMessage: {
-    backgroundColor: "#e3f2fd",
-  },
-
-  systemText: {
-    color: "#555",
-    fontWeight: "bold",
+  plainSystemText: {
+    color: "#2E7D32",
     fontSize: 12,
+    fontWeight: "600",
     textAlign: "center",
   },
 
-  acceptedSystemText: {
-    color: "green",
-  },
-
-  rejectedSystemText: {
-    color: "#d32f2f",
-  },
-
-  cancelledSystemText: {
-    color: "#d32f2f",
-  },
-
-  finishSystemText: {
-    color: "#1976d2",
-  },
-
-  systemTime: {
-    marginTop: 5,
+  plainSystemTime: {
+    marginTop: 2,
     fontSize: 10,
     textAlign: "center",
-    color: "#777",
+    color: "#888888",
   },
 
   requestItemCard: {
@@ -2107,7 +2095,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderColor: "#eee",
     backgroundColor: "#fff",
@@ -2115,34 +2103,32 @@ const styles = StyleSheet.create({
 
   input: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 25,
-    paddingHorizontal: 18,
-    minHeight: 50,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#ddd",
+    backgroundColor: "#f1f2f6",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
     color: "#000",
+    maxHeight: 100,
   },
 
   disabledInput: {
     backgroundColor: "#ececec",
     color: "#999",
-    borderColor: "#e0e0e0",
   },
 
   sendButton: {
     marginLeft: 10,
     backgroundColor: "#1b5e20",
-    height: 50,
-    minWidth: 90,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 25,
   },
 
   disabledButton: {
-    backgroundColor: "#b8c9b6",
+    backgroundColor: "#d1d5db",
   },
 
   sendText: {

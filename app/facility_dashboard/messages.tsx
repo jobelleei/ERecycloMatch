@@ -436,10 +436,12 @@ export default function FacilityMessages() {
       const withUserProfiles =
         await fetchUserProfilesForConversations(visibleConversations);
 
+      const numericFacilityId = Number(currentFacilityId);
+
       const { data: unreadMessages } = await supabase
         .from("messages")
         .select("conversation_id")
-        .eq("receiver_id", Number(currentFacilityId))
+        .eq("receiver_id", numericFacilityId)
         .eq("is_read", false);
 
       const unreadSet = new Set<string>();
@@ -451,7 +453,7 @@ export default function FacilityMessages() {
       const { data: unreadRequests, error: requestError } = await supabase
         .from("conversations")
         .select("id, status")
-        .eq("facility_id", Number(currentFacilityId))
+        .eq("facility_id", String(currentFacilityId))
         .eq("is_read", false);
 
       if (!requestError) {
@@ -462,10 +464,17 @@ export default function FacilityMessages() {
 
       const groupedConversations = groupConversationsByUser(
         withUserProfiles,
-      ).map((conversation) => ({
-        ...conversation,
-        hasUnread: unreadSet.has(String(conversation.id)),
-      }));
+      ).map((conversation) => {
+        const ids = conversation.related_conversation_ids || [
+          String(conversation.id),
+        ];
+        const hasUnread = ids.some((id: string) => unreadSet.has(String(id)));
+
+        return {
+          ...conversation,
+          hasUnread,
+        };
+      });
 
       setConversations(groupedConversations);
       setLoading(false);
@@ -640,8 +649,6 @@ export default function FacilityMessages() {
     return styles.defaultStatus;
   };
 
-  // Returns a background-color style (same hue as getStatusStyle's text color)
-  // so the status dot matches the status label.
   const getStatusDotStyle = (conversation: any) => {
     const textStyle = getStatusStyle(conversation) as { color?: string };
     return { backgroundColor: textStyle.color || "#777" };
@@ -715,16 +722,52 @@ export default function FacilityMessages() {
   };
 
   const openChat = async (conversation: any) => {
-    setConversations((prev) =>
-      prev.map((item) =>
-        item.id === conversation.id
-          ? {
-              ...item,
-              hasUnread: false,
-            }
-          : item,
-      ),
-    );
+    const conversationIds =
+      conversation?.related_conversation_ids?.length > 0
+        ? conversation.related_conversation_ids
+        : [String(conversation.id || "")].filter(Boolean);
+
+    const facilityIdNum = Number(facility?.id);
+
+    // 1. Immediately move the clicked conversation to the top and clear unread flag locally
+    setConversations((prev) => {
+      const clickedId = String(conversation.id);
+      const targetIndex = prev.findIndex(
+        (item) =>
+          String(item.id) === clickedId ||
+          item.related_conversation_ids?.includes(clickedId),
+      );
+
+      if (targetIndex === -1) return prev;
+
+      const updatedItem = {
+        ...prev[targetIndex],
+        hasUnread: false,
+        updated_at: new Date().toISOString(),
+      };
+
+      const filteredList = prev.filter((_, idx) => idx !== targetIndex);
+      return [updatedItem, ...filteredList];
+    });
+
+    // 2. Mark conversations as read in database
+    if (conversationIds.length > 0) {
+      supabase
+        .from("conversations")
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .in("id", conversationIds)
+        .then();
+    }
+
+    // 3. Mark unread messages sent to this facility as read
+    if (!isNaN(facilityIdNum) && conversationIds.length > 0) {
+      supabase
+        .from("messages")
+        .update({ is_read: true })
+        .in("conversation_id", conversationIds)
+        .eq("receiver_id", facilityIdNum)
+        .then();
+    }
 
     router.push({
       pathname: "/facility_dashboard/chat" as any,
@@ -741,10 +784,6 @@ export default function FacilityMessages() {
         item_name: String(conversation.item_name || ""),
       },
     });
-  };
-
-  const goToPage = (path: string) => {
-    router.push(path as any);
   };
 
   const renderConversation = ({ item }: any) => {
@@ -851,7 +890,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 4,
   },
 
   loadingContainer: {
@@ -871,8 +910,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#111",
-    marginTop: 15,
-    marginBottom: 15,
+    marginTop: 4,
+    marginBottom: 12,
   },
 
   listContent: {
