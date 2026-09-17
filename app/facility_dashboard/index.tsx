@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -43,10 +44,6 @@ export default function FacilityDashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  const goToPage = (path: string) => {
-    router.push(path as any);
-  };
-
   useEffect(() => {
     loadFacility();
   }, []);
@@ -57,6 +54,7 @@ export default function FacilityDashboard() {
     }, []),
   );
 
+  // Safe Realtime channel subscription with timestamp to avoid callback collisions
   useEffect(() => {
     const facilityId = facility?.id;
 
@@ -67,8 +65,10 @@ export default function FacilityDashboard() {
 
     fetchUnreadNotificationCount(String(facilityId));
 
-    const channel = supabase
-      .channel(`facility-dashboard-notifications-${facilityId}`)
+    const channelId = `facility-dash-notifs-${facilityId}-${Date.now()}`;
+    const channel = supabase.channel(channelId);
+
+    channel
       .on(
         "postgres_changes",
         {
@@ -322,13 +322,7 @@ export default function FacilityDashboard() {
         .eq("id", String(facilityId))
         .maybeSingle();
 
-      if (error) {
-        console.log("FETCH FACILITY PROFILE DETAILS ERROR:", error);
-        hideFacilityProfileReminder();
-        return;
-      }
-
-      if (!data) {
+      if (error || !data) {
         hideFacilityProfileReminder();
         return;
       }
@@ -378,7 +372,6 @@ export default function FacilityDashboard() {
       }
 
       await AsyncStorage.setItem("user", JSON.stringify(updatedStoredFacility));
-
       fetchRandomListedItems(latestFacility);
     } catch (error) {
       console.log("LOAD FACILITY ERROR:", error);
@@ -389,11 +382,16 @@ export default function FacilityDashboard() {
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
-    const cleanPath = String(path).trim();
+    let cleanPath = String(path).trim();
 
     if (cleanPath.startsWith("http")) {
       return cleanPath;
     }
+
+    cleanPath = cleanPath.replace(/^\/+/, "");
+    cleanPath = cleanPath.replace(`${bucket}/`, "");
+    cleanPath = cleanPath.replace(`public/${bucket}/`, "");
+    cleanPath = cleanPath.replace(`storage/v1/object/public/${bucket}/`, "");
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(cleanPath);
     return data?.publicUrl || "";
@@ -766,7 +764,6 @@ export default function FacilityDashboard() {
         .limit(8);
 
       if (usersError) {
-        console.log("SEARCH USERS ERROR:", usersError);
         setSearchedUsers([]);
       } else {
         setSearchedUsers(usersData || []);
@@ -781,7 +778,6 @@ export default function FacilityDashboard() {
         .order("created_at", { ascending: false });
 
       if (itemsError) {
-        console.log("SEARCH ITEMS ERROR:", itemsError);
         setSearchedItems([]);
       } else {
         const listedItems = (itemsData || []).filter((item: any) =>
@@ -807,7 +803,6 @@ export default function FacilityDashboard() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.log("FETCH LISTED ITEMS ERROR:", error);
         setRandomListedItems([]);
         return;
       }
@@ -817,7 +812,6 @@ export default function FacilityDashboard() {
       );
 
       const sortedItems = sortListedItemsForFacility(listedItems, profileData);
-
       setRandomListedItems(sortedItems);
     } catch (error) {
       console.log("FETCH LISTED ITEMS ERROR:", error);
@@ -848,84 +842,6 @@ export default function FacilityDashboard() {
     });
   };
 
-  const openUserProfileFromItem = async (item: any) => {
-    try {
-      Keyboard.dismiss();
-      setShowSearchResults(false);
-
-      const itemUserId =
-        item.user_id ||
-        item.submitter_user_id ||
-        item.owner_id ||
-        item.profile_id ||
-        "";
-
-      const itemSubmitterName =
-        item.submitter_name ||
-        item.user_name ||
-        item.name ||
-        item.username ||
-        "";
-
-      const itemSubmitterEmail =
-        item.submitter_email || item.user_email || item.email || "";
-
-      if (itemUserId) {
-        const { data: userProfile, error } = await supabase
-          .from("profiles")
-          .select("id, name, username, email, role")
-          .eq("id", String(itemUserId))
-          .maybeSingle();
-
-        if (error) {
-          console.log("FETCH ITEM OWNER PROFILE ERROR:", error);
-        }
-
-        router.push({
-          pathname: "/facility_dashboard/user_view_profile" as any,
-          params: {
-            user_id: String(userProfile?.id || itemUserId),
-            username: String(userProfile?.username || ""),
-            email: String(userProfile?.email || itemSubmitterEmail || ""),
-            name: String(userProfile?.name || itemSubmitterName || "User"),
-          },
-        });
-
-        return;
-      }
-
-      if (itemSubmitterEmail) {
-        router.push({
-          pathname: "/facility_dashboard/user_view_profile" as any,
-          params: {
-            email: String(itemSubmitterEmail),
-            name: String(itemSubmitterName || "User"),
-          },
-        });
-
-        return;
-      }
-
-      router.push({
-        pathname: "/facility_dashboard/user_view_profile" as any,
-        params: {
-          name: String(itemSubmitterName || "User"),
-          submitter_name: String(itemSubmitterName || "User"),
-        },
-      });
-    } catch (error) {
-      console.log("OPEN USER PROFILE FROM ITEM ERROR:", error);
-
-      router.push({
-        pathname: "/facility_dashboard/user_view_profile" as any,
-        params: {
-          user_id: String(item.user_id || ""),
-          name: String(item.submitter_name || "User"),
-        },
-      });
-    }
-  };
-
   const openEditProfileSettings = () => {
     router.push("/facility_dashboard/settings" as any);
   };
@@ -951,10 +867,12 @@ export default function FacilityDashboard() {
                 style={styles.notificationButton}
                 activeOpacity={0.8}
                 onPress={() =>
-                  router.push("/facility_dashboard/notifications" as any)
+                  router.push(
+                    "/facility_dashboard/facility_notifications" as any,
+                  )
                 }
               >
-                <Text style={styles.notificationBell}>🔔</Text>
+                <Feather name="bell" size={24} color="#000000" />
 
                 {unreadNotificationCount > 0 && (
                   <View style={styles.notificationBadge}>
@@ -966,11 +884,6 @@ export default function FacilityDashboard() {
                   </View>
                 )}
               </TouchableOpacity>
-
-              <Image
-                source={require("../../assets/icons/icon.png")}
-                style={styles.avatar}
-              />
             </View>
           </View>
 
@@ -1126,7 +1039,7 @@ export default function FacilityDashboard() {
                                 </Text>
 
                                 <Text style={styles.searchSubtitle}>
-                                  Tap to view user profile
+                                  Tap to view item details
                                 </Text>
                               </View>
                             </TouchableOpacity>
@@ -1268,45 +1181,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-
   scrollContent: {
     padding: 20,
     paddingBottom: 100,
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-
   welcome: {
     fontSize: 18,
     fontWeight: "600",
     flex: 1,
     marginRight: 10,
   },
-
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
   },
-
   notificationButton: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#e4f2df",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 10,
     position: "relative",
   },
-
-  notificationBell: {
-    fontSize: 20,
-  },
-
   notificationBadge: {
     position: "absolute",
     top: -2,
@@ -1321,19 +1226,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "#f5f5f5",
   },
-
   notificationBadgeText: {
     color: "#ffffff",
     fontSize: 10,
     fontWeight: "800",
   },
-
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
   },
-
   profileReminderBox: {
     marginTop: 15,
     backgroundColor: "#fff8e1",
@@ -1342,13 +1244,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#f0c36d",
   },
-
   profileReminderHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
   profileReminderTitle: {
     fontSize: 15,
     fontWeight: "700",
@@ -1356,21 +1256,18 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
-
   profileReminderClose: {
     fontSize: 22,
     fontWeight: "700",
     color: "#7a5200",
     paddingHorizontal: 4,
   },
-
   profileReminderText: {
     marginTop: 7,
     fontSize: 13,
     lineHeight: 19,
     color: "#6b520f",
   },
-
   profileReminderButton: {
     marginTop: 10,
     backgroundColor: "#1b5e20",
@@ -1378,18 +1275,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-
   profileReminderButtonText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 13,
   },
-
   searchArea: {
     marginTop: 15,
     zIndex: 999,
   },
-
   searchBox: {
     backgroundColor: "#dff0d8",
     borderRadius: 25,
@@ -1398,21 +1292,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-
   searchInput: {
     flex: 1,
     height: 42,
     fontSize: 14,
     color: "#222",
   },
-
   clearSearch: {
     fontSize: 26,
     color: "#555",
     paddingHorizontal: 5,
     marginBottom: 2,
   },
-
   searchResultsBox: {
     position: "absolute",
     top: 55,
@@ -1429,11 +1320,9 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 9999,
   },
-
   searchResultScroll: {
     maxHeight: 360,
   },
-
   resultSectionTitle: {
     fontSize: 13,
     fontWeight: "700",
@@ -1442,20 +1331,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 5,
   },
-
   searchLoading: {
     padding: 18,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
   },
-
   searchLoadingText: {
     marginLeft: 8,
     color: "#555",
     fontSize: 14,
   },
-
   searchResultItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1464,55 +1350,46 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-
   searchRoundImage: {
     width: 48,
     height: 48,
     borderRadius: 24,
     backgroundColor: "#eee",
   },
-
   searchSquareImage: {
     width: 50,
     height: 50,
     borderRadius: 10,
     backgroundColor: "#eee",
   },
-
   searchInfo: {
     flex: 1,
     marginLeft: 12,
   },
-
   searchTitle: {
     fontSize: 15,
     fontWeight: "700",
     color: "#222",
   },
-
   usernameText: {
     marginTop: 2,
     fontSize: 13,
     color: "#2f7d1f",
     fontWeight: "600",
   },
-
   searchSubtitle: {
     marginTop: 3,
     fontSize: 13,
     color: "#666",
   },
-
   noSearchResult: {
     padding: 18,
     alignItems: "center",
   },
-
   noSearchResultText: {
     color: "#777",
     fontSize: 14,
   },
-
   banner: {
     marginTop: 20,
     height: 180,
@@ -1522,41 +1399,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 20,
   },
-
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(255,255,255,0.5)",
   },
-
   bannerTitle: {
     fontSize: 22,
     fontWeight: "bold",
     textAlign: "center",
   },
-
   bannerSub: {
     marginTop: 8,
     fontSize: 12,
     textAlign: "center",
   },
-
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginTop: 20,
   },
-
   sectionTitle: {
     fontSize: 18,
     fontWeight: "600",
   },
-
   viewAll: {
     color: "#2f7d1f",
     fontWeight: "700",
   },
-
   postCard: {
     backgroundColor: "#fff",
     marginTop: 15,
@@ -1567,23 +1437,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 5,
   },
-
   postImage: {
     width: "100%",
     height: 220,
     backgroundColor: "#eee",
   },
-
   postContent: {
     padding: 14,
   },
-
   postHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
-
   postTitle: {
     flex: 1,
     fontSize: 18,
@@ -1591,12 +1457,10 @@ const styles = StyleSheet.create({
     color: "#222",
     marginRight: 10,
   },
-
   postStatus: {
     fontSize: 12,
     fontWeight: "700",
   },
-
   approvalBadge: {
     alignSelf: "flex-start",
     flexDirection: "row",
@@ -1607,69 +1471,57 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#e8f5e9",
   },
-
   approvalBadgeIcon: {
     color: "#1b5e20",
     fontSize: 11,
     fontWeight: "800",
     marginRight: 4,
   },
-
   approvalBadgeText: {
     color: "#1b5e20",
     fontSize: 11,
     fontWeight: "700",
   },
-
   postUser: {
     marginTop: 6,
     fontSize: 13,
     color: "#2f7d1f",
     fontWeight: "600",
   },
-
   postDescription: {
     marginTop: 10,
     fontSize: 14,
     color: "#555",
     lineHeight: 20,
   },
-
   postFooter: {
     flexDirection: "row",
     alignItems: "center",
     marginTop: 12,
   },
-
   locationIcon: {
     width: 14,
     height: 14,
     tintColor: "#666",
     marginRight: 5,
   },
-
   postLocation: {
     flex: 1,
     fontSize: 12,
     color: "#777",
   },
-
   pending: {
     color: "#fbc02d",
   },
-
   approved: {
     color: "#1976d2",
   },
-
   listed: {
     color: "green",
   },
-
   rejected: {
     color: "red",
   },
-
   emptyCard: {
     backgroundColor: "#fff",
     padding: 18,
@@ -1677,44 +1529,8 @@ const styles = StyleSheet.create({
     marginTop: 10,
     alignItems: "center",
   },
-
   emptyText: {
     color: "#777",
     fontSize: 14,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
   },
 });

@@ -1,62 +1,84 @@
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
 import { supabase } from "../utils/supabase";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ForgotPassword() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const checkResetLimit = async () => {
-    try {
-      const lastReset = await AsyncStorage.getItem("last_reset_attempt");
+  const [cooldown, setCooldown] = useState(0);
 
-      if (!lastReset) return true;
+  useEffect(() => {
+    const checkCooldown = async () => {
+      try {
+        const lastReset = await AsyncStorage.getItem("last_reset_attempt");
+        if (!lastReset) return;
 
-      const lastDate = new Date(lastReset);
-      const today = new Date();
+        const elapsedSeconds = Math.floor(
+          (Date.now() - new Date(lastReset).getTime()) / 1000,
+        );
 
-      const isSameDay =
-        lastDate.getDate() === today.getDate() &&
-        lastDate.getMonth() === today.getMonth() &&
-        lastDate.getFullYear() === today.getFullYear();
-
-      return !isSameDay;
-    } catch {
-      return true;
-    }
-  };
-
-  const sendResetEmail = async () => {
-    const canReset = await checkResetLimit();
-
-    if (!canReset) {
-      Toast.show({
-        type: "info",
-        text1: "Reset Limit Reached",
-        text2: "Only 1 password reset attempt is allowed per day.",
-      });
-      if (!email.trim()) {
-        return;
+        if (elapsedSeconds < 60) {
+          setCooldown(60 - elapsedSeconds);
+        }
+      } catch (e) {
+        console.log("Cooldown error:", e);
       }
+    };
+
+    checkCooldown();
+  }, []);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [cooldown]);
+
+  const handleSendOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
       Toast.show({
         type: "error",
         text1: "Email Required",
-        text2: "Please enter your registered email",
+        text2: "Please enter your registered email address.",
+      });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      Toast.show({
+        type: "error",
+        text1: "Invalid Email",
+        text2: "Please enter a valid email format.",
+      });
+      return;
+    }
+
+    if (cooldown > 0) {
+      Toast.show({
+        type: "info",
+        text1: "Please Wait",
+        text2: `You can request another code in ${cooldown}s.`,
       });
       return;
     }
@@ -64,63 +86,70 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo: "erecyclomatch://reset_password",
-        },
-      );
-      if (error) {
-        setLoading(false);
+      // 1. Verify user exists in profiles table
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, email")
+        .eq("email", cleanEmail)
+        .maybeSingle();
 
+      if (!profile) {
         Toast.show({
           type: "error",
-          text1: "Failed",
-          text2: error.message,
+          text1: "Account Not Found",
+          text2: "No registered account found with this email.",
         });
-
+        setLoading(false);
         return;
       }
 
+      // 2. Request Recovery OTP token from Supabase
+      const { error: resetError } =
+        await supabase.auth.resetPasswordForEmail(cleanEmail);
+
+      if (resetError) {
+        Toast.show({
+          type: "error",
+          text1: "Failed to Send",
+          text2: resetError.message || "Failed to send verification code.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 3. Set cooldown timer
       await AsyncStorage.setItem(
         "last_reset_attempt",
         new Date().toISOString(),
       );
+      setCooldown(60);
 
       Toast.show({
         type: "success",
-        text1: "Reset Link Sent",
-        text2: "Check your registered email",
+        text1: "OTP Code Sent",
+        text2: "Check your email inbox for your 6-digit code.",
       });
 
-      setTimeout(() => {
-        setLoading(false);
-        router.replace("/signin");
-      }, 2500);
-    } catch (error) {
-      console.log(error);
-
-      setLoading(false);
-
+      // 4. Navigate directly to OTP entry screen
+      router.push({
+        pathname: "/reset_password",
+        params: { email: cleanEmail, mode: "otp" },
+      } as any);
+    } catch (error: any) {
       Toast.show({
         type: "error",
         text1: "Server Error",
-        text2: "Please try again",
+        text2: error?.message || "Please check your network and try again.",
       });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "#DDEFD3",
-      }}
-    >
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#DDEFD3" }}>
       <KeyboardAvoidingView
-        style={{
-          flex: 1,
-        }}
+        style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={20}
       >
@@ -134,111 +163,107 @@ export default function ForgotPassword() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Close Button */}
-          <View
-            style={{
-              position: "absolute",
-              top: 10,
-              left: 20,
-              zIndex: 10,
-            }}
-          >
+          {/* Back button returns cleanly to sign in */}
+          <View style={{ position: "absolute", top: 10, left: 20, zIndex: 10 }}>
             <Pressable onPress={() => router.replace("/signin")}>
-              <Ionicons name="close" size={38} color="#1B5E20" />
+              <Ionicons name="arrow-back" size={28} color="#1B5E20" />
             </Pressable>
           </View>
 
-          {/* Image */}
+          {/* Illustration */}
           <View
-            style={{
-              alignItems: "center",
-              marginTop: -30,
-              marginBottom: -10,
-            }}
+            style={{ alignItems: "center", marginTop: 10, marginBottom: -10 }}
           >
             <Image
               source={require("../assets/images/forgot-person.png")}
-              style={{
-                width: 320,
-                height: 320,
-                resizeMode: "contain",
-              }}
+              style={{ width: 260, height: 260, resizeMode: "contain" }}
             />
           </View>
 
-          {/* Title */}
           <Text
             style={{
-              fontSize: 32,
+              fontSize: 28,
               fontWeight: "bold",
               textAlign: "center",
-              marginTop: -10,
-              marginBottom: 10,
+              marginBottom: 8,
+              color: "#1B5E20",
             }}
           >
             Forgot Password?
           </Text>
 
-          {/* Description */}
           <Text
             style={{
               textAlign: "center",
-              color: "#666",
-              fontSize: 16,
-              lineHeight: 24,
-              marginBottom: 25,
-              paddingHorizontal: 20,
+              color: "#555",
+              fontSize: 14,
+              lineHeight: 20,
+              marginBottom: 20,
+              paddingHorizontal: 15,
             }}
           >
-            A password reset link will be sent to your registered email. Open
-            the email to reset your password securely.
+            Enter your registered email address below. We will send you a
+            6-digit verification code to reset your password.
           </Text>
 
-          {/* Email Card */}
+          {/* Email Input Field */}
           <View
             style={{
               backgroundColor: "#FFFFFF",
               borderRadius: 18,
               padding: 18,
-              marginBottom: 25,
-              elevation: 3,
+              marginBottom: 16,
+              elevation: 2,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
             }}
           >
             <Text
               style={{
-                color: "#777",
-                marginBottom: 14,
-                textAlign: "center",
+                color: "#666",
+                marginBottom: 8,
+                fontWeight: "600",
+                fontSize: 13,
               }}
             >
-              Enter your registered email below
+              Registered Email Address
             </Text>
 
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="sample.email@gmail.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
+            <View
               style={{
+                flexDirection: "row",
+                alignItems: "center",
                 backgroundColor: "#F4F4F4",
                 borderRadius: 14,
-                padding: 15,
-                fontSize: 15,
+                paddingHorizontal: 12,
               }}
-            />
+            >
+              <Ionicons name="mail-outline" size={20} color="#777" />
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                placeholder="example@gmail.com"
+                placeholderTextColor="#999"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={{ flex: 1, padding: 14, fontSize: 15, color: "#333" }}
+              />
+            </View>
           </View>
 
-          {/* Button */}
+          {/* Request OTP Button */}
           <Pressable
-            onPress={sendResetEmail}
-            disabled={loading}
+            onPress={handleSendOtp}
+            disabled={loading || cooldown > 0}
             style={{
-              backgroundColor: "#1B5E20",
-              padding: 18,
-              borderRadius: 18,
-              opacity: loading ? 0.8 : 1,
+              backgroundColor: cooldown > 0 ? "#81C784" : "#1B5E20",
+              padding: 16,
+              borderRadius: 16,
+              elevation: 2,
+              marginBottom: 16,
             }}
           >
             {loading ? (
@@ -252,9 +277,24 @@ export default function ForgotPassword() {
                   fontSize: 16,
                 }}
               >
-                Send Reset Link
+                {cooldown > 0
+                  ? `Resend Code in ${cooldown}s`
+                  : "Send Verification Code"}
               </Text>
             )}
+          </Pressable>
+
+          {/* Back to Sign In Link */}
+          <Pressable
+            onPress={() => router.replace("/signin")}
+            style={{ paddingVertical: 8, alignItems: "center" }}
+          >
+            <Text style={{ color: "#666", fontSize: 14, fontWeight: "500" }}>
+              Remember your password?{" "}
+              <Text style={{ color: "#1B5E20", fontWeight: "bold" }}>
+                Sign In
+              </Text>
+            </Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>

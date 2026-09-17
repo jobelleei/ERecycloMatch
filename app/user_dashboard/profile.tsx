@@ -8,7 +8,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import UserBottomNav from "../../components/UserBottomNav";
@@ -414,7 +414,35 @@ export default function Profile() {
 
       if (error) {
         console.log("FETCH PROFILE POSTS ERROR:", error);
-        setItems([]);
+
+        const fallbackResult = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", String(user.id));
+
+        if (fallbackResult.error) {
+          console.log(
+            "FETCH PROFILE POSTS FALLBACK ERROR:",
+            fallbackResult.error,
+          );
+          setItems([]);
+          return;
+        }
+
+        const fallbackListedPostsOnly = (fallbackResult.data || []).filter(
+          (item: any) => {
+            const status = getPostStatus(item);
+            const normalizedStatus = String(status || "")
+              .trim()
+              .toLowerCase();
+
+            return normalizedStatus === "listed";
+          },
+        );
+
+        const sortedFallbackPosts = sortByLatest(fallbackListedPostsOnly);
+        setItems(sortedFallbackPosts);
+        await fetchIssuePhotosForListings(sortedFallbackPosts);
         return;
       }
 
@@ -444,7 +472,6 @@ export default function Profile() {
         return;
       }
 
-      // Check feedback reviews matching Sophia's user profile ID
       const { data, error } = await supabase
         .from("match_feedbacks")
         .select("*")
@@ -466,6 +493,7 @@ export default function Profile() {
           (sum: number, item: any) => sum + Number(item.rating || 0),
           0,
         );
+
         setAverageRating(total / finalData.length);
       } else {
         setAverageRating(0);
@@ -904,6 +932,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#fbc02d",
     fontWeight: "bold",
+    letterSpacing: 2,
   },
 
   ratingSummaryText: {
@@ -970,7 +999,6 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
 
-  /* Fixed Filter Layout */
   filterWrapper: {
     backgroundColor: "#ffffff",
     marginHorizontal: 15,
@@ -1025,7 +1053,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
   },
 
-  /* Post Card Styles */
   postCard: {
     backgroundColor: "#fff",
     marginHorizontal: 15,
@@ -1159,7 +1186,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
-  /* Feedback Card Styles */
   feedbackCard: {
     backgroundColor: "#ffffff",
     marginHorizontal: 15,

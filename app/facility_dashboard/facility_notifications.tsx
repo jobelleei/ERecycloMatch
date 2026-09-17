@@ -1,63 +1,141 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Animated,
   FlatList,
+  PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
 
-type FacilityNotification = {
+type NotificationItem = {
   id: string;
   type: string;
   title: string;
   description: string;
   createdAt: string;
-  rawCreatedAt: string;
   read: boolean;
   data?: any;
 };
 
+function SwipeableNotificationRow({
+  item,
+  onDelete,
+  children,
+}: {
+  item: NotificationItem;
+  onDelete: (item: NotificationItem) => void;
+  children: React.ReactNode;
+}) {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const openValue = -80;
+
+  const closeRow = () => {
+    Animated.spring(translateX, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const openRow = () => {
+    Animated.spring(translateX, {
+      toValue: openValue,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) {
+          translateX.setValue(Math.max(g.dx, openValue));
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -35) openRow();
+        else closeRow();
+      },
+    }),
+  ).current;
+
+  return (
+    <View style={styles.swipeWrapper}>
+      <View style={styles.behindDelete}>
+        <TouchableOpacity
+          style={styles.behindDeleteBtn}
+          onPress={() => {
+            closeRow();
+            onDelete(item);
+          }}
+        >
+          <Text style={styles.behindDeleteText}>Delete</Text>
+        </TouchableOpacity>
+      </View>
+      <Animated.View
+        style={{ transform: [{ translateX }] }}
+        {...panResponder.panHandlers}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function FacilityNotifications() {
   const router = useRouter();
 
-  const [facilityId, setFacilityId] = useState("");
-  const [notifications, setNotifications] = useState<FacilityNotification[]>(
-    [],
-  );
+  const [facilityId, setFacilityId] = useState<number | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
     [notifications],
   );
 
+  const displayedNotifications = useMemo(() => {
+    if (activeTab === "unread") {
+      return notifications.filter((item) => !item.read);
+    }
+    return notifications;
+  }, [notifications, activeTab]);
+
   useEffect(() => {
-    loadFacility();
+    resolveFacility();
   }, []);
 
   useEffect(() => {
     if (!facilityId) return;
 
-    fetchNotifications();
+    fetchNotifications(facilityId);
 
-    const channel = supabase
-      .channel(`facility-notifications-${facilityId}`)
+    const channelId = `facility-notifs-bell-${facilityId}-${Date.now()}`;
+    const channel = supabase.channel(channelId);
+
+    channel
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "notifications",
-          filter: `profile_id=eq.${facilityId}`,
         },
-        () => {
-          fetchNotifications();
+        (payload: any) => {
+          const targetId = payload.new?.profile_id || payload.old?.profile_id;
+          if (Number(targetId) === Number(facilityId)) {
+            fetchNotifications(facilityId);
+          }
         },
       )
       .subscribe();
@@ -67,418 +145,246 @@ export default function FacilityNotifications() {
     };
   }, [facilityId]);
 
-  const loadFacility = async () => {
+  const resolveFacility = async () => {
     try {
-      const storedFacility = await AsyncStorage.getItem("facility");
+      setLoading(true);
+      const stored = await AsyncStorage.getItem("user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        const actual = parsed?.user || parsed?.data || parsed;
+        const candidateId = Number(actual?.id || parsed?.id);
 
-      const storedUser = await AsyncStorage.getItem("user");
-
-      let parsed: any = null;
-
-      if (storedFacility) {
-        parsed = JSON.parse(storedFacility);
-      } else if (storedUser) {
-        parsed = JSON.parse(storedUser);
+        if (!isNaN(candidateId) && candidateId > 0) {
+          setFacilityId(candidateId);
+          return;
+        }
       }
 
-      if (!parsed) {
-        console.log("FACILITY NOTIFICATION: No stored facility found.");
-        setLoading(false);
-        return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user?.email) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("email", user.email.toLowerCase().trim())
+          .maybeSingle();
+
+        if (profile?.id) {
+          setFacilityId(Number(profile.id));
+          return;
+        }
       }
-
-      const actualFacility =
-        parsed?.facility || parsed?.user || parsed?.data || parsed;
-
-      const id =
-        actualFacility?.id ||
-        actualFacility?.facility_id ||
-        parsed?.id ||
-        parsed?.facility_id ||
-        "";
-
-      console.log("FACILITY NOTIFICATION ID:", id);
-
-      if (!id) {
-        setLoading(false);
-        return;
-      }
-
-      setFacilityId(String(id));
-    } catch (error) {
-      console.log("LOAD FACILITY NOTIFICATION ERROR:", error);
-
+      setLoading(false);
+    } catch (e) {
       setLoading(false);
     }
   };
 
   const formatNotificationTime = (dateValue: string) => {
-    if (!dateValue) {
-      return "";
-    }
-
+    if (!dateValue) return "";
     const date = new Date(dateValue);
-
-    if (isNaN(date.getTime())) {
-      return "";
-    }
+    if (isNaN(date.getTime())) return "";
 
     const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
 
-    const difference = now.getTime() - date.getTime();
-
-    const minutes = Math.floor(difference / 60000);
-
-    const hours = Math.floor(difference / 3600000);
-
-    const days = Math.floor(difference / 86400000);
-
-    if (minutes < 1) {
-      return "Just now";
-    }
-
-    if (minutes < 60) {
-      return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
-    }
-
-    if (hours < 24) {
-      return `${hours} hour${hours === 1 ? "" : "s"} ago`;
-    }
-
-    if (days === 1) {
-      return "Yesterday";
-    }
-
-    if (days < 7) {
-      return `${days} days ago`;
-    }
-
-    return date.toLocaleDateString();
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return "Yesterday";
+    return `${days}d ago`;
   };
 
-  const mapNotification = (notification: any): FacilityNotification => {
-    return {
-      id: String(notification.id),
-
-      type: String(notification.type || ""),
-
-      title: notification.title || "Notification",
-
-      description: notification.message || "",
-
-      createdAt: formatNotificationTime(notification.created_at),
-
-      rawCreatedAt: notification.created_at || "",
-
-      read: Boolean(notification.is_read),
-
-      data: notification.data || {},
-    };
-  };
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (profileId: number) => {
     try {
-      if (!facilityId) {
-        return;
-      }
-
       setLoading(true);
-
       const { data, error } = await supabase
         .from("notifications")
         .select("*")
-        .eq("profile_id", Number(facilityId))
-        .order("created_at", {
-          ascending: false,
-        });
+        .eq("profile_id", profileId)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.log("FETCH FACILITY NOTIFICATIONS ERROR:", error);
-
         setNotifications([]);
         return;
       }
 
-      const mappedNotifications = (data || []).map(mapNotification);
+      const mapped: NotificationItem[] = (data || []).map((notif: any) => ({
+        id: String(notif.id),
+        type: String(notif.type || ""),
+        title: notif.title || "Notification",
+        description: notif.message || "",
+        createdAt: formatNotificationTime(notif.created_at),
+        read: Boolean(notif.is_read),
+        data: notif.data || {},
+      }));
 
-      console.log("FACILITY NOTIFICATIONS:", mappedNotifications);
-
-      setNotifications(mappedNotifications);
-    } catch (error) {
-      console.log("FACILITY NOTIFICATIONS ERROR:", error);
-
-      setNotifications([]);
+      setNotifications(mapped);
     } finally {
       setLoading(false);
     }
   };
 
   const markAsRead = async (id: string) => {
-    try {
-      setNotifications((current) =>
-        current.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                read: true,
-              }
-            : item,
-        ),
-      );
-
-      const { error } = await supabase
-        .from("notifications")
-        .update({
-          is_read: true,
-        })
-        .eq("id", Number(id));
-
-      if (error) {
-        console.log("MARK NOTIFICATION READ ERROR:", error);
-      }
-    } catch (error) {
-      console.log("MARK READ ERROR:", error);
-    }
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+    );
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", Number(id));
   };
 
   const markAllAsRead = async () => {
-    try {
-      if (!facilityId) {
-        return;
-      }
-
-      setNotifications((current) =>
-        current.map((item) => ({
-          ...item,
-          read: true,
-        })),
-      );
-
-      const { error } = await supabase
-        .from("notifications")
-        .update({
-          is_read: true,
-        })
-        .eq("profile_id", Number(facilityId))
-        .eq("is_read", false);
-
-      if (error) {
-        console.log("MARK ALL READ ERROR:", error);
-      }
-    } catch (error) {
-      console.log("MARK ALL READ ERROR:", error);
-    }
+    if (!facilityId) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("profile_id", facilityId)
+      .eq("is_read", false);
   };
 
-  const openNotification = async (item: FacilityNotification) => {
+  const deleteNotification = (item: NotificationItem) => {
+    Alert.alert("Delete Notification", "Remove this notification?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          setNotifications((prev) => prev.filter((n) => n.id !== item.id));
+          await supabase
+            .from("notifications")
+            .delete()
+            .eq("id", Number(item.id));
+        },
+      },
+    ]);
+  };
+
+  const handleOpen = async (item: NotificationItem) => {
     await markAsRead(item.id);
+    const type = String(item.type || "").toLowerCase();
+    const data = item.data || {};
 
-    const type = String(item.type).trim().toLowerCase();
-
-    /*
-     * 5 KM NEARBY LISTING
-     */
-    if (type === "nearby_listing" || type === "listing") {
-      const itemId = item?.data?.item_id;
-
-      if (itemId) {
+    if (
+      type.includes("message") ||
+      type.includes("new_message") ||
+      type.includes("match")
+    ) {
+      if (data?.conversation_id) {
         router.push({
-          pathname: "/facility_dashboard/item_details",
-          params: {
-            item_id: String(itemId),
-          },
+          pathname: "/facility_dashboard/chat" as any,
+          params: { conversationId: String(data.conversation_id) },
         });
-
         return;
       }
-
-      router.push("/facility_dashboard" as any);
-
-      return;
-    }
-
-    /*
-     * MATCH REQUEST
-     */
-    if (
-      type === "request" ||
-      type === "match_request" ||
-      type === "match_pending"
-    ) {
       router.push("/facility_dashboard/messages" as any);
-
       return;
     }
 
-    /*
-     * MESSAGE
-     */
-    if (type === "message" || type === "new_message") {
-      router.push("/facility_dashboard/messages" as any);
-
-      return;
-    }
-
-    /*
-     * TRANSACTION
-     */
-    if (
-      type === "transaction" ||
-      type === "transaction_completed" ||
-      type === "finished"
-    ) {
-      router.push("/facility_dashboard/recycling_history" as any);
-
-      return;
-    }
-
-    /*
-     * PROFILE APPROVAL
-     */
-    if (type === "approval" || type === "facility_approved") {
-      router.push("/facility_dashboard/profile" as any);
-
+    if (type.includes("item") || type.includes("nearby_item")) {
+      router.push("/facility_dashboard/facility_map" as any);
       return;
     }
 
     router.push("/facility_dashboard" as any);
   };
 
-  const getIcon = (type: string) => {
-    const cleanType = String(type).trim().toLowerCase();
+  const renderItem = ({ item }: { item: NotificationItem }) => (
+    <SwipeableNotificationRow item={item} onDelete={deleteNotification}>
+      <TouchableOpacity
+        style={[styles.itemCard, !item.read && styles.unreadItemCard]}
+        activeOpacity={0.8}
+        onPress={() => handleOpen(item)}
+      >
+        <View style={styles.dotColumn}>
+          <View
+            style={[styles.statusDot, !item.read && styles.unreadStatusDot]}
+          />
+        </View>
 
-    switch (cleanType) {
-      case "request":
-      case "match_request":
-      case "match_pending":
-        return "↔";
-
-      case "message":
-      case "new_message":
-        return "✉";
-
-      case "listing":
-      case "nearby_listing":
-        return "♻";
-
-      case "transaction":
-      case "transaction_completed":
-      case "finished":
-        return "✓";
-
-      case "approval":
-      case "facility_approved":
-        return "★";
-
-      default:
-        return "•";
-    }
-  };
-
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1b5e20" />
-
-        <Text style={styles.loadingText}>Loading notifications...</Text>
-      </SafeAreaView>
-    );
-  }
+        <View style={styles.textColumn}>
+          <Text style={styles.itemTitle}>{item.title}</Text>
+          <Text style={styles.itemDescription}>{item.description}</Text>
+          <Text style={styles.itemTime}>{item.createdAt}</Text>
+        </View>
+      </TouchableOpacity>
+    </SwipeableNotificationRow>
+  );
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backText}>‹</Text>
-        </TouchableOpacity>
-
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-
-          <Text style={styles.headerSubtitle}>
-            {unreadCount > 0
-              ? `${unreadCount} unread notification${
-                  unreadCount === 1 ? "" : "s"
-                }`
-              : "You're all caught up"}
-          </Text>
-        </View>
-
-        <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
-          <Text
-            style={[
-              styles.markAllText,
-              unreadCount === 0 && styles.markAllDisabled,
-            ]}
-          >
-            Mark all read
-          </Text>
+      <View style={styles.topHeader}>
+        <Text style={styles.panelTitle}>Notifications</Text>
+        <TouchableOpacity onPress={markAllAsRead}>
+          <Text style={styles.markAllRead}>Mark all as read</Text>
         </TouchableOpacity>
       </View>
 
-      {/* NOTIFICATION LIST */}
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        showsVerticalScrollIndicator={false}
-        refreshing={loading}
-        onRefresh={fetchNotifications}
-        contentContainerStyle={[
-          styles.listContent,
-
-          notifications.length === 0 && styles.emptyList,
-        ]}
-        renderItem={({ item }) => (
+      <View style={styles.tabsRow}>
+        <View style={styles.tabsLeft}>
           <TouchableOpacity
-            style={[styles.card, !item.read && styles.unreadCard]}
-            activeOpacity={0.8}
-            onPress={() => openNotification(item)}
+            style={[
+              styles.tabButton,
+              activeTab === "all" && styles.tabButtonActive,
+            ]}
+            onPress={() => setActiveTab("all")}
           >
-            <View
-              style={[styles.iconCircle, !item.read && styles.unreadIconCircle]}
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "all" && styles.tabTextActive,
+              ]}
             >
-              <Text style={styles.iconText}>{getIcon(item.type)}</Text>
-            </View>
-
-            <View style={styles.cardContent}>
-              <View style={styles.titleRow}>
-                <Text style={[styles.title, !item.read && styles.unreadTitle]}>
-                  {item.title}
-                </Text>
-
-                {!item.read && <View style={styles.unreadDot} />}
-              </View>
-
-              <Text style={styles.description}>{item.description}</Text>
-
-              {item.type === "nearby_listing" &&
-                item?.data?.distance_km !== undefined && (
-                  <Text style={styles.distanceText}>
-                    📍 {Number(item.data.distance_km).toFixed(2)} km away
-                  </Text>
-                )}
-
-              <Text style={styles.time}>{item.createdAt}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyBell}>🔔</Text>
-
-            <Text style={styles.emptyTitle}>No notifications yet</Text>
-
-            <Text style={styles.emptyDescription}>
-              New nearby listings, match requests, messages, and transaction
-              updates will appear here.
+              All Notifications
             </Text>
-          </View>
-        }
-      />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              activeTab === "unread" && styles.tabButtonActive,
+            ]}
+            onPress={() => setActiveTab("unread")}
+          >
+            <Text
+              style={[
+                styles.tabText,
+                activeTab === "unread" && styles.tabTextActive,
+              ]}
+            >
+              Unread ({unreadCount})
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {loading ? (
+        <View style={styles.loaderArea}>
+          <ActivityIndicator size="small" color="#2e7d32" />
+        </View>
+      ) : (
+        <FlatList
+          data={displayedNotifications}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.listContainer}
+          ListEmptyComponent={
+            <View style={styles.emptyArea}>
+              <Text style={styles.emptyText}>No notifications here</Text>
+            </View>
+          }
+        />
+      )}
+
+      {facilityId ? (
+        <FacilityBottomNav facilityId={String(facilityId)} active="home" />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -486,188 +392,135 @@ export default function FacilityNotifications() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f5f3",
-  },
-
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: "#f3f5f3",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  loadingText: {
-    marginTop: 12,
-    color: "#666666",
-    fontSize: 14,
-  },
-
-  header: {
-    minHeight: 92,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: "#1b5e20",
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  backButton: {
-    width: 34,
-    height: 44,
-    justifyContent: "center",
-  },
-
-  backText: {
-    color: "#ffffff",
-    fontSize: 38,
-    lineHeight: 40,
-  },
-
-  headerContent: {
-    flex: 1,
-    marginLeft: 4,
-  },
-
-  headerTitle: {
-    color: "#ffffff",
-    fontSize: 22,
-    fontWeight: "800",
-  },
-
-  headerSubtitle: {
-    marginTop: 3,
-    color: "#dcefdc",
-    fontSize: 12,
-  },
-
-  markAllText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  markAllDisabled: {
-    color: "#8bb58d",
-  },
-
-  listContent: {
-    padding: 14,
-    paddingBottom: 30,
-  },
-
-  emptyList: {
-    flexGrow: 1,
-  },
-
-  card: {
-    padding: 14,
-    marginBottom: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#e5e5e5",
     backgroundColor: "#ffffff",
+  },
+  topHeader: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    elevation: 1,
-  },
-
-  unreadCard: {
-    backgroundColor: "#f1f8f2",
-    borderColor: "#b8d9ba",
-  },
-
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#a5a5a5",
+    justifyContent: "space-between",
     alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-
-  unreadIconCircle: {
-    backgroundColor: "#1b5e20",
-  },
-
-  iconText: {
-    color: "#ffffff",
-    fontSize: 20,
-    fontWeight: "800",
-  },
-
-  cardContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  title: {
-    flex: 1,
-    color: "#333333",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  unreadTitle: {
-    color: "#1b5e20",
-    fontWeight: "800",
-  },
-
-  unreadDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: "#1b5e20",
-    marginLeft: 8,
-  },
-
-  description: {
-    marginTop: 4,
-    color: "#555555",
-    fontSize: 13,
-    lineHeight: 19,
-  },
-
-  distanceText: {
-    marginTop: 6,
-    color: "#1b5e20",
-    fontSize: 12,
-    fontWeight: "700",
-  },
-
-  time: {
-    marginTop: 7,
-    color: "#8a8a8a",
-    fontSize: 11,
-  },
-
-  emptyContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 36,
-  },
-
-  emptyBell: {
-    fontSize: 44,
-  },
-
-  emptyTitle: {
-    marginTop: 14,
-    color: "#222222",
+  panelTitle: {
     fontSize: 18,
     fontWeight: "800",
+    color: "#1a1a1a",
   },
-
-  emptyDescription: {
-    marginTop: 7,
-    color: "#777777",
+  markAllRead: {
     fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
+    fontWeight: "700",
+    color: "#2e7d32",
+  },
+  tabsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+    paddingHorizontal: 16,
+  },
+  tabsLeft: {
+    flexDirection: "row",
+    gap: 18,
+  },
+  tabButton: {
+    paddingBottom: 10,
+  },
+  tabButtonActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#2e7d32",
+  },
+  tabText: {
+    fontSize: 14,
+    color: "#777777",
+    fontWeight: "600",
+  },
+  tabTextActive: {
+    color: "#2e7d32",
+    fontWeight: "700",
+  },
+  listContainer: {
+    paddingBottom: 100,
+  },
+  swipeWrapper: {
+    position: "relative",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  behindDelete: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 80,
+    backgroundColor: "#d32f2f",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  behindDeleteBtn: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  behindDeleteText: {
+    color: "#ffffff",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  itemCard: {
+    flexDirection: "row",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: "#ffffff",
+  },
+  unreadItemCard: {
+    backgroundColor: "#eaf5e8",
+  },
+  dotColumn: {
+    width: 20,
+    paddingTop: 5,
+    alignItems: "flex-start",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "transparent",
+  },
+  unreadStatusDot: {
+    backgroundColor: "#2e7d32",
+  },
+  textColumn: {
+    flex: 1,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#1a1a1a",
+    marginBottom: 3,
+  },
+  itemDescription: {
+    fontSize: 13,
+    color: "#4a4a4a",
+    lineHeight: 18,
+  },
+  itemTime: {
+    fontSize: 11,
+    color: "#8a9a86",
+    marginTop: 4,
+  },
+  loaderArea: {
+    paddingTop: 40,
+    alignItems: "center",
+  },
+  emptyArea: {
+    paddingTop: 60,
+    alignItems: "center",
+  },
+  emptyText: {
+    color: "#888888",
+    fontSize: 13,
   },
 });

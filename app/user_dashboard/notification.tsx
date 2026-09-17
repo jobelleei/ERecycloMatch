@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -178,7 +177,6 @@ export default function UserNotifications() {
       }
       setLoading(false);
     } catch (e) {
-      console.log("RESOLVE USER ERROR:", e);
       setLoading(false);
     }
   };
@@ -197,6 +195,7 @@ export default function UserNotifications() {
     if (minutes < 1) return "Just now";
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return "Yesterday";
     return `${days}d ago`;
   };
 
@@ -210,7 +209,6 @@ export default function UserNotifications() {
         .order("created_at", { ascending: false });
 
       if (error) {
-        console.log("FETCH NOTIF ERROR:", error);
         setNotifications([]);
         return;
       }
@@ -331,7 +329,6 @@ export default function UserNotifications() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Top Header */}
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
         <TouchableOpacity onPress={markAllAsRead}>
@@ -339,7 +336,6 @@ export default function UserNotifications() {
         </TouchableOpacity>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabsRow}>
         <View style={styles.tabsLeft}>
           <TouchableOpacity
@@ -376,8 +372,6 @@ export default function UserNotifications() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        <Ionicons name="filter-outline" size={18} color="#777" />
       </View>
 
       {loading ? (
@@ -493,14 +487,14 @@ const styles = StyleSheet.create({
     backgroundColor: "#eaf5e8",
   },
   dotColumn: {
-    width: 22,
-    paddingTop: 4,
+    width: 20,
+    paddingTop: 5,
     alignItems: "flex-start",
   },
   statusDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: "transparent",
   },
   unreadStatusDot: {

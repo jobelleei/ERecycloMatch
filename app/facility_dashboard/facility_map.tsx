@@ -1,25 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Location from "expo-location";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  TextInput,
-  Image,
-  Platform,
-  Animated,
-  PanResponder,
   ActivityIndicator,
   Alert,
+  Animated,
+  FlatList,
+  Image,
+  PanResponder,
+  Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
-import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useMemo, useRef, useState } from "react";
-import * as Location from "expo-location";
-import { useRouter, usePathname, useLocalSearchParams } from "expo-router";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
 
 const NAV_HEIGHT = 70;
@@ -109,7 +109,7 @@ export default function FacilityMapScreen() {
 
   const mapRef = useRef<MapView | null>(null);
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
-    null
+    null,
   );
 
   const facilitiesSignatureRef = useRef<string>("");
@@ -363,7 +363,7 @@ export default function FacilityMapScreen() {
           }).start();
         }
       },
-    })
+    }),
   ).current;
 
   useEffect(() => {
@@ -406,7 +406,7 @@ export default function FacilityMapScreen() {
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           },
-          600
+          600,
         );
       }, 500);
     } catch (error) {
@@ -462,49 +462,44 @@ export default function FacilityMapScreen() {
   };
 
   const getFacilityAddress = (facility: any) => {
-  const directAddress = getValueFromKeys(facility, [
-    "location",
-    "address",
-    "complete_address",
-    "facility_location",
-    "facility_address",
-  ]);
+    const directAddress = getValueFromKeys(facility, [
+      "location",
+      "address",
+      "complete_address",
+      "facility_location",
+      "facility_address",
+    ]);
 
-  if (directAddress) return String(directAddress);
+    if (directAddress) return String(directAddress);
 
-  const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
-  const municipality = getValueFromKeys(facility, [
-    "municipality",
-    "city",
-    "city_municipality",
-    "town",
-  ]);
-  const province = getValueFromKeys(facility, ["province"]);
+    const barangay = getValueFromKeys(facility, ["barangay", "brgy"]);
+    const municipality = getValueFromKeys(facility, [
+      "municipality",
+      "city",
+      "city_municipality",
+      "town",
+    ]);
+    const province = getValueFromKeys(facility, ["province"]);
 
-  const parts = [barangay, municipality, province]
-    .map((part) => String(part || "").trim())
-    .filter((part) => part.length > 0);
+    const parts = [barangay, municipality, province]
+      .map((part) => String(part || "").trim())
+      .filter((part) => part.length > 0);
 
-  return parts.join(", ");
-};
+    return parts.join(", ");
+  };
 
-const getFacilityOpeningDaysFrom = (facility: any) => {
-  return String(
-    getValueFromKeys(facility, [
-      "opening_days_from",
-      "openingDaysFrom",
-    ]) || ""
-  ).trim();
-};
+  const getFacilityOpeningDaysFrom = (facility: any) => {
+    return String(
+      getValueFromKeys(facility, ["opening_days_from", "openingDaysFrom"]) ||
+        "",
+    ).trim();
+  };
 
-const getFacilityOpeningDaysTo = (facility: any) => {
-  return String(
-    getValueFromKeys(facility, [
-      "opening_days_to",
-      "openingDaysTo",
-    ]) || ""
-  ).trim();
-};
+  const getFacilityOpeningDaysTo = (facility: any) => {
+    return String(
+      getValueFromKeys(facility, ["opening_days_to", "openingDaysTo"]) || "",
+    ).trim();
+  };
 
   const getFacilityOperatingHoursFrom = (facility: any) => {
     return String(
@@ -513,7 +508,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         "opening_time",
         "open_time",
         "hours_from",
-      ]) || ""
+      ]) || "",
     ).trim();
   };
 
@@ -524,7 +519,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         "closing_time",
         "close_time",
         "hours_to",
-      ]) || ""
+      ]) || "",
     ).trim();
   };
 
@@ -536,7 +531,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         "items_accepted",
         "item_types",
         "accepted_e_waste",
-      ]) || ""
+      ]) || "",
     ).trim();
   };
 
@@ -548,7 +543,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         "facility_services",
         "service_offered",
         "services_offered",
-      ]) || ""
+      ]) || "",
     ).trim();
   };
 
@@ -572,15 +567,15 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   };
 
   const formatOpeningDays = (from?: string, to?: string) => {
-  const cleanFrom = String(from || "").trim();
-  const cleanTo = String(to || "").trim();
+    const cleanFrom = String(from || "").trim();
+    const cleanTo = String(to || "").trim();
 
-  if (!cleanFrom && !cleanTo) return "Not specified";
-  if (cleanFrom && !cleanTo) return cleanFrom;
-  if (!cleanFrom && cleanTo) return cleanTo;
+    if (!cleanFrom && !cleanTo) return "Not specified";
+    if (cleanFrom && !cleanTo) return cleanFrom;
+    if (!cleanFrom && cleanTo) return cleanTo;
 
-  return `${cleanFrom} - ${cleanTo}`;
-};
+    return `${cleanFrom} - ${cleanTo}`;
+  };
 
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
@@ -617,7 +612,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
   const isApprovedFacility = (profile: any) => {
     const role = normalizeText(
-      getValueFromKeys(profile, ["role", "account_type", "user_type", "type"])
+      getValueFromKeys(profile, ["role", "account_type", "user_type", "type"]),
     );
     const status = normalizeText(
       getValueFromKeys(profile, [
@@ -625,7 +620,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         "approval_status",
         "account_status",
         "verification_status",
-      ])
+      ]),
     );
 
     const roleIsFacility =
@@ -657,7 +652,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         pin.acceptedItemTypes,
         pin.availableServices,
         typeWords,
-      ].join(" ")
+      ].join(" "),
     );
   };
 
@@ -815,7 +810,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         distance: getDistanceKm(userLocation, pin),
       }))
       .sort(
-        (a, b) => parseFloat(a.distance || "0") - parseFloat(b.distance || "0")
+        (a, b) => parseFloat(a.distance || "0") - parseFloat(b.distance || "0"),
       );
 
     setSortedPins(sorted);
@@ -852,23 +847,23 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       }
 
       finalFacilities.push({
-      id: String(facility.id),
-      name: getFacilityName(facility),
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude,
-      location: cleanedLocation || addressText,
-      address: addressText,
-      type: "facilities",
+        id: String(facility.id),
+        name: getFacilityName(facility),
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+        location: cleanedLocation || addressText,
+        address: addressText,
+        type: "facilities",
 
-      openingDaysFrom: getFacilityOpeningDaysFrom(facility),
-      openingDaysTo: getFacilityOpeningDaysTo(facility),
+        openingDaysFrom: getFacilityOpeningDaysFrom(facility),
+        openingDaysTo: getFacilityOpeningDaysTo(facility),
 
-      operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
-      operatingHoursTo: getFacilityOperatingHoursTo(facility),
+        operatingHoursFrom: getFacilityOperatingHoursFrom(facility),
+        operatingHoursTo: getFacilityOperatingHoursTo(facility),
 
-      acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
-      availableServices: getFacilityAvailableServices(facility),
-    });
+        acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
+        availableServices: getFacilityAvailableServices(facility),
+      });
     }
 
     return finalFacilities;
@@ -879,7 +874,8 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
     for (const bin of bins) {
       const addressText = String(
-        getValueFromKeys(bin, ["location", "address", "complete_address"]) || ""
+        getValueFromKeys(bin, ["location", "address", "complete_address"]) ||
+          "",
       ).trim();
 
       const cleanedLocation = extractBarangayMunicipalityProvince(addressText);
@@ -924,7 +920,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
   const checkAndLoadFacilities = async (
     forceLoad = false,
-    showLoader = true
+    showLoader = true,
   ) => {
     try {
       if (showLoader) {
@@ -939,7 +935,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       }
 
       const approvedFacilities = (data || []).filter((profile: any) =>
-        isApprovedFacility(profile)
+        isApprovedFacility(profile),
       );
 
       const newSignature = getRowsSignature(approvedFacilities);
@@ -979,7 +975,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
   const checkAndLoadDropOffBins = async (
     forceLoad = false,
-    showLoader = true
+    showLoader = true,
   ) => {
     try {
       if (showLoader) {
@@ -1005,7 +1001,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
       const activeBins = (data || []).filter((bin: any) => {
         const status = normalizeText(
-          getValueFromKeys(bin, ["status", "state"]) || "active"
+          getValueFromKeys(bin, ["status", "state"]) || "active",
         );
 
         return (
@@ -1069,13 +1065,13 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
   const findMatchingBinPin = (targetPin: MapPin, pinList: MapPin[]) => {
     const exactIdMatch = pinList.find(
-      (pin) => String(pin.id) === String(targetPin.id)
+      (pin) => String(pin.id) === String(targetPin.id),
     );
 
     if (exactIdMatch) return exactIdMatch;
 
     const exactNameMatch = pinList.find(
-      (pin) => normalizeText(pin.name) === normalizeText(targetPin.name)
+      (pin) => normalizeText(pin.name) === normalizeText(targetPin.name),
     );
 
     if (exactNameMatch) return exactNameMatch;
@@ -1083,7 +1079,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     const coordinateMatch = pinList.find((pin) => {
       const latDifference = Math.abs(Number(pin.latitude) - targetPin.latitude);
       const lngDifference = Math.abs(
-        Number(pin.longitude) - targetPin.longitude
+        Number(pin.longitude) - targetPin.longitude,
       );
 
       return latDifference < 0.0008 && lngDifference < 0.0008;
@@ -1106,7 +1102,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       const matchedBin = findMatchingBinPin(targetPin, latestBins);
 
       const binExists = latestBins.some(
-        (pin) => String(pin.id) === String(matchedBin.id)
+        (pin) => String(pin.id) === String(matchedBin.id),
       );
 
       const finalBins = binExists ? latestBins : [matchedBin, ...latestBins];
@@ -1125,7 +1121,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
             latitudeDelta: 0.006,
             longitudeDelta: 0.006,
           },
-          800
+          800,
         );
       }, 600);
 
@@ -1180,7 +1176,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
               latitudeDelta: 0.015,
               longitudeDelta: 0.015,
             },
-            800
+            800,
           );
         }, 500);
       }
@@ -1281,7 +1277,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
     Alert.alert(
       "Not Found",
-      "No facility or drop off bin matched your search."
+      "No facility or drop off bin matched your search.",
     );
   };
 
@@ -1293,17 +1289,17 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         latitudeDelta: 0.006,
         longitudeDelta: 0.006,
       },
-      700
+      700,
     );
   };
 
   const openPinDetails = (pin: MapPin) => {
-  console.log(pin);
+    console.log(pin);
 
-  setSelectedPin(pin);
-  setShowList(false);
-  goToPinOnMap(pin);
-};
+    setSelectedPin(pin);
+    setShowList(false);
+    goToPinOnMap(pin);
+  };
 
   const isOwnFacilityPin = (pin: MapPin | null) => {
     if (!pin || pin.type !== "facilities") return false;
@@ -1347,7 +1343,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       if (isOwnFacilityPin(pin)) {
         Alert.alert(
           "This is your facility",
-          "You cannot start directions to your own pinned facility."
+          "You cannot start directions to your own pinned facility.",
         );
         return;
       }
@@ -1357,7 +1353,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       if (status !== "granted") {
         Alert.alert(
           "Location Permission Required",
-          "Please allow location access to get directions."
+          "Please allow location access to get directions.",
         );
         return;
       }
@@ -1403,7 +1399,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
             left: 80,
           },
           animated: true,
-        }
+        },
       );
 
       const subscription = await Location.watchPositionAsync(
@@ -1430,12 +1426,12 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           if (distance <= 0.05) {
             Alert.alert(
               "Arrived",
-              `You are near ${pin.name}. Navigation will stop.`
+              `You are near ${pin.name}. Navigation will stop.`,
             );
 
             stopNavigation();
           }
-        }
+        },
       );
 
       locationSubscriptionRef.current = subscription;
@@ -1444,7 +1440,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
       Alert.alert(
         "Navigation Error",
-        "Unable to start directions. Please check your location permission."
+        "Unable to start directions. Please check your location permission.",
       );
 
       stopNavigation();
@@ -1723,35 +1719,35 @@ const getFacilityOpeningDaysTo = (facility: any) => {
                   "No address provided"}
               </Text>
 
-            {selectedPin.type === "facilities" && (
-              <View style={styles.facilityInfoBox}>
-                {renderFacilityInfoRow(
-                  "Opening Days",
-                  formatOpeningDays(
-                    selectedPin.openingDaysFrom,
-                    selectedPin.openingDaysTo
-                  )
-                )}
+              {selectedPin.type === "facilities" && (
+                <View style={styles.facilityInfoBox}>
+                  {renderFacilityInfoRow(
+                    "Opening Days",
+                    formatOpeningDays(
+                      selectedPin.openingDaysFrom,
+                      selectedPin.openingDaysTo,
+                    ),
+                  )}
 
-                {renderFacilityInfoRow(
-                  "Operating Hours",
-                  formatOperatingHours(
-                    selectedPin.operatingHoursFrom,
-                    selectedPin.operatingHoursTo
-                  )
-                )}
+                  {renderFacilityInfoRow(
+                    "Operating Hours",
+                    formatOperatingHours(
+                      selectedPin.operatingHoursFrom,
+                      selectedPin.operatingHoursTo,
+                    ),
+                  )}
 
-                {renderFacilityInfoRow(
-                  "Accepted Items",
-                  formatCommaText(selectedPin.acceptedItemTypes)
-                )}
+                  {renderFacilityInfoRow(
+                    "Accepted Items",
+                    formatCommaText(selectedPin.acceptedItemTypes),
+                  )}
 
-                {renderFacilityInfoRow(
-                  "Available Services",
-                  formatCommaText(selectedPin.availableServices)
-                )}
-              </View>
-            )}
+                  {renderFacilityInfoRow(
+                    "Available Services",
+                    formatCommaText(selectedPin.availableServices),
+                  )}
+                </View>
+              )}
 
               {isOwnFacilityPin(selectedPin) && (
                 <Text style={styles.ownFacilityNote}>
@@ -1864,10 +1860,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </Animated.View>
         )}
 
-      <FacilityBottomNav
-        facilityId={facility?.id || ""}
-        active="map"
-      />
+        <FacilityBottomNav facilityId={facility?.id || ""} active="map" />
       </View>
     </SafeAreaView>
   );

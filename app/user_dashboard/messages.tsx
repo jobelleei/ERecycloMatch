@@ -486,6 +486,13 @@ export default function UserMessages() {
     return styles.defaultStatus;
   };
 
+  // Dot color mirrors whatever getStatusStyle picked, so the dot and
+  // label are always in sync without duplicating the status logic.
+  const getStatusDotStyle = (conversation: any) => {
+    const textStyle = getStatusStyle(conversation) as { color?: string };
+    return { backgroundColor: textStyle.color || "#555" };
+  };
+
   const deleteConversation = async (conversation: any) => {
     Alert.alert(
       "Delete Conversation",
@@ -600,6 +607,8 @@ export default function UserMessages() {
           activeOpacity={0.85}
           onPress={() => openChat(item)}
         >
+          {isUnread && <View style={styles.unreadAccentBar} />}
+
           <View style={styles.avatarWrapper}>
             <Image
               source={getFacilityImageSource(item)}
@@ -641,6 +650,7 @@ export default function UserMessages() {
             </Text>
 
             <View style={styles.statusRow}>
+              <View style={[styles.statusDot, getStatusDotStyle(item)]} />
               <Text style={[styles.statusText, getStatusStyle(item)]}>
                 {getConversationStatus(item)}
               </Text>
@@ -747,10 +757,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+    position: "relative",
+    overflow: "hidden",
   },
   unreadConversationCard: {
     backgroundColor: "#f2f8f2",
     borderColor: "#b6dfb8",
+  },
+  unreadAccentBar: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: "#1b5e20",
   },
   deleteSwipeButton: {
     width: 92,
@@ -814,6 +839,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
+    gap: 6,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   statusText: {
     fontSize: 12,

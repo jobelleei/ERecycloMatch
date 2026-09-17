@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import FacilityBottomNav from "../../components/FacilityBottomNav";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
 
 function SwipeableConversation({
@@ -67,7 +67,7 @@ function SwipeableConversation({
           closeRow();
         }
       },
-    })
+    }),
   ).current;
 
   return (
@@ -108,6 +108,7 @@ export default function FacilityMessages() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const isFocusedRef = useRef(true);
 
   useEffect(() => {
     loadFacility();
@@ -115,8 +116,13 @@ export default function FacilityMessages() {
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       loadFacility();
-    }, [])
+
+      return () => {
+        isFocusedRef.current = false;
+      };
+    }, []),
   );
 
   useEffect(() => {
@@ -125,7 +131,9 @@ export default function FacilityMessages() {
     fetchConversations(facility.id);
 
     const interval = setInterval(() => {
-      fetchConversations(facility.id);
+      if (isFocusedRef.current) {
+        fetchConversations(facility.id);
+      }
     }, 5000);
 
     return () => {
@@ -255,11 +263,7 @@ export default function FacilityMessages() {
       return 5;
     }
 
-    if (
-      status === "matched" ||
-      status === "accepted" ||
-      status === "active"
-    ) {
+    if (status === "matched" || status === "accepted" || status === "active") {
       return 4;
     }
 
@@ -291,7 +295,7 @@ export default function FacilityMessages() {
         conversation?.user_id ||
           conversation?.user_name ||
           conversation?.id ||
-          ""
+          "",
       );
 
       if (!userKey) return;
@@ -302,7 +306,7 @@ export default function FacilityMessages() {
         grouped[userKey] = {
           ...conversation,
           related_conversation_ids: [String(conversation.id || "")].filter(
-            Boolean
+            Boolean,
           ),
         };
         return;
@@ -351,7 +355,7 @@ export default function FacilityMessages() {
 
     return Object.values(grouped).sort(
       (a: any, b: any) =>
-        getConversationTimeValue(b) - getConversationTimeValue(a)
+        getConversationTimeValue(b) - getConversationTimeValue(a),
     );
   };
 
@@ -394,7 +398,7 @@ export default function FacilityMessages() {
           console.log("FETCH USER PROFILE FOR CONVERSATION ERROR:", error);
           return conversation;
         }
-      })
+      }),
     );
 
     return updatedList;
@@ -429,15 +433,14 @@ export default function FacilityMessages() {
         return !hiddenForFacility;
       });
 
-      const withUserProfiles = await fetchUserProfilesForConversations(
-        visibleConversations
-      );
+      const withUserProfiles =
+        await fetchUserProfilesForConversations(visibleConversations);
 
       const { data: unreadMessages } = await supabase
-      .from("messages")
-      .select("conversation_id")
-      .eq("receiver_id", Number(currentFacilityId))
-      .eq("is_read", false);
+        .from("messages")
+        .select("conversation_id")
+        .eq("receiver_id", Number(currentFacilityId))
+        .eq("is_read", false);
 
       const unreadSet = new Set<string>();
 
@@ -457,25 +460,22 @@ export default function FacilityMessages() {
         });
       }
 
-      const groupedConversations =
-      groupConversationsByUser(withUserProfiles).map((conversation) => ({
+      const groupedConversations = groupConversationsByUser(
+        withUserProfiles,
+      ).map((conversation) => ({
         ...conversation,
-        hasUnread:
-        unreadSet.has(
-          String(conversation.id)
-        )
+        hasUnread: unreadSet.has(String(conversation.id)),
       }));
 
-        setConversations(groupedConversations);
-        setLoading(false);
-
-        } catch (error) {
-          console.log("FETCH FACILITY CONVERSATIONS ERROR:", error);
-          setConversations([]);
-        } finally {
-          setLoading(false);
-        }
-        };
+      setConversations(groupedConversations);
+      setLoading(false);
+    } catch (error) {
+      console.log("FETCH FACILITY CONVERSATIONS ERROR:", error);
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const onRefresh = async () => {
     try {
@@ -640,6 +640,13 @@ export default function FacilityMessages() {
     return styles.defaultStatus;
   };
 
+  // Returns a background-color style (same hue as getStatusStyle's text color)
+  // so the status dot matches the status label.
+  const getStatusDotStyle = (conversation: any) => {
+    const textStyle = getStatusStyle(conversation) as { color?: string };
+    return { backgroundColor: textStyle.color || "#777" };
+  };
+
   const deleteConversation = async (conversation: any) => {
     Alert.alert(
       "Delete Conversation",
@@ -688,9 +695,9 @@ export default function FacilityMessages() {
                       : [String(item.id || "")].filter(Boolean);
 
                   return !itemIds.some((id: string) =>
-                    conversationIds.includes(id)
+                    conversationIds.includes(id),
                   );
-                })
+                }),
               );
 
               Alert.alert("Deleted", "Conversation deleted successfully.");
@@ -698,55 +705,43 @@ export default function FacilityMessages() {
               console.log("DELETE FACILITY CONVERSATION ERROR:", error);
               Alert.alert(
                 "Delete Failed",
-                error?.message || "Unable to delete conversation."
+                error?.message || "Unable to delete conversation.",
               );
             }
           },
         },
-      ]
+      ],
     );
   };
 
   const openChat = async (conversation: any) => {
-  setConversations((prev) =>
-    prev.map((item) =>
-      item.id === conversation.id
-        ? {
-            ...item,
-            hasUnread: false,
-          }
-        : item
-    )
-  );
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === conversation.id
+          ? {
+              ...item,
+              hasUnread: false,
+            }
+          : item,
+      ),
+    );
 
-  router.push({
-    pathname: "/facility_dashboard/chat" as any,
-    params: {
-      conversationId: String(conversation.id || ""),
-      user_id: String(conversation.user_id || ""),
-      user_name: String(conversation.user_name || "User"),
-      user_profile_image: String(
-        conversation.user_profile_image || ""
-      ),
-      facility_id: String(
-        conversation.facility_id ||
-          facility?.id ||
-          ""
-      ),
-      facility_name: String(
-        conversation.facility_name ||
-          facility?.name ||
-          "Facility"
-      ),
-      item_id: String(
-        conversation.item_id || ""
-      ),
-      item_name: String(
-        conversation.item_name || ""
-      ),
-    },
-  });
-};
+    router.push({
+      pathname: "/facility_dashboard/chat" as any,
+      params: {
+        conversationId: String(conversation.id || ""),
+        user_id: String(conversation.user_id || ""),
+        user_name: String(conversation.user_name || "User"),
+        user_profile_image: String(conversation.user_profile_image || ""),
+        facility_id: String(conversation.facility_id || facility?.id || ""),
+        facility_name: String(
+          conversation.facility_name || facility?.name || "Facility",
+        ),
+        item_id: String(conversation.item_id || ""),
+        item_name: String(conversation.item_name || ""),
+      },
+    });
+  };
 
   const goToPage = (path: string) => {
     router.push(path as any);
@@ -763,34 +758,36 @@ export default function FacilityMessages() {
           activeOpacity={0.85}
           onPress={() => openChat(item)}
         >
+          {item.hasUnread && <View style={styles.unreadAccentBar} />}
+
           <Image source={getUserImageSource(item)} style={styles.avatar} />
 
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
-              <Text style={styles.userName}>
+              <Text
+                style={[
+                  styles.userName,
+                  item.hasUnread && styles.unreadUserName,
+                ]}
+              >
                 {item.user_name || "User"}
               </Text>
 
               <Text
-                style={[
-                  styles.timeText,
-                  item.hasUnread && styles.unreadTime,
-                ]}
+                style={[styles.timeText, item.hasUnread && styles.unreadTime]}
               >
                 {formatDate(item.updated_at || item.created_at)}
               </Text>
             </View>
 
             <Text
-              style={[
-                styles.itemName,
-                item.hasUnread && styles.unreadItemName,
-              ]}
+              style={[styles.itemName, item.hasUnread && styles.unreadItemName]}
             >
               Latest item: {item.item_name || "Unnamed Item"}
             </Text>
 
             <View style={styles.statusRow}>
+              <View style={[styles.statusDot, getStatusDotStyle(item)]} />
               <Text
                 style={[
                   styles.statusText,
@@ -802,6 +799,8 @@ export default function FacilityMessages() {
               </Text>
             </View>
           </View>
+
+          {item.hasUnread && <View style={styles.unreadDot} />}
         </TouchableOpacity>
       </SwipeableConversation>
     );
@@ -836,16 +835,13 @@ export default function FacilityMessages() {
             <Text style={styles.emptyTitle}>No messages yet</Text>
 
             <Text style={styles.emptyText}>
-               Your conversation with other users will appear here.
+              Your conversation with other users will appear here.
             </Text>
           </View>
         }
       />
 
-     <FacilityBottomNav
-        facilityId={facility?.id || ""}
-        active="messages"
-      />
+      <FacilityBottomNav facilityId={facility?.id || ""} active="messages" />
     </SafeAreaView>
   );
 }
@@ -908,14 +904,30 @@ const styles = StyleSheet.create({
   },
 
   conversationCard: {
-  flexDirection: "row",
-  backgroundColor: "#f5f5f5",
-  borderRadius: 14,
-  padding: 12,
-  alignItems: "center",
-  borderWidth: 1,
-  borderColor: "#eee",
-},
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  unreadConversationCard: {
+    backgroundColor: "#eef6ee",
+    borderColor: "#c8e6c9",
+  },
+
+  unreadAccentBar: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    backgroundColor: "#1b5e20",
+  },
 
   deleteSwipeButton: {
     width: 92,
@@ -950,56 +962,68 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-userName: {
-  flex: 1,
-  fontSize: 16,
-  fontWeight: "bold",
-  color: "#000",
-  marginRight: 8,
-},
+  userName: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#000",
+    marginRight: 8,
+  },
 
-itemName: {
-  marginTop: 3,
-  fontSize: 13,
-  color: "#888",
-  fontWeight: "400",
-},
+  unreadUserName: {
+    color: "#000",
+    fontWeight: "800",
+  },
 
-timeText: {
-  fontSize: 11,
-  color: "#999",
-},
+  itemName: {
+    marginTop: 3,
+    fontSize: 13,
+    color: "#888",
+    fontWeight: "400",
+  },
+
+  timeText: {
+    fontSize: 11,
+    color: "#999",
+  },
 
   statusRow: {
     marginTop: 7,
     flexDirection: "row",
     alignItems: "center",
     flexWrap: "wrap",
+    gap: 6,
+  },
+
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
 
   statusText: {
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
 
   pendingStatus: {
-    color: "#fbc02d",
+    color: "#f9a825",
   },
 
   matchedStatus: {
-    color: "#1976d2",
+    color: "#2e7d32",
   },
 
   finishedStatus: {
-    color: "#1976d2",
+    color: "#2e7d32",
   },
 
   cancelledStatus: {
-    color: "red",
+    color: "#c62828",
   },
 
   defaultStatus: {
-    color: "#555",
+    color: "#777",
   },
 
   emptyBox: {
@@ -1059,25 +1083,27 @@ timeText: {
     fontWeight: "bold",
   },
 
- unreadConversationCard: {
-  backgroundColor: "#ffffff",
-},
+  unreadItemName: {
+    color: "#000",
+    fontWeight: "bold",
+  },
 
-unreadUserName: {
-  color: "#000",
-},
+  unreadTime: {
+    color: "#111",
+    fontWeight: "bold",
+  },
 
-unreadItemName: {
-  color: "#000",
-  fontWeight: "bold",
-},
+  unreadStatus: {
+    fontWeight: "bold",
+  },
 
-unreadTime: {
-  color: "#111",
-  fontWeight: "bold",
-},
-
-unreadStatus: {
-  fontWeight: "bold",
-},
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#1b5e20",
+    marginLeft: 8,
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
 });

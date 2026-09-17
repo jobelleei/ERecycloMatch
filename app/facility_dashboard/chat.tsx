@@ -1308,6 +1308,20 @@ export default function FacilityChat() {
     return "Chat";
   };
 
+  // NEW: color for the small status dot next to the subtitle
+  const getSubtitleDotColor = () => {
+    const status = conversation?.status || "match_pending";
+
+    if (status === "match_pending") return "#f9a825";
+    if (status === "cancelled" || status === "rejected") return "#c62828";
+    if (status === "accepted" || status === "active" || status === "matched")
+      return "#1976d2";
+    if (status === "finish_pending") return "#1976d2";
+    if (status === "finished") return "#2e7d32";
+
+    return "#888";
+  };
+
   const renderTopButtons = () => {
     const status = conversation?.status || "match_pending";
     const facilityFinished = Boolean(conversation?.facility_finished);
@@ -1564,7 +1578,15 @@ export default function FacilityChat() {
             <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={styles.title}>{headerName}</Text>
 
-              <Text style={styles.subtitle}>{getSubtitle()}</Text>
+              <View style={styles.subtitleRow}>
+                <View
+                  style={[
+                    styles.subtitleDot,
+                    { backgroundColor: getSubtitleDotColor() },
+                  ]}
+                />
+                <Text style={styles.subtitle}>{getSubtitle()}</Text>
+              </View>
             </View>
           </View>
 
@@ -1694,8 +1716,8 @@ export default function FacilityChat() {
                             </Text>
 
                             <Text style={styles.reportToggleDescription}>
-                              Select this only if a serious issue occurred during
-                              the transaction.
+                              Select this only if a serious issue occurred
+                              during the transaction.
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -1828,9 +1850,21 @@ const styles = StyleSheet.create({
     color: "#000",
   },
 
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 3,
+    gap: 6,
+  },
+
+  subtitleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
   subtitle: {
     color: "gray",
-    marginTop: 2,
   },
 
   matchActionBox: {
@@ -1845,8 +1879,8 @@ const styles = StyleSheet.create({
 
   cancelMatchButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#ff3b30",
+    borderWidth: 1,
+    borderColor: "#e0a0a0",
     paddingVertical: 11,
     borderRadius: 10,
     alignItems: "center",
@@ -1854,8 +1888,8 @@ const styles = StyleSheet.create({
   },
 
   cancelMatchText: {
-    color: "#ff3b30",
-    fontWeight: "bold",
+    color: "#c62828",
+    fontWeight: "600",
     fontSize: 15,
   },
 
@@ -1875,8 +1909,8 @@ const styles = StyleSheet.create({
 
   cancelButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#ff3b30",
+    borderWidth: 1,
+    borderColor: "#e0a0a0",
     paddingVertical: 11,
     borderRadius: 10,
     alignItems: "center",
@@ -1884,8 +1918,8 @@ const styles = StyleSheet.create({
   },
 
   cancelText: {
-    color: "#ff3b30",
-    fontWeight: "bold",
+    color: "#c62828",
+    fontWeight: "600",
     fontSize: 15,
   },
 
@@ -2092,8 +2126,9 @@ const styles = StyleSheet.create({
   },
 
   disabledInput: {
-    backgroundColor: "#eee",
-    color: "#777",
+    backgroundColor: "#ececec",
+    color: "#999",
+    borderColor: "#e0e0e0",
   },
 
   sendButton: {
@@ -2107,7 +2142,7 @@ const styles = StyleSheet.create({
   },
 
   disabledButton: {
-    backgroundColor: "#8aa887",
+    backgroundColor: "#b8c9b6",
   },
 
   sendText: {
@@ -2333,5 +2368,4 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#888",
   },
-
 });
