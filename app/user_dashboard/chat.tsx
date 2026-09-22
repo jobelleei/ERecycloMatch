@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import * as Notifications from "expo-notifications";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -44,7 +45,12 @@ export default function UserChat() {
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+
+  // Track which message IDs currently have their date & time visible upon click
+  const [visibleTimestamps, setVisibleTimestamps] = useState<{
+    [key: string]: boolean;
+  }>({});
 
   const [facilityProfile, setFacilityProfile] = useState({
     name: "Facility",
@@ -71,7 +77,20 @@ export default function UserChat() {
 
   useEffect(() => {
     loadUser();
+    requestNotificationPermission();
   }, []);
+
+  const requestNotificationPermission = async () => {
+    try {
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
+      if (existingStatus !== "granted") {
+        await Notifications.requestPermissionsAsync();
+      }
+    } catch (error) {
+      console.log("Error requesting notification permission:", error);
+    }
+  };
 
   useEffect(() => {
     if (!conversationId) return;
@@ -128,14 +147,6 @@ export default function UserChat() {
       });
     }
   }, [conversation?.item_id, itemIdParam, itemNameParam, itemImageParam]);
-
-  useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 150);
-    }
-  }, [messages]);
 
   const loadUser = async () => {
     try {
@@ -403,6 +414,41 @@ export default function UserChat() {
     });
   };
 
+  // Format full date and time for when a message bubble is clicked
+  const formatMessageDateTime = (value: string) => {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const formatMatchCreationDate = (value: string) => {
+    if (!value) return "";
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) return "";
+
+    return date.toLocaleString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
   const isMatchRequestMessage = (item: any) => {
     const message = String(item?.message || "")
       .trim()
@@ -552,37 +598,20 @@ export default function UserChat() {
       const numericUserId = Number(user.id);
 
       if (!Number.isFinite(numericUserId)) {
-        console.log("MARK USER MESSAGES READ ERROR: Invalid user ID", user.id);
         return;
       }
 
-      const { error } = await supabase
+      await supabase
         .from("messages")
-        .update({
-          is_read: true,
-        })
+        .update({ is_read: true })
         .eq("conversation_id", String(conversationId))
         .eq("receiver_id", numericUserId)
         .eq("is_read", false);
 
-      if (error) {
-        console.log("MARK USER MESSAGES READ ERROR:", error);
-        return;
-      }
-
-      const { error: conversationReadError } = await supabase
+      await supabase
         .from("conversations")
-        .update({
-          is_read: true,
-        })
+        .update({ is_read: true })
         .eq("id", String(conversationId));
-
-      if (conversationReadError) {
-        console.log(
-          "MARK USER CONVERSATION READ ERROR:",
-          conversationReadError,
-        );
-      }
     } catch (error) {
       console.log("MARK USER MESSAGES READ ERROR:", error);
     }
@@ -599,7 +628,6 @@ export default function UserChat() {
         .order("created_at", { ascending: true });
 
       if (error) {
-        console.log("FETCH USER MESSAGES ERROR:", error);
         setMessages([]);
         return;
       }
@@ -625,7 +653,6 @@ export default function UserChat() {
         await markMessagesAsRead();
       }
     } catch (error) {
-      console.log("FETCH USER MESSAGES ERROR:", error);
       setMessages([]);
     }
   };
@@ -648,7 +675,7 @@ export default function UserChat() {
     try {
       const now = new Date().toISOString();
 
-      const { error: messageError } = await supabase.from("messages").insert([
+      await supabase.from("messages").insert([
         {
           conversation_id: String(conversationId),
           sender_id: null,
@@ -662,21 +689,13 @@ export default function UserChat() {
         },
       ]);
 
-      if (messageError) {
-        console.log("USER SYSTEM MESSAGE ERROR:", messageError);
-      }
-
-      const { error: updateError } = await supabase
+      await supabase
         .from("conversations")
         .update({
           last_message: text,
           updated_at: now,
         })
         .eq("id", String(conversationId));
-
-      if (updateError) {
-        console.log("UPDATE USER SYSTEM CONVERSATION ERROR:", updateError);
-      }
 
       fetchMessages();
       fetchConversation();
@@ -697,7 +716,7 @@ export default function UserChat() {
 
       if (!conversationId || !currentUserId || !currentFacilityId) return;
 
-      const { data: otherPendingMatches, error: pendingError } = await supabase
+      const { data: otherPendingMatches } = await supabase
         .from("conversations")
         .select("id")
         .eq("user_id", currentUserId)
@@ -708,24 +727,14 @@ export default function UserChat() {
         )
         .limit(1);
 
-      if (pendingError) {
-        console.log("CHECK EXISTING PENDING MATCH ERROR:", pendingError);
-        return;
-      }
-
       if (!otherPendingMatches || otherPendingMatches.length === 0) return;
 
-      const { data: existingWarnings, error: warningError } = await supabase
+      const { data: existingWarnings } = await supabase
         .from("messages")
         .select("id")
         .eq("conversation_id", String(conversationId))
         .eq("message", warningMessage)
         .limit(1);
-
-      if (warningError) {
-        console.log("CHECK PENDING MATCH WARNING ERROR:", warningError);
-        return;
-      }
 
       if (existingWarnings && existingWarnings.length > 0) return;
 
@@ -735,7 +744,7 @@ export default function UserChat() {
     }
   };
 
-  const getRequestSender = () => {
+  const getCurrentRequestSender = () => {
     return String(
       conversation?.requested_by ||
         conversation?.request_sender_role ||
@@ -749,16 +758,12 @@ export default function UserChat() {
       "Accept Request",
       "Are you sure you want to accept this match request?",
       [
-        {
-          text: "No",
-          style: "cancel",
-        },
+        { text: "No", style: "cancel" },
         {
           text: "Yes, Accept",
           onPress: async () => {
             try {
               const now = new Date().toISOString();
-
               await updateConversation({
                 status: "matched",
                 request_status: "accepted",
@@ -777,13 +782,11 @@ export default function UserChat() {
               }
 
               await addSystemMessage("Match accepted. You can now chat.");
-
               fetchConversation();
             } catch (error: any) {
-              console.log("ACCEPT MATCH ERROR:", error);
               Alert.alert(
                 "Accept Failed",
-                error?.message || "Failed to accept match.",
+                error?.message || "Failed to accept.",
               );
             }
           },
@@ -794,10 +797,7 @@ export default function UserChat() {
 
   const rejectMatch = async () => {
     Alert.alert("Reject Match", "Are you sure you want to reject this match?", [
-      {
-        text: "No",
-        style: "cancel",
-      },
+      { text: "No", style: "cancel" },
       {
         text: "Yes, Reject",
         style: "destructive",
@@ -821,14 +821,9 @@ export default function UserChat() {
             }
 
             await addSystemMessage("Match rejected");
-
             fetchConversation();
           } catch (error: any) {
-            console.log("REJECT MATCH ERROR:", error);
-            Alert.alert(
-              "Reject Failed",
-              error?.message || "Failed to reject match.",
-            );
+            Alert.alert("Reject Failed", error?.message || "Failed to reject.");
           }
         },
       },
@@ -839,27 +834,16 @@ export default function UserChat() {
     const userAlreadyFinished = Boolean(conversation?.user_finished);
     const facilityAlreadyFinished = Boolean(conversation?.facility_finished);
 
-    if (facilityAlreadyFinished) {
+    if (facilityAlreadyFinished || userAlreadyFinished) {
       Alert.alert(
         "Cancel Not Allowed",
-        "You cannot cancel this match because the facility already clicked the Finish this match button.",
-      );
-      return;
-    }
-
-    if (userAlreadyFinished) {
-      Alert.alert(
-        "Cancel Not Allowed",
-        "You cannot cancel this match because you already clicked the Finish this match button.",
+        "You cannot cancel this match because it's already completed or finished.",
       );
       return;
     }
 
     Alert.alert("Cancel Match", "Are you sure you want to cancel this match?", [
-      {
-        text: "No",
-        style: "cancel",
-      },
+      { text: "No", style: "cancel" },
       {
         text: "Yes, Cancel",
         style: "destructive",
@@ -883,14 +867,9 @@ export default function UserChat() {
             }
 
             await addSystemMessage("Match cancelled");
-
             fetchConversation();
           } catch (error: any) {
-            console.log("CANCEL MATCH ERROR:", error);
-            Alert.alert(
-              "Cancel Failed",
-              error?.message || "Failed to cancel match.",
-            );
+            Alert.alert("Cancel Failed", error?.message || "Failed to cancel.");
           }
         },
       },
@@ -900,34 +879,24 @@ export default function UserChat() {
   const createRecyclingHistoryRecord = async (finishedAt: string) => {
     try {
       let itemData: any = null;
-
       if (conversation?.item_id) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("items")
           .select("*")
           .eq("id", String(conversation.item_id))
           .maybeSingle();
-
-        if (error) {
-          console.log("FETCH ITEM FOR HISTORY ERROR:", error);
-        }
-
         itemData = data;
       }
 
-      const { data: existingHistory, error: findHistoryError } = await supabase
+      const { data: existingHistory } = await supabase
         .from("recycling_history")
         .select("id")
         .eq("conversation_id", String(conversationId))
         .maybeSingle();
 
-      if (findHistoryError) {
-        console.log("FIND RECYCLING HISTORY ERROR:", findHistoryError);
-      }
-
       if (existingHistory) return;
 
-      const { error } = await supabase.from("recycling_history").insert([
+      await supabase.from("recycling_history").insert([
         {
           conversation_id: String(conversationId),
           user_id: String(conversation?.user_id || user?.id || ""),
@@ -967,14 +936,8 @@ export default function UserChat() {
           created_at: new Date().toISOString(),
         },
       ]);
-
-      if (error) {
-        console.log("INSERT RECYCLING HISTORY ERROR:", error);
-        throw error;
-      }
     } catch (error) {
       console.log("CREATE RECYCLING HISTORY ERROR:", error);
-      throw error;
     }
   };
 
@@ -983,10 +946,7 @@ export default function UserChat() {
       "Finish Match",
       "Are you sure you want to mark this match as finished?",
       [
-        {
-          text: "No",
-          style: "cancel",
-        },
+        { text: "No", style: "cancel" },
         {
           text: "Yes, Finish",
           onPress: async () => {
@@ -1017,7 +977,6 @@ export default function UserChat() {
                 }
 
                 await createRecyclingHistoryRecord(now);
-
                 await addSystemMessage(
                   "Both sides finished this match. Please provide feedback.",
                 );
@@ -1028,7 +987,7 @@ export default function UserChat() {
                 await updateConversation({
                   user_finished: true,
                   status: "finish_pending",
-                  last_message: `${displayName} clicked Finish this match. Waiting for you to click the button too.`,
+                  last_message: `${displayName} clicked Finish this match. Waiting for facility to finish.`,
                 });
 
                 await addSystemMessage(
@@ -1038,10 +997,9 @@ export default function UserChat() {
 
               fetchConversation();
             } catch (error: any) {
-              console.log("FINISH MATCH ERROR:", error);
               Alert.alert(
                 "Finish Failed",
-                error?.message || "Failed to finish match.",
+                error?.message || "Failed to finish.",
               );
             }
           },
@@ -1068,14 +1026,12 @@ export default function UserChat() {
       }
 
       const cleanRating = Number(selectedRating);
-
       if (!cleanRating || cleanRating < 1 || cleanRating > 5) {
         Alert.alert("Rating Required", "Please select 1 to 5 stars.");
         return;
       }
 
       const ratedId = Number(conversation.facility_id || facilityIdParam);
-
       if (!ratedId || isNaN(ratedId)) {
         Alert.alert("Feedback Failed", "Facility ID is missing or invalid.");
         return;
@@ -1102,7 +1058,6 @@ export default function UserChat() {
       ]);
 
       if (error) {
-        console.log("USER FEEDBACK INSERT ERROR:", error);
         Alert.alert("Feedback Failed", error.message);
         return;
       }
@@ -1124,11 +1079,7 @@ export default function UserChat() {
 
       Alert.alert("Thank You", "Your feedback has been submitted.");
     } catch (error: any) {
-      console.log("SUBMIT USER FEEDBACK ERROR:", error);
-      Alert.alert(
-        "Feedback Failed",
-        error?.message || "Unable to submit feedback.",
-      );
+      Alert.alert("Feedback Failed", error?.message || "Unable to submit.");
     } finally {
       setSubmittingFeedback(false);
     }
@@ -1136,30 +1087,6 @@ export default function UserChat() {
 
   const getCurrentStatus = () => {
     return String(conversation?.status || "match_pending")
-      .trim()
-      .toLowerCase();
-  };
-
-  const getCurrentRequestSender = () => {
-    return String(
-      conversation?.requested_by ||
-        conversation?.request_sender_role ||
-        conversation?.request_from ||
-        conversation?.sender_role ||
-        conversation?.sender_type ||
-        "",
-    )
-      .trim()
-      .toLowerCase();
-  };
-
-  const getCurrentRequestReceiver = () => {
-    return String(
-      conversation?.request_receiver_role ||
-        conversation?.receiver_role ||
-        conversation?.receiver_type ||
-        "",
-    )
       .trim()
       .toLowerCase();
   };
@@ -1180,54 +1107,32 @@ export default function UserChat() {
 
   const isAcceptedMatch = () => {
     const status = getCurrentStatus();
-
     return status === "matched" || status === "accepted" || status === "active";
   };
 
   const isCurrentAccountRequester = () => {
     if (!isPendingMatch()) return false;
-
     const sender = getCurrentRequestSender();
-    const receiver = getCurrentRequestReceiver();
-
-    if (["user", "individual", "owner", "sender"].includes(sender)) {
-      return true;
-    }
-
-    if (["facility", "recycling facility"].includes(sender)) {
-      return false;
-    }
-
-    if (["user", "individual", "owner"].includes(receiver)) {
-      return false;
-    }
-
-    if (["facility", "recycling facility"].includes(receiver)) {
-      return true;
-    }
-
+    if (["user", "individual", "owner", "sender"].includes(sender)) return true;
+    if (["facility", "recycling facility"].includes(sender)) return false;
     return String(conversation?.user_id || "") === String(user?.id || "");
   };
 
   const hasCurrentAccountSentOffer = () => {
     if (!user?.id) return false;
-
     return messages.some((message: any) => {
       const messageType = String(message?.message_type || message?.type || "")
         .trim()
         .toLowerCase();
-
       const senderRole = String(
         message?.sender_role || message?.sender_type || "",
       )
         .trim()
         .toLowerCase();
-
       const isOfferMessage =
         messageType === "offer" ||
         messageType === "offer_message" ||
         messageType === "request_offer";
-
       return (
         isOfferMessage &&
         (String(message?.sender_id || "") === String(user?.id) ||
@@ -1246,21 +1151,16 @@ export default function UserChat() {
 
   const getInputPlaceholder = () => {
     if (isAcceptedMatch()) return "Message";
-
     if (isCurrentAccountRequester()) {
       return hasCurrentAccountSentOffer()
         ? "Offer sent. Wait for response"
         : "Send your offer (1) message...";
     }
-
-    if (isPendingMatch()) {
-      return "Waiting for the requester to send an offer";
-    }
-
+    if (isPendingMatch()) return "Waiting for the requester to send an offer";
     return "Chat is locked until the match is active";
   };
 
-  const handlePickAndUploadImage = async () => {
+  const handlePickImage = async () => {
     if (!canSendMessage()) {
       Alert.alert(
         "Chat Locked",
@@ -1273,7 +1173,7 @@ export default function UserChat() {
     if (status !== "granted") {
       Alert.alert(
         "Permission Denied",
-        "Please grant photo gallery permission to upload files.",
+        "Please grant photo gallery permission to select images.",
       );
       return;
     }
@@ -1288,70 +1188,11 @@ export default function UserChat() {
       return;
     }
 
-    const asset = result.assets[0];
-    setUploadingImage(true);
-
-    try {
-      const fileExt = asset.uri.split(".").pop() || "jpg";
-      const fileName = `chat_${conversationId}_${Date.now()}.${fileExt}`;
-      const filePath = `chat_uploads/${fileName}`;
-
-      const response = await fetch(asset.uri);
-      const blob = await response.blob();
-
-      const { error: uploadError } = await supabase.storage
-        .from("item-images")
-        .upload(filePath, blob, {
-          contentType: `image/${fileExt}`,
-          upsert: true,
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const { data: publicUrlData } = supabase.storage
-        .from("item-images")
-        .getPublicUrl(filePath);
-
-      const uploadedUrl = publicUrlData?.publicUrl || filePath;
-      const receiverId = String(
-        conversation?.facility_id || facilityIdParam || "",
-      );
-
-      const { error: messageError } = await supabase.from("messages").insert([
-        {
-          conversation_id: String(conversationId),
-          sender_id: Number(user?.id),
-          sender_name: user?.name || "User",
-          sender_role: "user",
-          sender_type: "user",
-          receiver_id: receiverId ? Number(receiverId) : null,
-          type: "image",
-          message_type: "image",
-          message: uploadedUrl,
-          created_at: new Date().toISOString(),
-        },
-      ]);
-
-      if (messageError) throw messageError;
-
-      await updateConversation({
-        last_message: "📷 Sent a photo",
-      });
-
-      fetchMessages();
-      fetchConversation();
-    } catch (err: any) {
-      console.log("IMAGE UPLOAD ERROR:", err);
-      Alert.alert("Upload Failed", err.message || "Failed to upload image.");
-    } finally {
-      setUploadingImage(false);
-    }
+    setSelectedImageUri(result.assets[0].uri);
   };
 
   const sendMessage = async () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() && !selectedImageUri) return;
 
     if (!user?.id) {
       Alert.alert("User Error", "Please log in again.");
@@ -1374,14 +1215,48 @@ export default function UserChat() {
     }
 
     const text = messageText.trim();
+    const imageToUpload = selectedImageUri;
+
     setMessageText("");
+    setSelectedImageUri(null);
 
     try {
       setSending(true);
-
       const receiverId = String(
         conversation?.facility_id || facilityIdParam || "",
       );
+
+      let finalMessageContent = text;
+      let messageType = sendingOffer ? "offer" : "text";
+
+      if (imageToUpload) {
+        const fileExt = imageToUpload.split(".").pop() || "jpg";
+        const fileName = `chat_${conversationId}_${Date.now()}.${fileExt}`;
+        const filePath = `chat_uploads/${fileName}`;
+
+        const formData = new FormData();
+        formData.append("file", {
+          uri: imageToUpload,
+          name: fileName,
+          type: `image/${fileExt}`,
+        } as any);
+
+        const { error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(filePath, formData, {
+            contentType: `image/${fileExt}`,
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("item-images")
+          .getPublicUrl(filePath);
+
+        finalMessageContent = publicUrlData?.publicUrl || filePath;
+        messageType = "image";
+      }
 
       const { error } = await supabase.from("messages").insert([
         {
@@ -1391,9 +1266,9 @@ export default function UserChat() {
           sender_role: "user",
           sender_type: "user",
           receiver_id: receiverId ? Number(receiverId) : null,
-          type: sendingOffer ? "offer" : "text",
-          message_type: sendingOffer ? "offer" : "text",
-          message: text,
+          type: messageType,
+          message_type: messageType,
+          message: finalMessageContent,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -1404,14 +1279,19 @@ export default function UserChat() {
       }
 
       await updateConversation({
-        last_message: sendingOffer ? `Offer: ${text}` : text,
+        last_message:
+          messageType === "image"
+            ? "📷 Sent a photo"
+            : sendingOffer
+              ? `Offer: ${text}`
+              : text,
       });
 
       fetchMessages();
       fetchConversation();
-    } catch (error) {
+    } catch (error: any) {
       console.log("SEND USER MESSAGE ERROR:", error);
-      Alert.alert("Send Failed", "Unable to send message.");
+      Alert.alert("Send Failed", error?.message || "Unable to send message.");
     } finally {
       setSending(false);
     }
@@ -1419,16 +1299,11 @@ export default function UserChat() {
 
   const getSubtitle = () => {
     const status = conversation?.status || "match_pending";
-
     if (status === "match_pending") return "Match request pending";
     if (status === "cancelled") return "Match cancelled";
     if (status === "rejected") return "Match rejected";
-    if (status === "accepted") return "Online";
-    if (status === "active") return "Online";
-    if (status === "matched") return "Online";
     if (status === "finish_pending") return "Waiting for other side";
     if (status === "finished") return "Match finished";
-
     return "Online";
   };
 
@@ -1441,7 +1316,6 @@ export default function UserChat() {
 
     const isUserRequester =
       isCurrentAccountRequester() || requestSender === "user";
-
     const isFacilityRequester =
       !isUserRequester && (requestSender === "facility" || isPendingMatch());
 
@@ -1458,14 +1332,12 @@ export default function UserChat() {
           </View>
         );
       }
-
       if (isFacilityRequester) {
         return (
           <View style={styles.matchActionBox}>
             <TouchableOpacity style={styles.finishButton} onPress={acceptMatch}>
               <Text style={styles.finishText}>Accept request</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.cancelButton} onPress={rejectMatch}>
               <Text style={styles.cancelText}>Reject request</Text>
             </TouchableOpacity>
@@ -1480,7 +1352,6 @@ export default function UserChat() {
           <TouchableOpacity style={styles.finishButton} onPress={finishMatch}>
             <Text style={styles.finishText}>Finish this match</Text>
           </TouchableOpacity>
-
           <TouchableOpacity style={styles.cancelButton} onPress={cancelMatch}>
             <Text style={styles.cancelText}>Cancel this match</Text>
           </TouchableOpacity>
@@ -1498,14 +1369,12 @@ export default function UserChat() {
           </View>
         );
       }
-
       if (facilityFinished) {
         return (
           <View style={styles.matchActionBox}>
             <TouchableOpacity style={styles.finishButton} onPress={finishMatch}>
               <Text style={styles.finishText}>Finish this match</Text>
             </TouchableOpacity>
-
             <TouchableOpacity style={styles.cancelButton} onPress={cancelMatch}>
               <Text style={styles.cancelText}>Cancel this match</Text>
             </TouchableOpacity>
@@ -1556,10 +1425,8 @@ export default function UserChat() {
     return (
       <View style={styles.requestItemCard}>
         <Image source={getRequestItemImage()} style={styles.requestItemImage} />
-
         <View style={styles.requestItemInfo}>
           <Text style={styles.requestItemLabel}>Requested Item</Text>
-
           <Text style={styles.requestItemName} numberOfLines={2}>
             {getRequestItemName()}
           </Text>
@@ -1591,11 +1458,22 @@ export default function UserChat() {
       requestMessage ||
       String(item?.message_type || "").toLowerCase() === "match_request";
 
-    const timeText = formatMessageTime(item.created_at);
+    const shortTimeText = formatMessageTime(item.created_at);
+    const fullDateTimeText = formatMessageDateTime(item.created_at);
     const acceptedMessage = isMatchAcceptedMessage(item);
     const rejectedMessage = isMatchRejectedMessage(item);
     const cancelledMessage = isMatchCancelledMessage(item);
     const finishClickedMessage = isFinishClickedMessage(item);
+
+    const messageKey = String(item.id || item.created_at);
+    const showFullDate = visibleTimestamps[messageKey];
+
+    const toggleTimestamp = () => {
+      setVisibleTimestamps((prev) => ({
+        ...prev,
+        [messageKey]: !prev[messageKey],
+      }));
+    };
 
     if (!isSystem && !messageTextValue) {
       return null;
@@ -1640,8 +1518,9 @@ export default function UserChat() {
           </Text>
 
           {requestMessage && renderRequestItemCard()}
-
-          {timeText ? <Text style={styles.systemTime}>{timeText}</Text> : null}
+          {shortTimeText ? (
+            <Text style={styles.systemTime}>{shortTimeText}</Text>
+          ) : null}
         </View>
       );
     }
@@ -1653,37 +1532,39 @@ export default function UserChat() {
           isMine ? styles.myMessageRow : styles.otherMessageRow,
         ]}
       >
-        <View
-          style={[
-            styles.messageBubble,
-            isMine ? styles.myMessage : styles.otherMessage,
-          ]}
-        >
-          {/* Only render other sender name; removed "You" */}
-          {!isMine && (
-            <Text style={styles.senderName}>
-              {item.sender_name || facilityProfile.name || "Facility"}
-            </Text>
-          )}
+        <TouchableOpacity activeOpacity={0.9} onPress={toggleTimestamp}>
+          <View
+            style={[
+              styles.messageBubble,
+              isMine ? styles.myMessage : styles.otherMessage,
+            ]}
+          >
+            {!isMine && (
+              <Text style={styles.senderName}>
+                {item.sender_name || facilityProfile.name || "Facility"}
+              </Text>
+            )}
 
-          {isImage ? (
-            <Image
-              source={{ uri: messageTextValue }}
-              style={styles.chatImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <Text
-              style={isMine ? styles.myMessageText : styles.otherMessageText}
-            >
-              {item.message}
-            </Text>
-          )}
-        </View>
+            {isImage ? (
+              <Image
+                source={{ uri: messageTextValue }}
+                style={styles.chatImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text
+                style={isMine ? styles.myMessageText : styles.otherMessageText}
+              >
+                {item.message}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
 
-        {timeText ? (
+        {/* Static time shows by default; when clicked, full date and time is shown */}
+        {shortTimeText ? (
           <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
-            {timeText}
+            {showFullDate ? fullDateTimeText : shortTimeText}
           </Text>
         ) : null}
       </View>
@@ -1698,6 +1579,10 @@ export default function UserChat() {
 
   const chatLocked = !canSendMessage();
 
+  const matchCreationDateFormatted = formatMatchCreationDate(
+    conversation?.created_at || conversation?.matched_at || "",
+  );
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -1706,7 +1591,6 @@ export default function UserChat() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView style={styles.container}>
-          {/* iOS Style Clean Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.replace("/user_dashboard/messages" as any)}
@@ -1727,38 +1611,55 @@ export default function UserChat() {
 
           {renderTopButtons()}
 
-          {/* Messages list with "Today" Pill */}
           <FlatList
             ref={flatListRef}
             data={messages}
             keyExtractor={(item, index) => String(item.id || index)}
             renderItem={renderMessage}
             contentContainerStyle={styles.messagesList}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
+            }
             ListHeaderComponent={
-              <View style={styles.todayPillContainer}>
-                <View style={styles.todayPill}>
-                  <Text style={styles.todayPillText}>Today</Text>
+              matchCreationDateFormatted ? (
+                <View style={styles.todayPillContainer}>
+                  <View style={styles.todayPill}>
+                    <Text style={styles.todayPillText}>
+                      {matchCreationDateFormatted}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              ) : null
             }
             ListEmptyComponent={
               <Text style={styles.emptyText}>No messages yet.</Text>
             }
           />
 
-          {uploadingImage && (
-            <View style={styles.uploadingBar}>
-              <ActivityIndicator size="small" color="#16A34A" />
-              <Text style={styles.uploadingText}>Uploading photo...</Text>
+          {/* Staged Image Preview Box */}
+          {selectedImageUri && (
+            <View style={styles.imagePreviewContainer}>
+              <Image
+                source={{ uri: selectedImageUri }}
+                style={styles.previewThumbnail}
+              />
+              <TouchableOpacity
+                style={styles.removePreviewButton}
+                onPress={() => setSelectedImageUri(null)}
+              >
+                <Ionicons name="close-circle" size={22} color="#EF4444" />
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* Modern Bottom Input with Gallery Attachment Button */}
           <View style={styles.bottomBar}>
             <TouchableOpacity
               style={styles.attachButton}
-              onPress={handlePickAndUploadImage}
-              disabled={chatLocked || uploadingImage}
+              onPress={handlePickImage}
+              disabled={chatLocked || sending}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -1783,14 +1684,24 @@ export default function UserChat() {
             <TouchableOpacity
               style={[
                 styles.sendButton,
-                (sending || !canSendMessage() || !messageText.trim()) &&
+                (sending ||
+                  !canSendMessage() ||
+                  (!messageText.trim() && !selectedImageUri)) &&
                   styles.disabledButton,
               ]}
               onPress={sendMessage}
-              disabled={sending || !canSendMessage() || !messageText.trim()}
+              disabled={
+                sending ||
+                !canSendMessage() ||
+                (!messageText.trim() && !selectedImageUri)
+              }
               activeOpacity={0.8}
             >
-              <Ionicons name="arrow-up" size={20} color="#ffffff" />
+              {sending ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="arrow-up" size={20} color="#ffffff" />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -1988,7 +1899,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
   },
-
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1998,36 +1908,30 @@ const styles = StyleSheet.create({
     borderColor: "#f0f0f0",
     backgroundColor: "#ffffff",
   },
-
   backButton: {
     padding: 4,
     marginRight: 4,
   },
-
   avatarImage: {
     width: 44,
     height: 44,
     borderRadius: 22,
     backgroundColor: "#eee",
   },
-
   headerInfo: {
     marginLeft: 12,
     flex: 1,
   },
-
   title: {
     fontSize: 17,
     fontWeight: "700",
     color: "#111",
   },
-
   subtitle: {
     color: "#8E8E93",
     fontSize: 12,
     marginTop: 1,
   },
-
   matchActionBox: {
     flexDirection: "row",
     gap: 10,
@@ -2037,7 +1941,6 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     backgroundColor: "#ffffff",
   },
-
   cancelMatchButton: {
     flex: 1,
     borderWidth: 1.5,
@@ -2047,13 +1950,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
   },
-
   cancelMatchText: {
     color: "#E53E3E",
     fontWeight: "700",
     fontSize: 14,
   },
-
   finishButton: {
     flex: 1,
     backgroundColor: "#15803D",
@@ -2061,13 +1962,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-
   finishText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 14,
   },
-
   cancelButton: {
     flex: 1,
     borderWidth: 1.5,
@@ -2077,13 +1976,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#fff",
   },
-
   cancelText: {
     color: "#E53E3E",
     fontWeight: "700",
     fontSize: 14,
   },
-
   feedbackButton: {
     flex: 1,
     backgroundColor: "#15803D",
@@ -2091,17 +1988,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-
   disabledFeedbackButton: {
     backgroundColor: "#9CA3AF",
   },
-
   feedbackText: {
     color: "#fff",
     fontWeight: "700",
     fontSize: 14,
   },
-
   statusBox: {
     padding: 12,
     backgroundColor: "#F9FAFB",
@@ -2109,110 +2003,91 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-
   statusText: {
     fontWeight: "600",
     color: "#6B7280",
     textAlign: "center",
     fontSize: 13,
   },
-
   messagesList: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     flexGrow: 1,
   },
-
   todayPillContainer: {
     alignItems: "center",
     marginVertical: 14,
   },
-
   todayPill: {
     backgroundColor: "#F3F4F6",
     paddingHorizontal: 14,
     paddingVertical: 4,
     borderRadius: 12,
   },
-
   todayPillText: {
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "500",
   },
-
   emptyText: {
     textAlign: "center",
     color: "#9CA3AF",
     marginTop: 40,
     fontSize: 14,
   },
-
   messageRow: {
     marginBottom: 14,
   },
-
   myMessageRow: {
     alignItems: "flex-end",
   },
-
   otherMessageRow: {
     alignItems: "flex-start",
   },
-
   messageBubble: {
     maxWidth: "78%",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
   },
-
   myMessage: {
     backgroundColor: "#15803D",
     borderBottomRightRadius: 4,
   },
-
   otherMessage: {
     backgroundColor: "#F2F3F5",
     borderBottomLeftRadius: 4,
   },
-
   senderName: {
     fontSize: 12,
     color: "#6B7280",
     fontWeight: "600",
     marginBottom: 4,
   },
-
   myMessageText: {
     color: "#ffffff",
     fontSize: 15,
     lineHeight: 20,
   },
-
   otherMessageText: {
     color: "#1F2937",
     fontSize: 15,
     lineHeight: 20,
   },
-
   chatImage: {
     width: 200,
     height: 150,
     borderRadius: 12,
   },
-
   messageTime: {
     fontSize: 11,
     color: "#9CA3AF",
     marginTop: 4,
     marginHorizontal: 4,
   },
-
   myMessageTime: {
     textAlign: "right",
   },
-
   systemMessage: {
     alignSelf: "center",
     backgroundColor: "#F3F4F6",
@@ -2222,53 +2097,42 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     maxWidth: "88%",
   },
-
   acceptedSystemMessage: {
     backgroundColor: "#DCFCE7",
   },
-
   rejectedSystemMessage: {
     backgroundColor: "#FEE2E2",
   },
-
   cancelledSystemMessage: {
     backgroundColor: "#FEE2E2",
   },
-
   finishSystemMessage: {
     backgroundColor: "#DBEAFE",
   },
-
   systemText: {
     color: "#4B5563",
     fontWeight: "600",
     fontSize: 12,
     textAlign: "center",
   },
-
   acceptedSystemText: {
     color: "#15803D",
   },
-
   rejectedSystemText: {
     color: "#B91C1C",
   },
-
   cancelledSystemText: {
     color: "#B91C1C",
   },
-
   finishSystemText: {
     color: "#1D4ED8",
   },
-
   systemTime: {
     marginTop: 4,
     fontSize: 10,
     textAlign: "center",
     color: "#9CA3AF",
   },
-
   requestItemCard: {
     marginTop: 8,
     backgroundColor: "#fff",
@@ -2280,47 +2144,44 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     minWidth: 230,
   },
-
   requestItemImage: {
     width: 44,
     height: 44,
     borderRadius: 8,
     backgroundColor: "#eee",
   },
-
   requestItemInfo: {
     flex: 1,
     marginLeft: 10,
   },
-
   requestItemLabel: {
     fontSize: 10,
     color: "#6B7280",
     fontWeight: "700",
     marginBottom: 2,
   },
-
   requestItemName: {
     fontSize: 13,
     color: "#15803D",
     fontWeight: "bold",
   },
-
-  uploadingBar: {
+  imagePreviewContainer: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: "#F0FDF4",
+    paddingVertical: 8,
+    backgroundColor: "#F9FAFB",
+    borderTopWidth: 1,
+    borderColor: "#E5E7EB",
   },
-
-  uploadingText: {
-    marginLeft: 8,
-    fontSize: 12,
-    color: "#15803D",
-    fontWeight: "500",
+  previewThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
   },
-
+  removePreviewButton: {
+    marginLeft: 10,
+  },
   bottomBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -2330,7 +2191,6 @@ const styles = StyleSheet.create({
     borderColor: "#F0F0F0",
     backgroundColor: "#ffffff",
   },
-
   attachButton: {
     width: 36,
     height: 36,
@@ -2340,7 +2200,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 8,
   },
-
   inputPill: {
     flex: 1,
     flexDirection: "row",
@@ -2350,14 +2209,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     minHeight: 42,
   },
-
   input: {
     flex: 1,
     fontSize: 15,
     color: "#1F2937",
     paddingVertical: 8,
   },
-
   sendButton: {
     marginLeft: 8,
     width: 38,
@@ -2367,36 +2224,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   disabledButton: {
     backgroundColor: "#D1D5DB",
   },
-
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     padding: 20,
   },
-
   modalKeyboardView: {
     width: "100%",
     justifyContent: "center",
   },
-
   feedbackBox: {
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 22,
   },
-
   feedbackTitle: {
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
     color: "#15803D",
   },
-
   feedbackSubtitle: {
     textAlign: "center",
     color: "#555",
@@ -2404,23 +2255,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 14,
   },
-
   starsRow: {
     flexDirection: "row",
     justifyContent: "center",
     marginBottom: 16,
   },
-
   star: {
     fontSize: 34,
     color: "#E5E7EB",
     marginHorizontal: 4,
   },
-
   selectedStar: {
     color: "#FBBF24",
   },
-
   feedbackInput: {
     backgroundColor: "#F9FAFB",
     borderRadius: 12,
@@ -2430,54 +2277,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#E5E7EB",
   },
-
   modalButtons: {
     flexDirection: "row",
     justifyContent: "flex-end",
     marginTop: 18,
     gap: 10,
   },
-
   modalCancelButton: {
     backgroundColor: "#F3F4F6",
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 14,
   },
-
   modalCancelText: {
     color: "#4B5563",
     fontWeight: "bold",
   },
-
   modalSubmitButton: {
     backgroundColor: "#15803D",
     paddingVertical: 10,
     paddingHorizontal: 18,
     borderRadius: 14,
   },
-
   disabledModalButton: {
     backgroundColor: "#86EFAC",
   },
-
   modalSubmitText: {
     color: "#fff",
     fontWeight: "bold",
   },
-
   reportSection: {
     marginTop: 16,
     borderTopWidth: 1,
     borderTopColor: "#eee",
     paddingTop: 14,
   },
-
   reportToggle: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
-
   reportCheckbox: {
     width: 20,
     height: 20,
@@ -2488,47 +2326,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 2,
   },
-
   reportCheckboxSelected: {
     backgroundColor: "#15803D",
     borderColor: "#15803D",
   },
-
   reportCheckmark: {
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "bold",
   },
-
   reportToggleContent: {
     flex: 1,
     marginLeft: 10,
   },
-
   reportToggleTitle: {
     color: "#DC2626",
     fontSize: 14,
     fontWeight: "700",
   },
-
   reportToggleDescription: {
     marginTop: 2,
     color: "#6B7280",
     fontSize: 12,
     lineHeight: 16,
   },
-
   reportForm: {
     marginTop: 14,
   },
-
   reportQuestion: {
     fontSize: 13,
     fontWeight: "700",
     color: "#1F2937",
     marginBottom: 8,
   },
-
   reportReason: {
     minHeight: 40,
     flexDirection: "row",
@@ -2540,12 +2370,10 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     backgroundColor: "#ffffff",
   },
-
   reportReasonSelected: {
     borderColor: "#15803D",
     backgroundColor: "#F0FDF4",
   },
-
   reportRadio: {
     width: 18,
     height: 18,
@@ -2555,30 +2383,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   reportRadioSelected: {
     borderColor: "#15803D",
   },
-
   reportRadioInner: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: "#15803D",
   },
-
   reportReasonText: {
     flex: 1,
     marginLeft: 10,
     fontSize: 13,
     color: "#4B5563",
   },
-
   reportReasonTextSelected: {
     color: "#15803D",
     fontWeight: "600",
   },
-
   reportDetailsInput: {
     minHeight: 80,
     marginTop: 6,
@@ -2590,7 +2413,6 @@ const styles = StyleSheet.create({
     color: "#222",
     fontSize: 13,
   },
-
   reportCharacterCount: {
     marginTop: 4,
     textAlign: "right",

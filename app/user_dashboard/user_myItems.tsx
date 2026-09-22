@@ -16,6 +16,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -61,6 +62,7 @@ export default function MyItems() {
 
   const [items, setItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [submitterName, setSubmitterName] = useState("");
   const [userId, setUserId] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -233,8 +235,6 @@ export default function MyItems() {
         return;
       }
 
-      console.log("MY ITEMS DATA:", data);
-
       const visibleItems = (data || []).filter((item: any) => {
         const matchStatus = String(item?.match_status || "")
           .trim()
@@ -269,9 +269,6 @@ export default function MyItems() {
       const itemLongitude = Number(item?.longitude);
 
       if (!Number.isFinite(itemLatitude) || !Number.isFinite(itemLongitude)) {
-        console.log(
-          "NEARBY NOTIFICATION SKIPPED: Item has no valid coordinates.",
-        );
         return;
       }
 
@@ -282,7 +279,6 @@ export default function MyItems() {
         );
 
       if (facilitiesError) {
-        console.log("FETCH FACILITIES ERROR:", facilitiesError);
         return;
       }
 
@@ -298,10 +294,7 @@ export default function MyItems() {
         return role === "facility" && status === "approved";
       });
 
-      if (approvedFacilities.length === 0) {
-        console.log("No approved facilities found.");
-        return;
-      }
+      if (approvedFacilities.length === 0) return;
 
       const itemName = String(item?.item_name || "")
         .trim()
@@ -311,7 +304,6 @@ export default function MyItems() {
 
       for (const facility of approvedFacilities) {
         const facilityLatitude = Number(facility.latitude);
-
         const facilityLongitude = Number(facility.longitude);
 
         if (
@@ -326,12 +318,6 @@ export default function MyItems() {
           itemLongitude,
           facilityLatitude,
           facilityLongitude,
-        );
-
-        console.log(
-          "FACILITY DISTANCE:",
-          facility.facility_name || facility.full_name || facility.id,
-          distanceKm,
         );
 
         if (distanceKm > NEARBY_RADIUS_KM) {
@@ -353,10 +339,6 @@ export default function MyItems() {
           );
 
         if (!acceptsItem) {
-          console.log(
-            "ITEM TYPE NOT ACCEPTED:",
-            facility.facility_name || facility.full_name || facility.id,
-          );
           continue;
         }
 
@@ -377,23 +359,9 @@ export default function MyItems() {
         });
       }
 
-      if (notificationsToInsert.length === 0) {
-        console.log("No matching facilities found within 5 km.");
-        return;
-      }
+      if (notificationsToInsert.length === 0) return;
 
-      const { error: notificationError } = await supabase
-        .from("notifications")
-        .insert(notificationsToInsert);
-
-      if (notificationError) {
-        console.log("CREATE NEARBY NOTIFICATIONS ERROR:", notificationError);
-        return;
-      }
-
-      console.log(
-        `${notificationsToInsert.length} nearby facility notification(s) created.`,
-      );
+      await supabase.from("notifications").insert(notificationsToInsert);
     } catch (error) {
       console.log("NOTIFY NEARBY FACILITIES ERROR:", error);
     }
@@ -519,15 +487,11 @@ export default function MyItems() {
       item?.photo_url ||
       "";
 
-    console.log("MY ITEMS IMAGE PATH:", imagePath);
-
     if (!imagePath || String(imagePath).trim() === "") {
       return require("../../assets/icons/icon.png");
     }
 
     const imageUrl = getPublicImageUrl("item-images", String(imagePath));
-
-    console.log("MY ITEMS IMAGE URL:", imageUrl);
 
     if (!imageUrl) {
       return require("../../assets/icons/icon.png");
@@ -546,8 +510,6 @@ export default function MyItems() {
       photo?.photo ||
       "";
 
-    console.log("ISSUE PHOTO PATH:", imagePath);
-
     if (!imagePath || String(imagePath).trim() === "") {
       return require("../../assets/icons/icon.png");
     }
@@ -561,8 +523,6 @@ export default function MyItems() {
     }
 
     const imageUrl = getPublicImageUrl("item-issue-photos", String(imagePath));
-
-    console.log("ISSUE PHOTO URL:", imageUrl);
 
     if (!imageUrl) {
       return require("../../assets/icons/icon.png");
@@ -589,9 +549,6 @@ export default function MyItems() {
         .select("*")
         .eq("item_id", item.id)
         .order("created_at", { ascending: true });
-
-      console.log("ITEM ISSUE PHOTOS DATA:", data);
-      console.log("ITEM ISSUE PHOTOS ERROR:", error);
 
       if (error) {
         setModalIssuePhotos([]);
@@ -704,18 +661,10 @@ export default function MyItems() {
                 "item-images",
               );
 
-              const { data: issuePhotosData, error: issuePhotosFetchError } =
-                await supabase
-                  .from("item_issue_photos")
-                  .select("*")
-                  .eq("item_id", item.id);
-
-              if (issuePhotosFetchError) {
-                console.log(
-                  "FETCH ISSUE PHOTOS BEFORE DELETE ERROR:",
-                  issuePhotosFetchError,
-                );
-              }
+              const { data: issuePhotosData } = await supabase
+                .from("item_issue_photos")
+                .select("*")
+                .eq("item_id", item.id);
 
               const issuePhotoPaths =
                 issuePhotosData
@@ -736,46 +685,22 @@ export default function MyItems() {
                     (path: string) => path && String(path).trim() !== "",
                   ) || [];
 
-              console.log("DELETE ITEM IMAGE PATH:", itemImagePath);
-              console.log("DELETE ISSUE PHOTO PATHS:", issuePhotoPaths);
-
               if (itemImagePath) {
-                const { error: itemImageDeleteError } = await supabase.storage
+                await supabase.storage
                   .from("item-images")
                   .remove([itemImagePath]);
-
-                if (itemImageDeleteError) {
-                  console.log(
-                    "DELETE ITEM IMAGE STORAGE ERROR:",
-                    itemImageDeleteError,
-                  );
-                }
               }
 
               if (issuePhotoPaths.length > 0) {
-                const { error: issueImagesDeleteError } = await supabase.storage
+                await supabase.storage
                   .from("item-issue-photos")
                   .remove(issuePhotoPaths);
-
-                if (issueImagesDeleteError) {
-                  console.log(
-                    "DELETE ISSUE PHOTOS STORAGE ERROR:",
-                    issueImagesDeleteError,
-                  );
-                }
               }
 
-              const { error: issueRowsDeleteError } = await supabase
+              await supabase
                 .from("item_issue_photos")
                 .delete()
                 .eq("item_id", item.id);
-
-              if (issueRowsDeleteError) {
-                console.log(
-                  "DELETE ISSUE PHOTO ROWS ERROR:",
-                  issueRowsDeleteError,
-                );
-              }
 
               const { error: itemDeleteError } = await supabase
                 .from("items")
@@ -819,36 +744,31 @@ export default function MyItems() {
 
   const getDisplayStatus = (item: any) => {
     const status = getItemStatus(item);
-
-    const approvalSource = String(item?.approval_source || "").toLowerCase();
-
     if (status === "Approved") {
-      if (approvalSource === "system") {
-        return "Approved by System";
-      }
-
-      if (approvalSource === "admin") {
-        return "Approved by Admin";
-      }
+      return "Approved";
     }
-
     return status;
   };
 
-  const getApprovalLabel = (item: any) => {
+  const getPopupDecisionLabel = (item: any) => {
+    const status = getItemStatus(item);
     const approvalSource = String(item?.approval_source || "")
       .trim()
       .toLowerCase();
 
-    if (approvalSource === "system") {
-      return "Approved by System";
+    if (status === "Pending") {
+      return "Under review by the admin";
+    }
+
+    if (status === "Rejected") {
+      return "Rejected by the admin";
     }
 
     if (approvalSource === "admin") {
-      return "Approved by Admin";
+      return "Approved by the admin";
     }
 
-    return "";
+    return "Approved by ERecycloMatch";
   };
 
   const renderActionButtons = (item: any) => {
@@ -935,6 +855,19 @@ export default function MyItems() {
   const renderItem = ({ item }: any) => {
     const status = getItemStatus(item);
     const uniqueKey = `${item.id}-${status}`;
+    const isMenuOpen = openMenuId === String(item.id);
+
+    const itemTimestamp = item.updated_at || item.created_at;
+    const formattedDate = itemTimestamp
+      ? new Date(itemTimestamp).toLocaleString("en-PH", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "";
 
     return (
       <View>
@@ -956,19 +889,28 @@ export default function MyItems() {
             <Text style={[styles.itemStatus, getStatusStyle(status)]}>
               {getDisplayStatus(item)}
             </Text>
-
-            {!!getApprovalLabel(item) && (
-              <View style={styles.approvalBadge}>
-                <Text style={styles.approvalBadgeIcon}>✓</Text>
-
-                <Text style={styles.approvalBadgeText}>
-                  {getApprovalLabel(item)}
-                </Text>
-              </View>
-            )}
           </View>
 
-          <Text style={styles.dots}>⋮</Text>
+          <TouchableOpacity
+            style={styles.dotsButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              setOpenMenuId(isMenuOpen ? null : String(item.id));
+            }}
+          >
+            <Text style={styles.dots}>⋮</Text>
+          </TouchableOpacity>
+
+          {isMenuOpen && (
+            <View style={styles.popupMenu}>
+              <Text style={styles.popupTitle}>
+                {getPopupDecisionLabel(item)}
+              </Text>
+              {formattedDate ? (
+                <Text style={styles.popupTimestamp}>{formattedDate}</Text>
+              ) : null}
+            </View>
+          )}
         </TouchableOpacity>
 
         {selectedItem === uniqueKey && renderActionButtons(item)}
@@ -977,334 +919,347 @@ export default function MyItems() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>My Items</Text>
+    <TouchableWithoutFeedback
+      onPress={() => {
+        if (openMenuId) setOpenMenuId(null);
+      }}
+    >
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.header}>My Items</Text>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statsCard}>
-          <Text style={styles.statsNumber}>{items.length}</Text>
-          <Text style={styles.statsLabel}>Total</Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statsCard}>
+            <Text style={styles.statsNumber}>{items.length}</Text>
+            <Text style={styles.statsLabel}>Total</Text>
+          </View>
+
+          <View style={styles.statsCard}>
+            <Text style={styles.statsNumber}>
+              {
+                items.filter((item) => getItemStatus(item) === "Approved")
+                  .length
+              }
+            </Text>
+            <Text style={styles.statsLabel}>Approved</Text>
+          </View>
+
+          <View style={styles.statsCard}>
+            <Text style={styles.statsNumber}>
+              {items.filter((item) => getItemStatus(item) === "Listed").length}
+            </Text>
+            <Text style={styles.statsLabel}>Listed</Text>
+          </View>
+
+          <View style={styles.statsCard}>
+            <Text style={styles.statsNumber}>
+              {
+                items.filter((item) => getItemStatus(item) === "Rejected")
+                  .length
+              }
+            </Text>
+            <Text style={styles.statsLabel}>Rejected</Text>
+          </View>
         </View>
 
-        <View style={styles.statsCard}>
-          <Text style={styles.statsNumber}>
-            {items.filter((item) => getItemStatus(item) === "Approved").length}
-          </Text>
-          <Text style={styles.statsLabel}>Approved</Text>
-        </View>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.statsNumber}>
-            {items.filter((item) => getItemStatus(item) === "Listed").length}
-          </Text>
-          <Text style={styles.statsLabel}>Listed</Text>
-        </View>
-
-        <View style={styles.statsCard}>
-          <Text style={styles.statsNumber}>
-            {items.filter((item) => getItemStatus(item) === "Rejected").length}
-          </Text>
-          <Text style={styles.statsLabel}>Rejected</Text>
-        </View>
-      </View>
-
-      <View style={styles.filterWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContent}
-        >
-          {["All", "Pending", "Approved", "Listed", "Rejected"].map(
-            (status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.filterButton,
-                  filter === status && styles.activeFilterButton,
-                ]}
-                onPress={() => {
-                  setFilter(status);
-                  setSelectedItem(null);
-                }}
-              >
-                <Text
-                  style={[
-                    styles.filterText,
-                    filter === status && styles.activeFilterText,
-                  ]}
-                >
-                  {status}
-                </Text>
-              </TouchableOpacity>
-            ),
-          )}
-        </ScrollView>
-      </View>
-
-      <FlatList
-        data={filteredItems}
-        keyExtractor={(item) => `${item.id}-${getDisplayStatus(item)}`}
-        renderItem={renderItem}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 120 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>
-            No {filter.toLowerCase()} items yet.
-          </Text>
-        }
-      />
-
-      <Modal visible={editVisible} transparent animationType="fade">
-        <View style={styles.overlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.keyboardView}
+        <View style={styles.filterWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filterContent}
           >
-            <View style={styles.modalBox}>
-              <ScrollView
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={styles.modalScrollContent}
-              >
-                <Text style={styles.modalTitle}>
-                  {getItemStatus(editingItem || {}) === "Rejected"
-                    ? "Rejected Item Details"
-                    : getItemStatus(editingItem || {}) === "Listed"
-                      ? "Listed Item Details"
-                      : "Update Item"}
-                </Text>
+            {["All", "Pending", "Approved", "Listed", "Rejected"].map(
+              (status) => (
+                <TouchableOpacity
+                  key={status}
+                  style={[
+                    styles.filterButton,
+                    filter === status && styles.activeFilterButton,
+                  ]}
+                  onPress={() => {
+                    setFilter(status);
+                    setSelectedItem(null);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.filterText,
+                      filter === status && styles.activeFilterText,
+                    ]}
+                  >
+                    {status}
+                  </Text>
+                </TouchableOpacity>
+              ),
+            )}
+          </ScrollView>
+        </View>
 
-                {editingItem && (
-                  <>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() =>
-                        openImagePreview(
-                          getItemImageSource(editingItem),
-                          "Item Photo",
-                        )
-                      }
-                    >
-                      <Image
-                        source={getItemImageSource(editingItem)}
-                        style={styles.modalImage}
-                      />
-                    </TouchableOpacity>
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => `${item.id}-${getDisplayStatus(item)}`}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>
+              No {filter.toLowerCase()} items yet.
+            </Text>
+          }
+        />
 
-                    <Text style={styles.imageHint}>
-                      Tap the image to view the whole photo.
-                    </Text>
+        <Modal visible={editVisible} transparent animationType="fade">
+          <View style={styles.overlay}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === "ios" ? "padding" : undefined}
+              style={styles.keyboardView}
+            >
+              <View style={styles.modalBox}>
+                <ScrollView
+                  showsVerticalScrollIndicator={true}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.modalScrollContent}
+                >
+                  <Text style={styles.modalTitle}>
+                    {getItemStatus(editingItem || {}) === "Rejected"
+                      ? "Rejected Item Details"
+                      : getItemStatus(editingItem || {}) === "Listed"
+                        ? "Listed Item Details"
+                        : "Update Item"}
+                  </Text>
 
-                    <Text style={styles.modalLabel}>
-                      Submitted Issue Photos
-                    </Text>
-
-                    {loadingIssuePhotos ? (
-                      <View style={styles.issuePhotosEmptyBox}>
-                        <Text style={styles.issuePhotosEmptyText}>
-                          Loading issue photos...
-                        </Text>
-                      </View>
-                    ) : modalIssuePhotos.length > 0 ? (
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.issuePhotosScroll}
+                  {editingItem && (
+                    <>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() =>
+                          openImagePreview(
+                            getItemImageSource(editingItem),
+                            "Item Photo",
+                          )
+                        }
                       >
-                        {modalIssuePhotos.map((photo, index) => {
-                          const source = getIssuePhotoImageSource(photo);
+                        <Image
+                          source={getItemImageSource(editingItem)}
+                          style={styles.modalImage}
+                        />
+                      </TouchableOpacity>
 
-                          return (
-                            <TouchableOpacity
-                              key={`issue-photo-${photo.id || index}`}
-                              style={styles.issuePhotoPreviewCard}
-                              activeOpacity={0.85}
-                              onPress={() =>
-                                openImagePreview(
-                                  source,
-                                  photo.issue_name ||
-                                    `Issue Photo ${index + 1}`,
-                                )
-                              }
-                            >
-                              <Image
-                                source={source}
-                                style={styles.issuePhotoPreviewImage}
-                              />
+                      <Text style={styles.imageHint}>
+                        Tap the image to view the whole photo.
+                      </Text>
 
-                              <Text
-                                style={styles.issuePhotoPreviewTitle}
-                                numberOfLines={2}
-                              >
-                                {photo.issue_name || `Issue Photo ${index + 1}`}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </ScrollView>
-                    ) : (
-                      <View style={styles.issuePhotosEmptyBox}>
-                        <Text style={styles.issuePhotosEmptyText}>
-                          No issue photos submitted for this item.
-                        </Text>
-                      </View>
-                    )}
+                      <Text style={styles.modalLabel}>
+                        Submitted Issue Photos
+                      </Text>
 
-                    <Text style={styles.modalLabel}>Item Name</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.item_name}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Issues</Text>
-                    <Text style={styles.readOnlyText}>
-                      {cleanIssues(editingItem.issues)}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Hazard Status</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.hazard_status}%
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Recyclability</Text>
-                    <Text style={styles.readOnlyText}>
-                      {editingItem.recyclability}%
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Status</Text>
-                    <Text
-                      style={[
-                        styles.readOnlyText,
-                        getStatusStyle(getItemStatus(editingItem)),
-                      ]}
-                    >
-                      {getDisplayStatus(editingItem)}
-                    </Text>
-
-                    <Text style={styles.modalLabel}>Approval Type</Text>
-
-                    <Text style={styles.readOnlyText}>
-                      {editingItem?.approval_source === "System"
-                        ? "Approved by System"
-                        : editingItem?.approval_source === "Admin"
-                          ? "Approved by Admin"
-                          : "Pending Review"}
-                    </Text>
-
-                    {getItemStatus(editingItem) === "Rejected" && (
-                      <>
-                        <Text style={styles.modalLabel}>
-                          Reason for Rejection
-                        </Text>
-
-                        <View style={styles.rejectionBox}>
-                          <Text style={styles.rejectionText}>
-                            {editingItem.reject_reason ||
-                              editingItem.rejection_reason ||
-                              editingItem.reason ||
-                              "No reason provided"}
+                      {loadingIssuePhotos ? (
+                        <View style={styles.issuePhotosEmptyBox}>
+                          <Text style={styles.issuePhotosEmptyText}>
+                            Loading issue photos...
                           </Text>
                         </View>
-                      </>
-                    )}
+                      ) : modalIssuePhotos.length > 0 ? (
+                        <ScrollView
+                          horizontal
+                          showsHorizontalScrollIndicator={false}
+                          style={styles.issuePhotosScroll}
+                        >
+                          {modalIssuePhotos.map((photo, index) => {
+                            const source = getIssuePhotoImageSource(photo);
 
-                    <Text style={styles.modalLabel}>Description</Text>
+                            return (
+                              <TouchableOpacity
+                                key={`issue-photo-${photo.id || index}`}
+                                style={styles.issuePhotoPreviewCard}
+                                activeOpacity={0.85}
+                                onPress={() =>
+                                  openImagePreview(
+                                    source,
+                                    photo.issue_name ||
+                                      `Issue Photo ${index + 1}`,
+                                  )
+                                }
+                              >
+                                <Image
+                                  source={source}
+                                  style={styles.issuePhotoPreviewImage}
+                                />
 
-                    {getItemStatus(editingItem) === "Rejected" ? (
+                                <Text
+                                  style={styles.issuePhotoPreviewTitle}
+                                  numberOfLines={2}
+                                >
+                                  {photo.issue_name ||
+                                    `Issue Photo ${index + 1}`}
+                                </Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </ScrollView>
+                      ) : (
+                        <View style={styles.issuePhotosEmptyBox}>
+                          <Text style={styles.issuePhotosEmptyText}>
+                            No issue photos submitted for this item.
+                          </Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.modalLabel}>Item Name</Text>
                       <Text style={styles.readOnlyText}>
-                        {editedDescription || "No description"}
+                        {editingItem.item_name}
                       </Text>
-                    ) : (
-                      <TextInput
-                        value={editedDescription}
-                        onChangeText={setEditedDescription}
-                        style={styles.input}
-                        multiline
-                        textAlignVertical="top"
-                      />
-                    )}
-                  </>
-                )}
 
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[
-                      styles.cancelButton,
-                      getItemStatus(editingItem || {}) === "Rejected" &&
-                        styles.fullWidthButton,
-                    ]}
-                    onPress={() => {
-                      Keyboard.dismiss();
-                      setEditVisible(false);
-                      setModalIssuePhotos([]);
-                    }}
-                  >
-                    <Text style={styles.cancelText}>
-                      {getItemStatus(editingItem || {}) === "Rejected"
-                        ? "Close"
-                        : "Cancel"}
-                    </Text>
-                  </TouchableOpacity>
+                      <Text style={styles.modalLabel}>Issues</Text>
+                      <Text style={styles.readOnlyText}>
+                        {cleanIssues(editingItem.issues)}
+                      </Text>
 
-                  {getItemStatus(editingItem || {}) !== "Rejected" && (
-                    <TouchableOpacity
-                      style={styles.saveButton}
-                      onPress={updateDescription}
-                    >
-                      <Text style={styles.saveText}>Save</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.modalLabel}>Hazard Status</Text>
+                      <Text style={styles.readOnlyText}>
+                        {editingItem.hazard_status}%
+                      </Text>
+
+                      <Text style={styles.modalLabel}>Recyclability</Text>
+                      <Text style={styles.readOnlyText}>
+                        {editingItem.recyclability}%
+                      </Text>
+
+                      <Text style={styles.modalLabel}>Status</Text>
+                      <Text
+                        style={[
+                          styles.readOnlyText,
+                          getStatusStyle(getItemStatus(editingItem)),
+                        ]}
+                      >
+                        {getDisplayStatus(editingItem)}
+                      </Text>
+
+                      <Text style={styles.modalLabel}>Approval Type</Text>
+
+                      <Text style={styles.readOnlyText}>
+                        {editingItem?.approval_source === "System"
+                          ? "Approved"
+                          : editingItem?.approval_source === "Admin"
+                            ? "Approved"
+                            : "Pending Review"}
+                      </Text>
+
+                      {getItemStatus(editingItem) === "Rejected" && (
+                        <>
+                          <Text style={styles.modalLabel}>
+                            Reason for Rejection
+                          </Text>
+
+                          <View style={styles.rejectionBox}>
+                            <Text style={styles.rejectionText}>
+                              {editingItem.reject_reason ||
+                                editingItem.rejection_reason ||
+                                editingItem.reason ||
+                                "No reason provided"}
+                            </Text>
+                          </View>
+                        </>
+                      )}
+
+                      <Text style={styles.modalLabel}>Description</Text>
+
+                      {getItemStatus(editingItem) === "Rejected" ? (
+                        <Text style={styles.readOnlyText}>
+                          {editedDescription || "No description"}
+                        </Text>
+                      ) : (
+                        <TextInput
+                          value={editedDescription}
+                          onChangeText={setEditedDescription}
+                          style={styles.input}
+                          multiline
+                          textAlignVertical="top"
+                        />
+                      )}
+                    </>
                   )}
-                </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
 
-      <Modal
-        visible={previewVisible}
-        transparent={false}
-        animationType="fade"
-        presentationStyle="fullScreen"
-        onRequestClose={closeImagePreview}
-      >
-        <View style={styles.fullImageScreen}>
-          <View style={styles.fullImageHeader}>
-            <Text style={styles.fullImageTitle} numberOfLines={1}>
-              {previewTitle || "Image Preview"}
-            </Text>
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={[
+                        styles.cancelButton,
+                        getItemStatus(editingItem || {}) === "Rejected" &&
+                          styles.fullWidthButton,
+                      ]}
+                      onPress={() => {
+                        Keyboard.dismiss();
+                        setEditVisible(false);
+                        setModalIssuePhotos([]);
+                      }}
+                    >
+                      <Text style={styles.cancelText}>
+                        {getItemStatus(editingItem || {}) === "Rejected"
+                          ? "Close"
+                          : "Cancel"}
+                      </Text>
+                    </TouchableOpacity>
+
+                    {getItemStatus(editingItem || {}) !== "Rejected" && (
+                      <TouchableOpacity
+                        style={styles.saveButton}
+                        onPress={updateDescription}
+                      >
+                        <Text style={styles.saveText}>Save</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </ScrollView>
+              </View>
+            </KeyboardAvoidingView>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={previewVisible}
+          transparent={false}
+          animationType="fade"
+          presentationStyle="fullScreen"
+          onRequestClose={closeImagePreview}
+        >
+          <View style={styles.fullImageScreen}>
+            <View style={styles.fullImageHeader}>
+              <Text style={styles.fullImageTitle} numberOfLines={1}>
+                {previewTitle || "Image Preview"}
+              </Text>
+
+              <TouchableOpacity
+                onPress={closeImagePreview}
+                style={styles.fullImageCloseIcon}
+              >
+                <Text style={styles.fullImageCloseIconText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.fullImageBody}>
+              {previewImageSource && (
+                <Image
+                  source={previewImageSource}
+                  style={styles.fullImage}
+                  resizeMode="contain"
+                />
+              )}
+            </View>
 
             <TouchableOpacity
+              style={styles.fullImageCloseButton}
               onPress={closeImagePreview}
-              style={styles.fullImageCloseIcon}
             >
-              <Text style={styles.fullImageCloseIconText}>✕</Text>
+              <Text style={styles.fullImageCloseButtonText}>Close</Text>
             </TouchableOpacity>
           </View>
+        </Modal>
 
-          <View style={styles.fullImageBody}>
-            {previewImageSource && (
-              <Image
-                source={previewImageSource}
-                style={styles.fullImage}
-                resizeMode="contain"
-              />
-            )}
-          </View>
-
-          <TouchableOpacity
-            style={styles.fullImageCloseButton}
-            onPress={closeImagePreview}
-          >
-            <Text style={styles.fullImageCloseButtonText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
-      <UserBottomNav userId={userId} active="profile" />
-    </SafeAreaView>
+        <UserBottomNav userId={userId} active="profile" />
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
@@ -1391,6 +1346,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     flexDirection: "row",
     alignItems: "center",
+    position: "relative",
   },
 
   itemImage: {
@@ -1451,9 +1407,45 @@ const styles = StyleSheet.create({
     color: "red",
   },
 
+  dotsButton: {
+    padding: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   dots: {
     fontSize: 20,
     color: "gray",
+  },
+
+  popupMenu: {
+    position: "absolute",
+    right: 35,
+    top: 25,
+    backgroundColor: "#ffffff",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    zIndex: 100,
+  },
+
+  popupTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#15803D",
+  },
+
+  popupTimestamp: {
+    fontSize: 10,
+    color: "#9CA3AF",
+    marginTop: 3,
   },
 
   actionContainer: {
@@ -1732,29 +1724,5 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "bold",
     fontSize: 15,
-  },
-
-  approvalBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "#e8f5e9",
-  },
-
-  approvalBadgeIcon: {
-    color: "#1b5e20",
-    fontSize: 11,
-    fontWeight: "800",
-    marginRight: 4,
-  },
-
-  approvalBadgeText: {
-    color: "#1b5e20",
-    fontSize: 11,
-    fontWeight: "700",
   },
 });

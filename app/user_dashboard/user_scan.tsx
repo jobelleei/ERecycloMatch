@@ -1,22 +1,18 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from "react-native";
-import {
-  CameraView,
-  CameraType,
-  useCameraPermissions,
-} from "expo-camera";
-import UserBottomNav from "../../components/UserBottomNav";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import UserBottomNav from "../../components/UserBottomNav";
 
 import { YOLO_URL } from "../../config";
 
@@ -29,11 +25,7 @@ export default function ScanScreen() {
 
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [facing, setFacing] = useState<CameraType>("back");
-  const [scanFailed, setScanFailed] =
-  useState(false);
-
-  const [showUnknownModal, setShowUnknownModal] =
-  useState(false);
+  const [showUnknownModal, setShowUnknownModal] = useState(false);
 
   const router = useRouter();
 
@@ -44,24 +36,20 @@ export default function ScanScreen() {
   }, [permission]);
 
   useEffect(() => {
-  const loadUser = async () => {
-    const stored = await AsyncStorage.getItem("user");
+    const loadUser = async () => {
+      const stored = await AsyncStorage.getItem("user");
 
-    if (!stored) return;
+      if (!stored) return;
 
-    const parsed = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
 
-    const id =
-      parsed?.id ||
-      parsed?.user?.id ||
-      parsed?.data?.id ||
-      "";
+      const id = parsed?.id || parsed?.user?.id || parsed?.data?.id || "";
 
-    setUserId(String(id));
-  };
+      setUserId(String(id));
+    };
 
-  loadUser();
-}, []);
+    loadUser();
+  }, []);
 
   const pingBackend = async () => {
     const controller = new AbortController();
@@ -71,16 +59,12 @@ export default function ScanScreen() {
     }, 5000);
 
     try {
-      console.log("PING YOLO BACKEND:", YOLO_URL);
-
       const response = await fetch(YOLO_URL, {
         method: "GET",
         signal: controller.signal,
       });
 
       clearTimeout(timeout);
-
-      console.log("PING STATUS:", response.status);
 
       if (!response.ok) {
         throw new Error(`Backend returned status ${response.status}`);
@@ -89,12 +73,9 @@ export default function ScanScreen() {
       return true;
     } catch (error: any) {
       clearTimeout(timeout);
-
-      console.log("PING BACKEND ERROR:", error);
-
       throw new Error(
         "Cannot reach YOLO backend from your phone. Open this on your phone browser first: " +
-          YOLO_URL
+          YOLO_URL,
       );
     }
   };
@@ -127,9 +108,6 @@ export default function ScanScreen() {
   const uploadToYolo = (photoUri: string): Promise<any> => {
     return new Promise((resolve, reject) => {
       const detectUrl = `${YOLO_URL}/detect`;
-
-      console.log("YOLO DETECT URL:", detectUrl);
-
       const formData = new FormData();
 
       formData.append("file", {
@@ -144,14 +122,11 @@ export default function ScanScreen() {
       xhr.timeout = 30000;
 
       xhr.onload = () => {
-        console.log("YOLO STATUS:", xhr.status);
-        console.log("YOLO RAW RESPONSE:", xhr.responseText);
-
         if (xhr.status < 200 || xhr.status >= 300) {
           reject(
             new Error(
-              `YOLO backend returned status ${xhr.status}. Check your backend terminal.`
-            )
+              `YOLO backend returned status ${xhr.status}. Check your backend terminal.`,
+            ),
           );
           return;
         }
@@ -160,23 +135,25 @@ export default function ScanScreen() {
           const parsed = JSON.parse(xhr.responseText);
           resolve(parsed);
         } catch (error) {
-          reject(new Error("YOLO backend responded but did not return valid JSON."));
+          reject(
+            new Error("YOLO backend responded but did not return valid JSON."),
+          );
         }
       };
 
       xhr.onerror = () => {
         reject(
           new Error(
-            "Network error. Your phone cannot reach the YOLO backend. Check Wi-Fi, Mac firewall, and Local Network permission."
-          )
+            "Network error. Your phone cannot reach the YOLO backend. Check Wi-Fi and network configuration.",
+          ),
         );
       };
 
       xhr.ontimeout = () => {
         reject(
           new Error(
-            "Scan timeout. The YOLO backend did not respond within 30 seconds."
-          )
+            "Scan timeout. The YOLO backend did not respond within 30 seconds.",
+          ),
         );
       };
 
@@ -194,23 +171,14 @@ export default function ScanScreen() {
       }
 
       setScanning(true);
-
-      console.log("START SCANNING...");
-      console.log("YOLO URL:", YOLO_URL);
-
       await pingBackend();
 
       if (!cameraRef.current) {
-        Alert.alert(
-          "Camera Error",
-          "Camera is not ready."
-        );
-
+        Alert.alert("Camera Error", "Camera is not ready.");
         return;
       }
 
-      const photo =
-      await cameraRef.current.takePictureAsync({
+      const photo = await cameraRef.current.takePictureAsync({
         quality: 0.5,
         skipProcessing: true,
       });
@@ -222,19 +190,16 @@ export default function ScanScreen() {
         return;
       }
 
-      console.log("PHOTO URI:", photo.uri);
-
       const data = await uploadToYolo(photo.uri);
-
-      console.log("YOLO PARSED RESPONSE:", data);
 
       if (data?.success === false) {
         Alert.alert(
           "Scan Failed",
-          data?.message || "YOLO backend could not detect the item."
+          data?.message || "YOLO backend could not detect the item.",
         );
         return;
       }
+
       let detected = getDetectedLabel(data);
 
       if (!detected || String(detected).trim() === "") {
@@ -249,13 +214,7 @@ export default function ScanScreen() {
         "not detected",
       ];
 
-      if (
-        unidentifiedItems.includes(
-          String(detected)
-            .trim()
-            .toLowerCase()
-        )
-      ) {
+      if (unidentifiedItems.includes(String(detected).trim().toLowerCase())) {
         setShowUnknownModal(true);
         return;
       }
@@ -275,11 +234,6 @@ export default function ScanScreen() {
           ? String(data.total_time)
           : "0";
 
-      console.log("DETECTED ITEM:", detected);
-      console.log("CONFIDENCE:", confidence);
-      console.log("PROCESSING TIME:", processingTime);
-      console.log("TOTAL TIME:", totalTime);
-
       router.push({
         pathname: "/user_dashboard/user_result" as any,
         params: {
@@ -291,15 +245,12 @@ export default function ScanScreen() {
         },
       });
     } catch (error: any) {
-      console.log("SCAN ERROR:", error);
-
       Alert.alert(
         "Scan Failed",
         error?.message ||
-          "The YOLO backend could not be reached. Please check if backend is running and YOLO_URL is correct."
+          "The YOLO backend could not be reached. Please check if backend is running and YOLO_URL is correct.",
       );
     } finally {
-      console.log("STOP SCANNING...");
       setScanning(false);
     }
   };
@@ -351,9 +302,7 @@ export default function ScanScreen() {
         <TouchableOpacity
           style={styles.flashButton}
           onPress={() => setFlash((prev) => (prev === "off" ? "on" : "off"))}
-          disabled={
-            scanning || showUnknownModal
-          }
+          disabled={scanning || showUnknownModal}
         >
           <Text style={styles.flashText}>
             {flash === "on" ? "Flash On" : "Flash Off"}
@@ -398,46 +347,36 @@ export default function ScanScreen() {
       </TouchableOpacity>
 
       {showUnknownModal && (
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          <Ionicons
-            name="warning"
-            size={55}
-            color="#d32f2f"
-            style={styles.modalIcon}
-          />
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Ionicons
+              name="warning"
+              size={55}
+              color="#d32f2f"
+              style={styles.modalIcon}
+            />
 
-          <Text style={styles.modalTitle}>
-            Item Unidentified
-          </Text>
+            <Text style={styles.modalTitle}>Item Unidentified</Text>
 
-          <Text style={styles.modalText}>
-            The item could not be identified.
-            Please try scanning again with better lighting
-            or a clearer view of the object.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.modalButton}
-            onPress={() => {
-              setShowUnknownModal(false);
-              setScanning(false);
-            }}
-          >
-            <Text style={styles.modalButtonText}>
-              Scan Again
+            <Text style={styles.modalText}>
+              The item could not be identified. Please try scanning again with
+              better lighting or a clearer view of the object.
             </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    )}
 
-      {userId && (
-      <UserBottomNav
-          userId={userId}
-          active="scan"
-        />
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowUnknownModal(false);
+                setScanning(false);
+              }}
+            >
+              <Text style={styles.modalButtonText}>Scan Again</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
+
+      {userId && <UserBottomNav userId={userId} active="scan" />}
     </SafeAreaView>
   );
 }
@@ -450,27 +389,23 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#f5f5f5",
   },
-
   permissionText: {
     fontSize: 16,
     color: "#333",
     textAlign: "center",
     marginBottom: 15,
   },
-
   permissionButton: {
     backgroundColor: "#1b5e20",
     paddingVertical: 12,
     paddingHorizontal: 25,
     borderRadius: 25,
   },
-
   permissionButtonText: {
     color: "#fff",
     fontSize: 15,
     fontWeight: "600",
   },
-
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -478,18 +413,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginTop: 10,
   },
-
   title: {
     fontSize: 20,
     fontWeight: "600",
   },
-
   logo: {
     width: 45,
     height: 45,
     borderRadius: 25,
   },
-
   scanBox: {
     marginTop: 20,
     height: 400,
@@ -500,11 +432,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   camera: {
     ...StyleSheet.absoluteFillObject,
   },
-
   flashButton: {
     position: "absolute",
     top: 20,
@@ -515,13 +445,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
   },
-
   flashText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 13,
   },
-
   flipButton: {
     position: "absolute",
     top: 20,
@@ -532,31 +460,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 20,
   },
-
   flipText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 13,
   },
-
   center: {
     alignItems: "center",
   },
-
   cameraIcon: {
     width: 45,
     height: 45,
     tintColor: "#fff",
     opacity: 0.8,
   },
-
   scanText: {
     marginTop: 10,
     fontSize: 15,
     color: "#fff",
     fontWeight: "500",
   },
-
   button: {
     marginTop: 20,
     alignSelf: "center",
@@ -567,112 +490,68 @@ const styles = StyleSheet.create({
     paddingHorizontal: 35,
     borderRadius: 30,
   },
-
   disabledButton: {
     backgroundColor: "#8aa887",
   },
-
   buttonIcon: {
     width: 18,
     height: 18,
     marginRight: 6,
     tintColor: "#fff",
   },
-
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
-
-  failedBox: {
-  marginTop: 20,
-  marginHorizontal: 20,
-  backgroundColor: "#fff",
-  borderRadius: 18,
-  padding: 18,
-  alignItems: "center",
-  elevation: 4,
-},
-
-failedTitle: {
-  fontSize: 18,
-  fontWeight: "700",
-  color: "#d32f2f",
-},
-
-failedText: {
-  marginTop: 10,
-  fontSize: 14,
-  color: "#555",
-  textAlign: "center",
-  lineHeight: 22,
-},
-
-retryButton: {
-  marginTop: 15,
-  backgroundColor: "#1b5e20",
-  paddingVertical: 12,
-  paddingHorizontal: 25,
-  borderRadius: 25,
-},
-
-retryText: {
-  color: "#fff",
-  fontWeight: "600",
-  fontSize: 15,
-},
-
-modalOverlay: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0,0,0,0.45)",
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 999,
-},
-
-modalContainer: {
-  width: "82%",
-  backgroundColor: "#fff",
-  borderRadius: 25,
-  padding: 25,
-  alignItems: "center",
-  elevation: 8,
-},
-
-modalIcon: {
-  marginBottom: 15,
-},
-
-modalTitle: {
-  fontSize: 20,
-  fontWeight: "700",
-  color: "#222",
-},
-
-modalText: {
-  marginTop: 12,
-  fontSize: 15,
-  color: "#555",
-  textAlign: "center",
-  lineHeight: 23,
-},
-
-modalButton: {
-  marginTop: 25,
-  backgroundColor: "#1b5e20",
-  paddingVertical: 13,
-  paddingHorizontal: 35,
-  borderRadius: 30,
-},
-
-modalButtonText: {
-  color: "#fff",
-  fontSize: 15,
-  fontWeight: "700",
-},
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+  },
+  modalContainer: {
+    width: "92%",
+    maxWidth: 460,
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    paddingVertical: 22,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    elevation: 8,
+  },
+  modalIcon: {
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#222",
+  },
+  modalText: {
+    marginTop: 12,
+    fontSize: 10,
+    color: "#555",
+    textAlign: "center",
+    lineHeight: 14,
+  },
+  modalButton: {
+    backgroundColor: "#15803D",
+    paddingVertical: 9,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    alignItems: "center",
+    marginTop: 12,
+    width: "80%",
+  },
+  modalButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
 });
