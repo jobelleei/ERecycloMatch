@@ -21,3 +21,4 @@ export const NEARBY_NOTIFICATION_RADIUS_KM = 5;
 //export const YOLO_URL = "http://192.168.254.144:8080";
 
 //export const YOLO_URL = "http://Jobelles-MacBook-Air.local:8080";
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8080
