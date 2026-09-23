@@ -6,7 +6,7 @@ model = YOLO("runs/detect/train-3/weights/best.pt")
 # Validate the model
 metrics = model.val()
 
-# Display metrics
+# Display metricsX  
 print("Precision:", metrics.box.mp)
 print("Recall:", metrics.box.mr)
 print("mAP50:", metrics.box.map50)
