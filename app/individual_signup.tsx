@@ -728,10 +728,9 @@ export default function IndividualSignup() {
     >
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
-        style={styles.backgroundImage}
+        style={[styles.backgroundImage, { opacity: 0.5 }]}
         resizeMode="cover"
       >
-        <View style={styles.overlay} pointerEvents="none" />
       </ImageBackground>
 
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
