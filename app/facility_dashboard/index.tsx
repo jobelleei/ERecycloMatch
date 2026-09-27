@@ -43,6 +43,7 @@ export default function FacilityDashboard() {
   const [randomListedItems, setRandomListedItems] = useState<any[]>([]);
 
   const [isSearching, setIsSearching] = useState(false);
+  const [loadingListedItems, setLoadingListedItems] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   useEffect(() => {
@@ -63,19 +64,33 @@ export default function FacilityDashboard() {
       return;
     }
 
+    const numericFacilityId = Number(facilityId);
     fetchUnreadNotificationCount(String(facilityId));
 
     const channelId = `facility-dash-notifs-${facilityId}-${Date.now()}`;
     const channel = supabase.channel(channelId);
 
+    // Refresh the badge when a message addressed to this facility changes.
     channel
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
+          table: "messages",
+          filter: `receiver_id=eq.${numericFacilityId}`,
+        },
+        () => {
+          fetchUnreadNotificationCount(String(facilityId));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
           table: "notifications",
-          filter: `profile_id=eq.${facilityId}`,
+          filter: `profile_id=eq.${numericFacilityId}`,
         },
         () => {
           fetchUnreadNotificationCount(String(facilityId));
@@ -240,19 +255,53 @@ export default function FacilityDashboard() {
         return;
       }
 
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("id", { count: "exact", head: true })
-        .eq("profile_id", Number(facilityId))
+      const numericFacilityId = Number(facilityId);
+
+      // Count unread chat messages separately because chat messages are stored
+      // in the messages table, not in notifications.
+      const { data: unreadMessages, error: messagesError } = await supabase
+        .from("messages")
+        .select("conversation_id")
+        .eq("receiver_id", numericFacilityId)
         .eq("is_read", false);
 
-      if (error) {
-        setUnreadNotificationCount(0);
-        return;
+      if (messagesError) {
+        console.log("FETCH UNREAD FACILITY MESSAGES ERROR:", messagesError);
       }
 
-      setUnreadNotificationCount(count || 0);
-    } catch {
+      // One badge per conversation, matching the notification screen.
+      const unreadConversationIds = new Set(
+        (unreadMessages || [])
+          .map((message: any) => message.conversation_id)
+          .filter(Boolean)
+          .map((id: any) => String(id)),
+      );
+
+      // Also count unread non-message notifications such as nearby listings.
+      const { data: unreadNotifications, error: notificationsError } =
+        await supabase
+          .from("notifications")
+          .select("id, type")
+          .eq("profile_id", numericFacilityId)
+          .eq("is_read", false);
+
+      if (notificationsError) {
+        console.log(
+          "FETCH UNREAD FACILITY NOTIFICATIONS ERROR:",
+          notificationsError,
+        );
+      }
+
+      const unreadNonMessageNotifications = (unreadNotifications || []).filter(
+        (notification: any) =>
+          String(notification.type || "").toLowerCase() !== "message",
+      );
+
+      setUnreadNotificationCount(
+        unreadConversationIds.size + unreadNonMessageNotifications.length,
+      );
+    } catch (error) {
+      console.log("UNREAD FACILITY BADGE ERROR:", error);
       setUnreadNotificationCount(0);
     }
   };
@@ -426,30 +475,10 @@ export default function FacilityDashboard() {
     const status = String(item?.status || "")
       .trim()
       .toLowerCase();
-    const matchStatus = String(item?.match_status || "")
-      .trim()
-      .toLowerCase();
 
-    if (
-      status === "finished" ||
-      status === "recycled" ||
-      status === "rejected" ||
-      matchStatus === "finished" ||
-      matchStatus === "recycled" ||
-      matchStatus === "rejected"
-    ) {
-      return false;
-    }
-    return true;
-  };
-
-  const getApprovalLabel = (item: any) => {
-    const approvalSource = String(item?.approval_source || "")
-      .trim()
-      .toLowerCase();
-    if (approvalSource === "system") return "Approved by System";
-    if (approvalSource === "admin") return "Approved by Admin";
-    return "";
+    // Only items with a "Listed" status are shown in
+    // the "Listed Items by Users" section.
+    return status === "listed";
   };
 
   const searchFacilityData = async (keyword: string) => {
@@ -491,7 +520,8 @@ export default function FacilityDashboard() {
         const availableItems = (itemsData || []).filter((item: any) =>
           isVisibleListedItem(item),
         );
-        setSearchedItems(availableItems);
+        const itemsWithProfiles = await attachSubmitterProfiles(availableItems);
+        setSearchedItems(itemsWithProfiles);
       }
     } catch {
       setSearchedUsers([]);
@@ -501,8 +531,69 @@ export default function FacilityDashboard() {
     }
   };
 
+  const attachSubmitterProfiles = async (items: any[]) => {
+    if (!items.length) return items;
+
+    const userIds = Array.from(
+      new Set(
+        items
+          .map(
+            (item: any) =>
+              item.user_id ||
+              item.submitter_user_id ||
+              item.owner_id ||
+              item.profile_id ||
+              "",
+          )
+          .filter(Boolean)
+          .map((id: any) => String(id)),
+      ),
+    );
+
+    if (!userIds.length) return items;
+
+    const { data: profilesData, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, name, username, location, address")
+      .in("id", userIds);
+
+    if (profilesError) {
+      console.log("FETCH ITEM SUBMITTER PROFILES ERROR:", profilesError);
+      return items;
+    }
+
+    const profileMap = new Map(
+      (profilesData || []).map((profile: any) => [
+        String(profile.id),
+        profile,
+      ]),
+    );
+
+    return items.map((item: any) => {
+      const userId =
+        item.user_id ||
+        item.submitter_user_id ||
+        item.owner_id ||
+        item.profile_id ||
+        "";
+      const profile = userId ? profileMap.get(String(userId)) : null;
+
+      if (!profile) return item;
+
+      return {
+        ...item,
+        submitter_name:
+          item.submitter_name || profile.name || profile.username || "",
+        submitter_location:
+          profile.location || profile.address || item.location || item.address || "",
+      };
+    });
+  };
+
   const fetchRandomListedItems = async (profileData: any = facility) => {
     try {
+      setLoadingListedItems(true);
+
       const { data, error } = await supabase
         .from("items")
         .select("*")
@@ -516,9 +607,12 @@ export default function FacilityDashboard() {
       const listedItems = (data || []).filter((item: any) =>
         isVisibleListedItem(item),
       );
-      setRandomListedItems(listedItems);
+      const itemsWithProfiles = await attachSubmitterProfiles(listedItems);
+      setRandomListedItems(itemsWithProfiles);
     } catch {
       setRandomListedItems([]);
+    } finally {
+      setLoadingListedItems(false);
     }
   };
 
@@ -740,9 +834,13 @@ export default function FacilityDashboard() {
                               style={styles.searchSubtitle}
                               numberOfLines={1}
                             >
-                              {item.description ||
-                                item.location ||
-                                "Tap to review details"}
+                              {getUserLocation({
+                                location:
+                                  item.submitter_location ||
+                                  item.location ||
+                                  item.address ||
+                                  "",
+                              })}
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -800,7 +898,10 @@ export default function FacilityDashboard() {
           <ImageBackground
             source={require("../../assets/images/ewaste-banner.jpg")}
             style={styles.banner}
-            imageStyle={{ borderRadius: 15 }}
+            imageStyle={{
+              borderRadius: 15,
+              opacity: 0.9,
+            }}
           >
             <View style={styles.overlay} />
 
@@ -815,12 +916,23 @@ export default function FacilityDashboard() {
           </ImageBackground>
 
           <View style={styles.sectionHeader}>
-            <View>
-              <Text style={styles.sectionTitle}>Listed Items by Users</Text>
-            </View>
+            <Text style={styles.sectionTitle}>Listed Items by Users</Text>
 
-            <TouchableOpacity onPress={() => fetchRandomListedItems(facility)}>
-              <Text style={styles.viewAll}>Reload</Text>
+            <TouchableOpacity
+              style={styles.refreshFacilityButton}
+              onPress={() => fetchRandomListedItems(facility)}
+              disabled={loadingListedItems}
+              activeOpacity={0.7}
+            >
+              {loadingListedItems ? (
+                <ActivityIndicator size="small" color="#2f7d1f" />
+              ) : (
+                <Ionicons
+                  name="refresh-outline"
+                  size={20}
+                  color="#2f7d1f"
+                />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -852,15 +964,6 @@ export default function FacilityDashboard() {
                       </Text>
                     </View>
 
-                    {!!getApprovalLabel(item) && (
-                      <View style={styles.approvalBadge}>
-                        <Text style={styles.approvalBadgeIcon}>✓</Text>
-                        <Text style={styles.approvalBadgeText}>
-                          {getApprovalLabel(item)}
-                        </Text>
-                      </View>
-                    )}
-
                     <Text style={styles.postUser}>
                       Posted by {item.submitter_name || "Unknown User"}
                     </Text>
@@ -877,7 +980,13 @@ export default function FacilityDashboard() {
                         style={styles.locationIcon}
                       />
                       <Text style={styles.postLocation} numberOfLines={1}>
-                        {item.location || item.address || "No location"}
+                        {getUserLocation({
+                          location:
+                            item.submitter_location ||
+                            item.location ||
+                            item.address ||
+                            "",
+                        })}
                       </Text>
                     </View>
                   </View>
@@ -1142,7 +1251,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(255,255,255,0.5)",
   },
   bannerTitle: {
@@ -1169,6 +1278,17 @@ const styles = StyleSheet.create({
     color: "#2f7d1f",
     fontWeight: "700",
   },
+  refreshFacilityButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
   postCard: {
     backgroundColor: "#fff",
     marginTop: 15,
@@ -1197,27 +1317,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#222",
-  },
-  approvalBadge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: "#e8f5e9",
-  },
-  approvalBadgeIcon: {
-    color: "#1b5e20",
-    fontSize: 11,
-    fontWeight: "800",
-    marginRight: 4,
-  },
-  approvalBadgeText: {
-    color: "#1b5e20",
-    fontSize: 11,
-    fontWeight: "700",
   },
   postUser: {
     marginTop: 6,

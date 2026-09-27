@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
-import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -35,13 +34,6 @@ type LoggedInUser = {
   submitterName: string;
 };
 
-type IssuePhotoMap = {
-  [issueName: string]: {
-    uri: string;
-    width?: number;
-    height?: number;
-  };
-};
 
 type AutoDecision = {
   status: "Approved" | "Rejected" | "Pending";
@@ -1269,13 +1261,6 @@ const getContentType = (extension: string) => {
   return "image/jpeg";
 };
 
-const cleanFileName = (value: string) => {
-  return String(value || "issue")
-    .toLowerCase()
-    .replace(/[^a-z0-9_-]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-};
 
 const formatSuggestionBlock = (title: string, suggestions: string[]) => {
   const suggestionText = suggestions
@@ -1295,7 +1280,6 @@ export default function ScanResult() {
 
   const [description, setDescription] = useState("");
   const [selectedIssues, setSelectedIssues] = useState<IssueOption[]>([]);
-  const [issuePhotos, setIssuePhotos] = useState<IssuePhotoMap>({});
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -1412,22 +1396,7 @@ export default function ScanResult() {
   ): AutoDecision => {
     const now = new Date().toISOString();
 
-    if (hazardValue >= 70) {
-      const note = `Immediate safe disposal required.\n\n${formatSuggestionBlock(
-        "Disposal Instructions",
-        disposalSuggestions,
-      )}`;
-
-      return {
-        status: "Rejected",
-        match_status: "Rejected",
-        note,
-        reject_reason: note,
-        approved_at: null,
-        rejected_at: now,
-      };
-    }
-
+    // AUTOMATIC APPROVAL
     if (recyclabilityValue >= 60 && hazardValue <= 30) {
       return {
         status: "Approved",
@@ -1442,6 +1411,7 @@ export default function ScanResult() {
       };
     }
 
+    // AUTOMATIC APPROVAL
     if (
       recyclabilityValue >= 40 &&
       recyclabilityValue <= 59 &&
@@ -1461,29 +1431,17 @@ export default function ScanResult() {
       };
     }
 
-    if (recyclabilityValue < 40 || hazardValue >= 40) {
-      const note = `Too hazardous or inefficient to recycle.\n\n${formatSuggestionBlock(
-        "Disposal Instructions",
-        disposalSuggestions,
-      )}`;
-
-      return {
-        status: "Rejected",
-        match_status: "Rejected",
-        note,
-        reject_reason: note,
-        approved_at: null,
-        rejected_at: now,
-      };
-    }
+    // ITEMS THAT DO NOT MEET THE AUTOMATIC APPROVAL RULES
+    // ARE SENT TO THE ADMIN FOR MANUAL REVIEW.
+    const note = `Item requires admin review.\n\n${formatSuggestionBlock(
+      "Disposal Instructions",
+      disposalSuggestions,
+    )}`;
 
     return {
       status: "Pending",
       match_status: "Pending",
-      note: `Item needs manual review because the recyclability and hazard values are between decision rules.\n\n${formatSuggestionBlock(
-        "Suggestions",
-        disposalSuggestions,
-      )}`,
+      note,
       reject_reason: null,
       approved_at: null,
       rejected_at: null,
@@ -1547,17 +1505,12 @@ export default function ScanResult() {
         (selected) => selected.name !== issue.name,
       );
 
-      const updatedPhotos = { ...issuePhotos };
-      delete updatedPhotos[issue.name];
-
       setSelectedIssues(updatedIssues);
-      setIssuePhotos(updatedPhotos);
       return;
     }
 
     if (issue.name === "None") {
       setSelectedIssues([issue]);
-      setIssuePhotos({});
       return;
     }
 
@@ -1566,44 +1519,6 @@ export default function ScanResult() {
     );
 
     setSelectedIssues([...filteredIssues, issue]);
-  };
-
-  const takeIssuePhoto = async (issue: IssueOption) => {
-    try {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert(
-          "Camera Permission Required",
-          "Please allow camera access to take a photo of the selected issue.",
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: false,
-        quality: 0.8,
-      });
-
-      if (!result.canceled) {
-        const asset = result.assets[0];
-
-        setIssuePhotos((prev) => ({
-          ...prev,
-          [issue.name]: {
-            uri: asset.uri,
-            width: asset.width,
-            height: asset.height,
-          },
-        }));
-      }
-    } catch (error: any) {
-      console.log("TAKE ISSUE PHOTO ERROR:", error);
-      Alert.alert(
-        "Camera Error",
-        error?.message || "Unable to take issue photo.",
-      );
-    }
   };
 
   const validateForm = () => {
@@ -1630,21 +1545,6 @@ export default function ScanResult() {
       return false;
     }
 
-    const needsIssuePhotos = actualIssues.length > 0;
-
-    if (needsIssuePhotos) {
-      const missingIssuePhoto = actualIssues.find(
-        (issue) => !issuePhotos[issue.name]?.uri,
-      );
-
-      if (missingIssuePhoto) {
-        Alert.alert(
-          "Missing Issue Photo",
-          `Please take a photo for this issue: ${missingIssuePhoto.name}`,
-        );
-        return false;
-      }
-    }
 
     return true;
   };
@@ -1730,50 +1630,6 @@ export default function ScanResult() {
     }
   };
 
-  const uploadIssuePhotos = async (
-    itemId: number,
-    userId: number,
-    issues: IssueOption[],
-  ) => {
-    const records = [];
-
-    for (const issue of issues) {
-      const issuePhoto = issuePhotos[issue.name];
-
-      if (!issuePhoto?.uri) {
-        continue;
-      }
-
-      const extension = getImageExtension(issuePhoto.uri);
-      const safeIssueName = cleanFileName(issue.name);
-      const filePath = `item-${itemId}/${safeIssueName}-${Date.now()}.${extension}`;
-
-      const uploaded = await uploadImageToBucket(
-        "item-issue-photos",
-        filePath,
-        issuePhoto.uri,
-      );
-
-      records.push({
-        item_id: itemId,
-        user_id: String(userId),
-        issue_name: issue.name,
-        image_url: uploaded.url,
-        image_path: uploaded.path,
-      });
-    }
-
-    if (records.length > 0) {
-      const { error } = await supabase
-        .from("item_issue_photos")
-        .insert(records);
-
-      if (error) {
-        console.log("INSERT ISSUE PHOTOS ERROR:", error);
-        throw error;
-      }
-    }
-  };
 
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
@@ -2324,15 +2180,6 @@ export default function ScanResult() {
         return;
       }
 
-      await supabase
-        .from("items")
-        .update({
-          status: "Approved",
-          approval_source: "Admin",
-        })
-        .eq("id", cleanItemId)
-        .eq("user_id", cleanUserId);
-
       setMatchModalVisible(false);
       setResultModalVisible(false);
 
@@ -2700,10 +2547,8 @@ export default function ScanResult() {
   ) => {
     const title =
       finalDecision.status === "Approved"
-        ? "Item Approved"
-        : finalDecision.status === "Rejected"
-          ? "Item Rejected"
-          : "Item Submitted for Review";
+        ? "Item Approved by System"
+        : "Item Submitted for Admin Review";
 
     setResultModalTitle(title);
     setResultModalMessage(finalDecision.note);
@@ -2835,11 +2680,6 @@ export default function ScanResult() {
         return;
       }
 
-      await uploadIssuePhotos(
-        Number(insertedItem.id),
-        loggedInUser.userId,
-        actualIssues,
-      );
 
       setUploadedItemForMatch(insertedItem);
       showUploadResultAlert(finalDecision, itemName, insertedItem);
@@ -2983,46 +2823,6 @@ export default function ScanResult() {
             </View>
           </Modal>
 
-          {actualIssues.length > 0 && (
-            <>
-              <Text style={styles.label}>Required Issue Photos:</Text>
-
-              <Text style={styles.issuePhotoReminder}>
-                Take one clear photo for each selected issue before uploading.
-              </Text>
-
-              {actualIssues.map((issue) => (
-                <View key={issue.name} style={styles.issuePhotoCard}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.issuePhotoTitle}>{issue.name}</Text>
-
-                    <Text style={styles.issuePhotoStatus}>
-                      {issuePhotos[issue.name]?.uri
-                        ? "Photo added"
-                        : "Photo required"}
-                    </Text>
-                  </View>
-
-                  {issuePhotos[issue.name]?.uri && (
-                    <Image
-                      source={{ uri: issuePhotos[issue.name].uri }}
-                      style={styles.issueThumbnail}
-                    />
-                  )}
-
-                  <TouchableOpacity
-                    style={styles.issuePhotoButton}
-                    onPress={() => takeIssuePhoto(issue)}
-                    disabled={uploading}
-                  >
-                    <Text style={styles.issuePhotoButtonText}>
-                      {issuePhotos[issue.name]?.uri ? "Retake" : "Take Photo"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </>
-          )}
         </View>
 
         <Modal visible={resultModalVisible} transparent animationType="fade">
@@ -3470,54 +3270,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  issuePhotoReminder: {
-    marginTop: 5,
-    fontSize: 13,
-    color: "#555",
-    lineHeight: 18,
-  },
 
-  issuePhotoCard: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    padding: 10,
-    borderRadius: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
 
-  issuePhotoTitle: {
-    fontWeight: "bold",
-    color: "#222",
-    fontSize: 14,
-  },
 
-  issuePhotoStatus: {
-    marginTop: 3,
-    fontSize: 12,
-    color: "#777",
-  },
 
-  issueThumbnail: {
-    width: 45,
-    height: 45,
-    borderRadius: 8,
-    backgroundColor: "#ddd",
-  },
 
-  issuePhotoButton: {
-    backgroundColor: "#1b5e20",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
 
-  issuePhotoButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 12,
-  },
 
   resultOverlay: {
     flex: 1,

@@ -236,6 +236,7 @@ export default function FacilityMessages() {
 
   const getConversationTimeValue = (conversation: any) => {
     const dateValue =
+      conversation?.last_message_at ||
       conversation?.updated_at ||
       conversation?.created_at ||
       conversation?.finished_at ||
@@ -436,6 +437,49 @@ export default function FacilityMessages() {
       const withUserProfiles =
         await fetchUserProfilesForConversations(visibleConversations);
 
+      // Use the timestamp of the latest actual message for the conversation time.
+      // This prevents opening/reading a conversation from changing the displayed time.
+      const conversationIds = visibleConversations
+        .map((conversation: any) => String(conversation.id || ""))
+        .filter(Boolean);
+
+      const latestMessageTimeMap: Record<string, string> = {};
+
+      if (conversationIds.length > 0) {
+        const { data: messageRows, error: messageTimeError } = await supabase
+          .from("messages")
+          .select("conversation_id, created_at")
+          .in("conversation_id", conversationIds)
+          .order("created_at", { ascending: false });
+
+        if (messageTimeError) {
+          console.log(
+            "FETCH LATEST MESSAGE TIMES ERROR:",
+            messageTimeError,
+          );
+        } else {
+          (messageRows || []).forEach((message: any) => {
+            const conversationId = String(message?.conversation_id || "");
+            if (!conversationId || latestMessageTimeMap[conversationId]) return;
+
+            if (message?.created_at) {
+              latestMessageTimeMap[conversationId] = message.created_at;
+            }
+          });
+        }
+      }
+
+      const conversationsWithMessageTimes = withUserProfiles.map(
+        (conversation: any) => ({
+          ...conversation,
+          last_message_at:
+            latestMessageTimeMap[String(conversation.id || "")] ||
+            conversation?.last_message_at ||
+            conversation?.created_at ||
+            null,
+        }),
+      );
+
       const numericFacilityId = Number(currentFacilityId);
 
       const { data: unreadMessages } = await supabase
@@ -463,7 +507,7 @@ export default function FacilityMessages() {
       }
 
       const groupedConversations = groupConversationsByUser(
-        withUserProfiles,
+        conversationsWithMessageTimes,
       ).map((conversation) => {
         const ids = conversation.related_conversation_ids || [
           String(conversation.id),
@@ -729,32 +773,23 @@ export default function FacilityMessages() {
 
     const facilityIdNum = Number(facility?.id);
 
-    // 1. Immediately move the clicked conversation to the top and clear unread flag locally
-    setConversations((prev) => {
-      const clickedId = String(conversation.id);
-      const targetIndex = prev.findIndex(
-        (item) =>
+    // 1. Clear the unread flag locally without changing the conversation's position
+    setConversations((prev) =>
+      prev.map((item) => {
+        const clickedId = String(conversation.id);
+        const isClicked =
           String(item.id) === clickedId ||
-          item.related_conversation_ids?.includes(clickedId),
-      );
+          item.related_conversation_ids?.includes(clickedId);
 
-      if (targetIndex === -1) return prev;
-
-      const updatedItem = {
-        ...prev[targetIndex],
-        hasUnread: false,
-        updated_at: new Date().toISOString(),
-      };
-
-      const filteredList = prev.filter((_, idx) => idx !== targetIndex);
-      return [updatedItem, ...filteredList];
-    });
+        return isClicked ? { ...item, hasUnread: false } : item;
+      }),
+    );
 
     // 2. Mark conversations as read in database
     if (conversationIds.length > 0) {
       supabase
         .from("conversations")
-        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .update({ is_read: true })
         .in("id", conversationIds)
         .then();
     }
@@ -787,59 +822,67 @@ export default function FacilityMessages() {
   };
 
   const renderConversation = ({ item }: any) => {
+    const isUnread = !!item.hasUnread;
+
     return (
       <SwipeableConversation item={item} onDelete={deleteConversation}>
         <TouchableOpacity
           style={[
             styles.conversationCard,
-            item.hasUnread && styles.unreadConversationCard,
+            isUnread && styles.unreadConversationCard,
           ]}
           activeOpacity={0.85}
           onPress={() => openChat(item)}
         >
-          {item.hasUnread && <View style={styles.unreadAccentBar} />}
+          {isUnread && <View style={styles.unreadAccentBar} />}
 
-          <Image source={getUserImageSource(item)} style={styles.avatar} />
+          <View style={styles.avatarWrapper}>
+            <Image
+              source={getUserImageSource(item)}
+              style={styles.avatar}
+            />
+            {isUnread && <View style={styles.unreadAvatarDot} />}
+          </View>
 
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
               <Text
                 style={[
-                  styles.userName,
-                  item.hasUnread && styles.unreadUserName,
+                  styles.facilityName,
+                  isUnread && styles.unreadFacilityName,
                 ]}
+                numberOfLines={1}
               >
                 {item.user_name || "User"}
               </Text>
 
               <Text
-                style={[styles.timeText, item.hasUnread && styles.unreadTime]}
+                style={[
+                  styles.timeText,
+                  isUnread ? styles.unreadItemText : styles.readItemText,
+                ]}
               >
-                {formatDate(item.updated_at || item.created_at)}
+                {formatDate(item.last_message_at || item.updated_at || item.created_at)}
               </Text>
             </View>
 
             <Text
-              style={[styles.itemName, item.hasUnread && styles.unreadItemName]}
+              style={[
+                styles.itemName,
+                isUnread ? styles.unreadItemText : styles.readItemText,
+              ]}
+              numberOfLines={1}
             >
               Latest item: {item.item_name || "Unnamed Item"}
             </Text>
 
             <View style={styles.statusRow}>
               <View style={[styles.statusDot, getStatusDotStyle(item)]} />
-              <Text
-                style={[
-                  styles.statusText,
-                  getStatusStyle(item),
-                  item.hasUnread && styles.unreadStatus,
-                ]}
-              >
+              <Text style={[styles.statusText, getStatusStyle(item)]}>
                 {getConversationStatus(item)}
               </Text>
             </View>
           </View>
-
-          {item.hasUnread && <View style={styles.unreadDot} />}
         </TouchableOpacity>
       </SwipeableConversation>
     );
@@ -890,46 +933,39 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingTop: 20,
   },
-
   loadingContainer: {
     flex: 1,
     backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
   },
-
   loadingText: {
     marginTop: 10,
     color: "#1b5e20",
     fontWeight: "600",
   },
-
   header: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#111",
-    marginTop: 4,
-    marginBottom: 12,
+    marginTop: 15,
+    marginBottom: 15,
   },
-
   listContent: {
-    paddingBottom: 130,
+    paddingBottom: 110,
   },
-
   swipeWrapper: {
     marginBottom: 12,
     position: "relative",
     overflow: "hidden",
     borderRadius: 14,
   },
-
   swipeForeground: {
     backgroundColor: "#fff",
     borderRadius: 14,
   },
-
   deleteActionBehind: {
     position: "absolute",
     right: 0,
@@ -941,24 +977,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#d32f2f",
     borderRadius: 14,
   },
-
   conversationCard: {
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#f7f7f7",
     borderRadius: 14,
     padding: 12,
+    alignItems: "center",
     borderWidth: 1,
     borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
     position: "relative",
     overflow: "hidden",
   },
-
   unreadConversationCard: {
-    backgroundColor: "#eef6ee",
-    borderColor: "#c8e6c9",
+    backgroundColor: "#f2f8f2",
+    borderColor: "#b6dfb8",
   },
-
   unreadAccentBar: {
     position: "absolute",
     left: 0,
@@ -967,7 +1005,6 @@ const styles = StyleSheet.create({
     width: 3,
     backgroundColor: "#1b5e20",
   },
-
   deleteSwipeButton: {
     width: 92,
     height: "100%",
@@ -976,56 +1013,55 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderRadius: 14,
   },
-
   deleteSwipeText: {
     color: "#fff",
     fontWeight: "bold",
     fontSize: 14,
   },
-
+  avatarWrapper: {
+    position: "relative",
+    marginRight: 12,
+  },
   avatar: {
     width: 58,
     height: 58,
     borderRadius: 29,
     backgroundColor: "#ddd",
-    marginRight: 12,
   },
-
+  unreadAvatarDot: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: "#2e7d32",
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
   conversationInfo: {
     flex: 1,
   },
-
   topRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-
-  userName: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000",
-    marginRight: 8,
+  timeText: {
+    fontSize: 11,
   },
-
-  unreadUserName: {
-    color: "#000",
-    fontWeight: "800",
-  },
-
   itemName: {
     marginTop: 3,
     fontSize: 13,
-    color: "#888",
+  },
+  readItemText: {
+    color: "#777",
     fontWeight: "400",
   },
-
-  timeText: {
-    fontSize: 11,
-    color: "#999",
+  unreadItemText: {
+    color: "#1b5e20",
+    fontWeight: "700",
   },
-
   statusRow: {
     marginTop: 7,
     flexDirection: "row",
@@ -1033,38 +1069,40 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 6,
   },
-
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
   },
-
   statusText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "bold",
   },
-
   pendingStatus: {
-    color: "#f9a825",
+    color: "#fbc02d",
   },
-
   matchedStatus: {
-    color: "#2e7d32",
+    color: "#1976d2",
   },
-
   finishedStatus: {
-    color: "#2e7d32",
+    color: "green",
   },
-
   cancelledStatus: {
-    color: "#c62828",
+    color: "red",
   },
-
   defaultStatus: {
-    color: "#777",
+    color: "#555",
   },
-
+  facilityName: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111",
+    fontWeight: "bold",
+    marginRight: 8,
+  },
+  unreadFacilityName: {
+    color: "#1b5e20",
+  },
   emptyBox: {
     backgroundColor: "#f5f5f5",
     marginTop: 40,
@@ -1072,77 +1110,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
   },
-
   emptyTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: "#222",
     marginBottom: 6,
   },
-
   emptyText: {
     fontSize: 14,
     color: "#666",
     textAlign: "center",
     lineHeight: 20,
-  },
-
-  bottomNav: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderColor: "#ddd",
-    paddingBottom: 10,
-  },
-
-  navItem: {
-    alignItems: "center",
-  },
-
-  navImage: {
-    width: 24,
-    height: 24,
-    marginBottom: 2,
-  },
-
-  navLabel: {
-    fontSize: 12,
-    color: "#777",
-  },
-
-  navActive: {
-    color: "green",
-    fontWeight: "bold",
-  },
-
-  unreadItemName: {
-    color: "#000",
-    fontWeight: "bold",
-  },
-
-  unreadTime: {
-    color: "#111",
-    fontWeight: "bold",
-  },
-
-  unreadStatus: {
-    fontWeight: "bold",
-  },
-
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#1b5e20",
-    marginLeft: 8,
-    alignSelf: "flex-start",
-    marginTop: 4,
   },
 });

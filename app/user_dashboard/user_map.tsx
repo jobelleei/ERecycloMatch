@@ -14,6 +14,8 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -458,6 +460,85 @@ useEffect(() => {
       .filter((word) => word.length > 0);
   };
 
+  // Related terms used by the map search.
+  // Example: searching "laptop" can also find facilities that list
+  // "notebook", "computer", "PC", or "portable computer".
+  const SEARCH_ALIASES: Record<string, string[]> = {
+    laptop: ["laptop", "notebook", "computer", "pc", "portable computer"],
+    notebook: ["notebook", "laptop", "computer", "pc", "portable computer"],
+    computer: ["computer", "pc", "desktop", "laptop", "notebook", "personal computer"],
+    pc: ["pc", "computer", "desktop", "laptop", "notebook", "personal computer"],
+    desktop: ["desktop", "computer", "pc", "personal computer"],
+
+    phone: ["phone", "smartphone", "cellphone", "cell phone", "mobile", "mobile phone"],
+    smartphone: ["smartphone", "phone", "cellphone", "cell phone", "mobile", "mobile phone"],
+    cellphone: ["cellphone", "cell phone", "phone", "smartphone", "mobile", "mobile phone"],
+    mobile: ["mobile", "mobile phone", "phone", "smartphone", "cellphone", "cell phone"],
+
+    tablet: ["tablet", "ipad", "tablet computer"],
+    ipad: ["ipad", "tablet", "tablet computer"],
+
+    battery: ["battery", "batteries", "rechargeable battery", "lithium battery", "lithium ion battery"],
+    batteries: ["batteries", "battery", "rechargeable battery", "lithium battery", "lithium ion battery"],
+    charger: ["charger", "power adapter", "adapter", "charging cable", "power supply"],
+    adapter: ["adapter", "power adapter", "charger", "power supply"],
+    cable: ["cable", "wire", "cord", "charging cable", "usb cable"],
+    wire: ["wire", "cable", "cord"],
+    cord: ["cord", "cable", "wire", "extension cord"],
+
+    television: ["television", "tv", "smart tv"],
+    tv: ["tv", "television", "smart tv"],
+    monitor: ["monitor", "display", "computer monitor", "screen"],
+    display: ["display", "monitor", "screen", "computer monitor"],
+    printer: ["printer", "printing machine"],
+    keyboard: ["keyboard", "computer keyboard"],
+    mouse: ["mouse", "computer mouse"],
+
+    refrigerator: ["refrigerator", "fridge"],
+    fridge: ["fridge", "refrigerator"],
+    aircon: ["aircon", "air conditioner", "air conditioning", "ac"],
+    "air conditioner": ["air conditioner", "aircon", "air conditioning", "ac"],
+    fan: ["fan", "electric fan", "ceiling fan"],
+    microwave: ["microwave", "microwave oven"],
+
+    camera: ["camera", "digital camera", "cctv"],
+    speaker: ["speaker", "bluetooth speaker", "audio speaker"],
+    earphones: ["earphones", "earbuds", "headphones", "headset"],
+    earbuds: ["earbuds", "earphones", "headphones", "headset"],
+    headphones: ["headphones", "earphones", "earbuds", "headset"],
+    headset: ["headset", "headphones", "earphones", "earbuds"],
+    router: ["router", "wifi router", "wi fi router", "modem"],
+    modem: ["modem", "router", "wifi router", "wi fi router"],
+
+    "e waste": ["e waste", "ewaste", "electronic waste", "electronics", "electronic device", "electronic devices"],
+    ewaste: ["ewaste", "e waste", "electronic waste", "electronics", "electronic device", "electronic devices"],
+    electronics: ["electronics", "electronic waste", "e waste", "ewaste", "electronic device", "electronic devices"],
+    recycling: ["recycling", "recycle", "recycler", "recycling facility", "recycling center", "recycling centre"],
+    recycle: ["recycle", "recycling", "recycler", "recycling facility", "recycling center", "recycling centre"],
+    recycler: ["recycler", "recycling", "recycle", "recycling facility", "recycling center", "recycling centre"],
+    bin: ["bin", "bins", "drop off", "drop off bin", "dropoff", "collection point", "collection bin"],
+    bins: ["bins", "bin", "drop off", "drop off bin", "dropoff", "collection point", "collection bin"],
+  };
+
+  const getRelatedSearchGroups = (keywordValue: string) => {
+    const normalized = normalizeText(keywordValue);
+
+    if (!normalized) return [];
+
+    // First check the complete search phrase. This keeps searches such as
+    // "air conditioner" or "e waste" together instead of treating each
+    // word as an unrelated search term.
+    if (SEARCH_ALIASES[normalized]) {
+      return [SEARCH_ALIASES[normalized]];
+    }
+
+    // For a multi-word search, every word must still have a match.
+    // A word without aliases falls back to itself.
+    return getSearchWords(normalized).map((word) => {
+      return SEARCH_ALIASES[word] || [word];
+    });
+  };
+
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -703,6 +784,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   const filterPinsBySearch = (pinList: MapPin[], keywordValue = search) => {
     const keyword = normalizeText(keywordValue);
     const words = getSearchWords(keywordValue);
+    const relatedGroups = getRelatedSearchGroups(keywordValue);
 
     if (!keyword || words.length === 0) {
       return pinList;
@@ -711,11 +793,16 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return pinList.filter((pin) => {
       const searchableText = getPinSearchText(pin);
 
+      // Keep the original exact phrase search.
       if (searchableText.includes(keyword)) {
         return true;
       }
 
-      return words.every((word) => searchableText.includes(word));
+      // Then check related terms. For a multi-word query, every query word
+      // must have at least one related term present in the pin data.
+      return relatedGroups.every((group) => {
+        return group.some((term) => searchableText.includes(normalizeText(term)));
+      });
     });
   };
 
@@ -1401,6 +1488,7 @@ const getRoadRoute = async (
   };
 
   const openPinDetails = (pin: MapPin) => {
+    Keyboard.dismiss();
     setSelectedPin(pin);
     setShowList(false);
     goToPinOnMap(pin);
@@ -1562,6 +1650,7 @@ const getRoadRoute = async (
   };
 
   const clearSearch = () => {
+    Keyboard.dismiss();
     setSearch("");
     setSelectedPin(null);
 
@@ -1572,6 +1661,7 @@ const getRoadRoute = async (
   };
 
   const switchMapMode = async (mode: MapMode) => {
+    Keyboard.dismiss();
     setMapMode(mode);
     setSearch("");
     setSelectedPin(null);
@@ -1604,6 +1694,7 @@ const getRoadRoute = async (
 
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
         <View style={styles.searchContainer}>
           <TextInput
@@ -1629,6 +1720,53 @@ const getRoadRoute = async (
             style={styles.avatar}
           />
         </View>
+
+        {search.trim().length > 0 && (
+          <View style={styles.searchDropdown}>
+            <FlatList
+              data={sortedPins.slice(0, 6)}
+              keyExtractor={(item) => `search-${item.type}-${item.id}`}
+              keyboardShouldPersistTaps="handled"
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.searchSuggestionItem,
+                    index === Math.min(sortedPins.length, 6) - 1 &&
+                      styles.searchSuggestionItemLast,
+                  ]}
+                  activeOpacity={0.75}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    openPinDetails(item);
+                  }}
+                >
+                  <View style={styles.searchSuggestionIcon}>
+                    <Text style={styles.searchSuggestionIconText}>
+                      {item.type === "facilities" ? "♻" : "⌖"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.searchSuggestionContent}>
+                    <Text style={styles.searchSuggestionName} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.searchSuggestionAddress} numberOfLines={1}>
+                      {item.location || item.address ||
+                        (item.type === "facilities"
+                          ? "Recycling Facility"
+                          : "E-Waste Drop Off Bin")}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.searchDropdownEmpty}>
+                  No related facility or drop off bin found.
+                </Text>
+              }
+            />
+          </View>
+        )}
 
         <View style={styles.modeButtonContainer}>
           <TouchableOpacity
@@ -1867,7 +2005,7 @@ const getRoadRoute = async (
           </View>
         )}
 
-        {showList && (
+        {showList && search.trim().length === 0 && (
           <Animated.View
             style={[
               styles.listContainer,
@@ -1941,6 +2079,7 @@ const getRoadRoute = async (
           />
         )}
       </View>
+      </TouchableWithoutFeedback>
     </SafeAreaView>
   );
 }
@@ -1990,6 +2129,75 @@ const styles = StyleSheet.create({
     height: 40,
     marginLeft: 10,
     borderRadius: 20,
+  },
+
+  searchDropdown: {
+    position: "absolute",
+    top: 62,
+    left: 10,
+    right: 60,
+    maxHeight: 330,
+    backgroundColor: "#fff",
+    borderRadius: 18,
+    zIndex: 20,
+    elevation: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowOffset: { width: 0, height: 5 },
+    shadowRadius: 10,
+    overflow: "hidden",
+  },
+
+  searchSuggestionItem: {
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+  },
+
+  searchSuggestionItemLast: {
+    borderBottomWidth: 0,
+  },
+
+  searchSuggestionIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#eef6eb",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  searchSuggestionIconText: {
+    fontSize: 23,
+    color: "#315d2d",
+  },
+
+  searchSuggestionContent: {
+    flex: 1,
+  },
+
+  searchSuggestionName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#222",
+  },
+
+  searchSuggestionAddress: {
+    marginTop: 4,
+    fontSize: 13,
+    color: "#777",
+  },
+
+  searchDropdownEmpty: {
+    paddingHorizontal: 16,
+    paddingVertical: 18,
+    color: "#777",
+    textAlign: "center",
   },
 
   modeButtonContainer: {
