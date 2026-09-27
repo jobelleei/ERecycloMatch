@@ -8,12 +8,6 @@ export const NEARBY_NOTIFICATION_RADIUS_KM = 5;
 
 
 
-
-
-
-
-
-
 //export const API_URL = "https://emcee-fence-squatted.ngrok-free.dev/Admin_Side";
 
 //export const API_URL = "http://192.168.254.144/Admin_Side";
