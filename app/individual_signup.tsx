@@ -724,12 +724,19 @@ export default function IndividualSignup() {
         flex: 1,
         backgroundColor: "#DDEFD3",
       }}
-      edges={["top"]}
+      edges={[]}
     >
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
         resizeMode="cover"
+        imageStyle={{
+          opacity: 0.5,
+          transform: [
+            { scale: 1.15 },
+            { translateX: 20 },
+          ],
+        }}
       >
         <View style={styles.overlay} pointerEvents="none" />
       </ImageBackground>

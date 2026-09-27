@@ -937,9 +937,16 @@ export default function FacilitySignup() {
         source={require("../assets/images/secondbg.png")}
         style={styles.backgroundImage}
         resizeMode="cover"
+        imageStyle={{
+          opacity: 0.5,
+          transform: [
+            { scale: 1.15 },
+            { translateX: 20 },
+          ],
+        }}
       >
-        <View style={styles.overlay} pointerEvents="none" />
-      </ImageBackground>
+  <View style={styles.overlay} pointerEvents="none" />
+</ImageBackground>
 
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
         <Image
@@ -1489,8 +1496,11 @@ export default function FacilitySignup() {
         </Pressable>
 
         <Pressable onPress={() => router.push("/signin")}>
-          <Text style={styles.link}>Already have an account? Sign In</Text>
-        </Pressable>
+        <Text style={styles.link}>
+          Already have an account?{" "}
+          <Text style={{ textDecorationLine: "underline" }}>Sign In</Text>
+        </Text>
+      </Pressable>
       </ScrollView>
 
       {/* Terms and Conditions Modal */}

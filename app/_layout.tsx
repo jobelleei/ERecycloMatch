@@ -2,6 +2,7 @@ import { Stack } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { useEffect } from "react";
 import Toast from "react-native-toast-message";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { registerForPushNotifications } from "../services/notifications";
 
@@ -16,11 +17,13 @@ export default function RootLayout() {
       .catch((error: unknown) => {
         console.error("Notification setup failed:", error);
       });
-    const receivedSubscription = Notifications.addNotificationReceivedListener(
-      (notification) => {
-        console.log("Notification received:", notification);
-      },
-    );
+
+    const receivedSubscription =
+      Notifications.addNotificationReceivedListener(
+        (notification) => {
+          console.log("Notification received:", notification);
+        },
+      );
 
     const responseSubscription =
       Notifications.addNotificationResponseReceivedListener((response) => {
@@ -34,11 +37,11 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }} />
 
       {/* THIS IS WHAT ENABLES TOAST */}
       <Toast />
-    </>
+    </GestureHandlerRootView>
   );
 }
