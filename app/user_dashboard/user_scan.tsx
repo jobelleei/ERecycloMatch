@@ -296,7 +296,20 @@ export default function ScanScreen() {
           ref={cameraRef}
           style={styles.camera}
           facing={facing}
+          active={true}
+          mode="picture"
           enableTorch={flash === "on"}
+          onCameraReady={() => {
+            console.log("CAMERA READY");
+          }}
+          onMountError={(error) => {
+          console.error("CAMERA MOUNT ERROR:", error);
+
+          Alert.alert(
+            "Camera Error",
+            error.message || "The camera preview could not start."
+          );
+        }}
         />
 
         <TouchableOpacity
@@ -433,8 +446,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   camera: {
-    ...StyleSheet.absoluteFillObject,
-  },
+  width: "100%",
+  height: "100%",
+  transform: [{ scale: 1.08 }],
+},
   flashButton: {
     position: "absolute",
     top: 20,
@@ -466,8 +481,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   center: {
-    alignItems: "center",
-  },
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  justifyContent: "center",
+  alignItems: "center",
+  zIndex: 5,
+},
   cameraIcon: {
     width: 45,
     height: 45,

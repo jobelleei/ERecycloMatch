@@ -13,7 +13,7 @@ import {
   Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import UserBottomNav from "../../components/UserBottomNav";
@@ -50,59 +50,129 @@ function SwipeableNotificationRow({
   item,
   onDelete,
   children,
+  isOpen,
+  onOpen,
+  onClose,
 }: {
   item: NotificationItem;
   onDelete: (item: NotificationItem) => void;
   children: React.ReactNode;
+  isOpen: boolean;
+  onOpen: (id: string) => void;
+  onClose: () => void;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const openValue = -80;
+  const currentX = useRef(0);
+  const gestureStartX = useRef(0);
 
-  const closeRow = () => {
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
-  };
+  const DELETE_WIDTH = 80;
 
-  const openRow = () => {
-    Animated.spring(translateX, {
-      toValue: openValue,
-      useNativeDriver: true,
-    }).start();
-  };
+  const animateTo = useCallback(
+    (toValue: number) => {
+      currentX.current = toValue;
+      Animated.spring(translateX, {
+        toValue,
+        useNativeDriver: true,
+        tension: 70,
+        friction: 10,
+      }).start();
+    },
+    [translateX],
+  );
+
+  // If another notification opens, this row closes automatically.
+  useEffect(() => {
+    if (!isOpen && currentX.current !== 0) {
+      animateTo(0);
+    }
+  }, [isOpen, animateTo]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => {
-        if (g.dx < 0) {
-          translateX.setValue(Math.max(g.dx, openValue));
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      },
+
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      },
+
+      onPanResponderGrant: () => {
+        translateX.stopAnimation((value) => {
+          currentX.current = value;
+          gestureStartX.current = value;
+        });
+      },
+
+      onPanResponderMove: (_, gestureState) => {
+        const nextX = Math.max(
+          -DELETE_WIDTH,
+          Math.min(0, gestureStartX.current + gestureState.dx),
+        );
+
+        currentX.current = nextX;
+        translateX.setValue(nextX);
+      },
+
+      onPanResponderRelease: (_, gestureState) => {
+        const finalX = Math.max(
+          -DELETE_WIDTH,
+          Math.min(0, gestureStartX.current + gestureState.dx),
+        );
+
+        if (gestureState.vx > 0.35) {
+          onClose();
+          animateTo(0);
+          return;
+        }
+
+        if (finalX <= -DELETE_WIDTH / 2 || gestureState.vx < -0.5) {
+          onOpen(item.id);
+          animateTo(-DELETE_WIDTH);
+        } else {
+          onClose();
+          animateTo(0);
         }
       },
-      onPanResponderRelease: (_, g) => {
-        if (g.dx < -35) openRow();
-        else closeRow();
+
+      onPanResponderTerminate: () => {
+        if (currentX.current <= -DELETE_WIDTH / 2) {
+          onOpen(item.id);
+          animateTo(-DELETE_WIDTH);
+        } else {
+          onClose();
+          animateTo(0);
+        }
       },
+
+      onPanResponderTerminationRequest: () => false,
     }),
   ).current;
+
+  const handleDelete = () => {
+    onClose();
+    animateTo(0);
+    onDelete(item);
+  };
 
   return (
     <View style={styles.swipeWrapper}>
       <View style={styles.behindDelete}>
         <TouchableOpacity
           style={styles.behindDeleteBtn}
-          onPress={() => {
-            closeRow();
-            onDelete(item);
-          }}
+          onPress={handleDelete}
         >
           <Text style={styles.behindDeleteText}>Delete</Text>
         </TouchableOpacity>
       </View>
+
       <Animated.View
-        style={{ transform: [{ translateX }] }}
+        style={[
+          styles.swipeFront,
+          { transform: [{ translateX }] },
+        ]}
         {...panResponder.panHandlers}
       >
         {children}
@@ -121,6 +191,9 @@ export default function UserNotifications() {
   const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  const screenTouchStart = useRef({ x: 0, y: 0 });
+  const screenTouchMoved = useRef(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
@@ -449,6 +522,7 @@ export default function UserNotifications() {
   };
 
   const handleOpen = async (item: NotificationItem) => {
+    setOpenSwipeId(null);
     if (dropdownOpen) setDropdownOpen(false);
     await markAsRead(item);
 
@@ -501,7 +575,13 @@ export default function UserNotifications() {
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
-    <SwipeableNotificationRow item={item} onDelete={deleteNotification}>
+    <SwipeableNotificationRow
+      item={item}
+      onDelete={deleteNotification}
+      isOpen={openSwipeId === item.id}
+      onOpen={(id) => setOpenSwipeId(id)}
+      onClose={() => setOpenSwipeId(null)}
+    >
       <TouchableOpacity
         style={[styles.itemCard, !item.read && styles.unreadItemCardHighlight]}
         activeOpacity={0.82}
@@ -565,10 +645,31 @@ export default function UserNotifications() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      onTouchStart={(event) => {
+        const { pageX, pageY } = event.nativeEvent;
+        screenTouchStart.current = { x: pageX, y: pageY };
+        screenTouchMoved.current = false;
+      }}
+      onTouchMove={(event) => {
+        const { pageX, pageY } = event.nativeEvent;
+        const dx = pageX - screenTouchStart.current.x;
+        const dy = pageY - screenTouchStart.current.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          screenTouchMoved.current = true;
+        }
+      }}
+      onTouchEnd={() => {
+        // A tap closes the open Delete action. A swipe does not.
+        if (!screenTouchMoved.current && openSwipeId) {
+          setOpenSwipeId(null);
+        }
+      }}
+    >
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
-        <TouchableOpacity onPress={markAllAsRead}>
+        <TouchableOpacity onPress={() => { setOpenSwipeId(null); markAllAsRead(); }}>
           <Text style={styles.markAllRead}>Mark all as read</Text>
         </TouchableOpacity>
       </View>
@@ -582,6 +683,7 @@ export default function UserNotifications() {
               activeTab === "all" && styles.tabButtonActive,
             ]}
             onPress={() => {
+              setOpenSwipeId(null);
               if (dropdownOpen) setDropdownOpen(false);
               setActiveTab("all");
             }}
@@ -602,6 +704,7 @@ export default function UserNotifications() {
               activeTab === "unread" && styles.tabButtonActive,
             ]}
             onPress={() => {
+              setOpenSwipeId(null);
               if (dropdownOpen) setDropdownOpen(false);
               setActiveTab("unread");
             }}
@@ -620,7 +723,7 @@ export default function UserNotifications() {
         {/* Light green options-outline filter button[cite: 8] */}
         <TouchableOpacity
           style={styles.filterButton}
-          onPress={() => setDropdownOpen((prev) => !prev)}
+          onPress={() => { setOpenSwipeId(null); setDropdownOpen((prev) => !prev); }}
           activeOpacity={0.7}
         >
           <Ionicons name="options-outline" size={24} color="#66BB6A" />
@@ -629,7 +732,7 @@ export default function UserNotifications() {
 
       {/* Outside tap overlay to dismiss dropdown */}
       {dropdownOpen && (
-        <TouchableWithoutFeedback onPress={() => setDropdownOpen(false)}>
+        <TouchableWithoutFeedback onPress={() => { setDropdownOpen(false); setOpenSwipeId(null); }}>
           <View style={styles.dropdownBackdrop} />
         </TouchableWithoutFeedback>
       )}
@@ -642,7 +745,7 @@ export default function UserNotifications() {
               styles.dropdownItem,
               sortOrder === "newest" && styles.dropdownItemSelected,
             ]}
-            onPress={() => selectSortOption("newest")}
+            onPress={() => { setOpenSwipeId(null); selectSortOption("newest"); }}
             activeOpacity={0.75}
           >
             <Text
@@ -665,7 +768,7 @@ export default function UserNotifications() {
               styles.dropdownItem,
               sortOrder === "oldest" && styles.dropdownItemSelected,
             ]}
-            onPress={() => selectSortOption("oldest")}
+            onPress={() => { setOpenSwipeId(null); selectSortOption("oldest"); }}
             activeOpacity={0.75}
           >
             <Text
@@ -829,11 +932,16 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingBottom: 100,
   },
-  swipeWrapper: {
-    position: "relative",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
+swipeWrapper: {
+  borderBottomWidth: 1,
+  borderBottomColor: "#f0f0f0",
+  overflow: "hidden",
+  backgroundColor: "#d32f2f",
+},
+
+swipeFront: {
+  backgroundColor: "#ffffff",
+},
   behindDelete: {
     position: "absolute",
     right: 0,

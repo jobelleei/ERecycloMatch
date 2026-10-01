@@ -614,22 +614,6 @@ export default function IndividualSignup() {
 
       console.log("ID IMAGE URL:", idImageUrl);
 
-      const ocrResult = await checkIdWithOCR(idImageUrl);
-
-      console.log("OCR TEXT FROM ID:");
-      console.log(ocrResult.text);
-
-      const nameMatches = ocrResult.success
-        ? isNameMatch(name.trim(), ocrResult.text)
-        : false;
-
-      const accountStatus = nameMatches ? "approved" : "pending";
-      const approvalSource = nameMatches ? "system" : null;
-
-      console.log("NAME MATCH:", nameMatches);
-      console.log("ACCOUNT STATUS:", accountStatus);
-      console.log("APPROVAL SOURCE:", approvalSource);
-
       /* CREATE AUTH USER */
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
@@ -668,9 +652,9 @@ export default function IndividualSignup() {
             id_type: idType,
             id_image: idImageUrl,
             profile_image: null,
-            status: accountStatus,
-            approval_source: approvalSource,
-            approved_at: nameMatches ? new Date().toISOString() : null,
+            status: "pending",
+            approval_source: null,
+            approved_at: null,
             reject_reason: null,
           },
         ])
@@ -689,20 +673,12 @@ export default function IndividualSignup() {
         return;
       }
 
-      if (nameMatches) {
-        Toast.show({
-          type: "success",
-          text1: "Account approved",
-          text2: "Your ID was verified. You can now sign in.",
-        });
-      } else {
-        Toast.show({
-          type: "success",
-          text1: "Submitted for approval",
-          text2:
-            "Your ID could not be automatically verified. Please wait for admin approval.",
-        });
-      }
+      Toast.show({
+        type: "success",
+        text1: "Registration submitted",
+        text2: "Your account is pending admin approval.",
+      });
+      
 
       router.push("/signin");
     } catch (error: any) {
@@ -724,14 +700,20 @@ export default function IndividualSignup() {
         flex: 1,
         backgroundColor: "#DDEFD3",
       }}
-      edges={["top"]}
+      edges={[]}
     >
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
-        style={styles.backgroundImage}
+        style={[styles.backgroundImage, { opacity: 0.5 }]}
         resizeMode="cover"
+        imageStyle={{
+          opacity: 0.5,
+          transform: [
+            { scale: 1.15 },
+            { translateX: 20 },
+          ],
+        }}
       >
-        <View style={styles.overlay} pointerEvents="none" />
       </ImageBackground>
 
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>

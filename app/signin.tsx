@@ -214,11 +214,14 @@ export default function Signin() {
       >
         <View style={signinStyles.container}>
           <ImageBackground
-            source={require("../assets/images/firstbg.png")}
-            style={signinStyles.background}
-          >
-            <View style={signinStyles.overlay} />
-          </ImageBackground>
+          source={require("../assets/images/firstbg.png")}
+          style={signinStyles.background}
+          imageStyle={{
+            opacity: 0.5,
+          }}
+        >
+          <View style={signinStyles.overlay} />
+        </ImageBackground>
 
           <Pressable
             onPress={() => router.push("/" as any)}

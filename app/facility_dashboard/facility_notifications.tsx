@@ -34,59 +34,118 @@ function SwipeableNotificationRow({
   item,
   onDelete,
   children,
+  isOpen,
+  onOpen,
+  onClose,
 }: {
   item: NotificationItem;
   onDelete: (item: NotificationItem) => void;
   children: React.ReactNode;
+  isOpen: boolean;
+  onOpen: (id: string) => void;
+  onClose: () => void;
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const openValue = -80;
+  const currentX = useRef(0);
+  const gestureStartX = useRef(0);
 
-  const closeRow = () => {
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
-  };
+  const DELETE_WIDTH = 80;
 
-  const openRow = () => {
-    Animated.spring(translateX, {
-      toValue: openValue,
-      useNativeDriver: true,
-    }).start();
-  };
+  const animateTo = useCallback(
+    (toValue: number) => {
+      currentX.current = toValue;
+      Animated.spring(translateX, {
+        toValue,
+        useNativeDriver: true,
+        tension: 70,
+        friction: 10,
+      }).start();
+    },
+    [translateX],
+  );
+
+  useEffect(() => {
+    if (!isOpen && currentX.current !== 0) {
+      animateTo(0);
+    }
+  }, [isOpen, animateTo]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) =>
-        Math.abs(g.dx) > 12 && Math.abs(g.dx) > Math.abs(g.dy),
-      onPanResponderMove: (_, g) => {
-        if (g.dx < 0) {
-          translateX.setValue(Math.max(g.dx, openValue));
+      onMoveShouldSetPanResponderCapture: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      },
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        const { dx, dy } = gestureState;
+        return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.2;
+      },
+      onPanResponderGrant: () => {
+        translateX.stopAnimation((value) => {
+          currentX.current = value;
+          gestureStartX.current = value;
+        });
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const nextX = Math.max(
+          -DELETE_WIDTH,
+          Math.min(0, gestureStartX.current + gestureState.dx),
+        );
+        currentX.current = nextX;
+        translateX.setValue(nextX);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        const finalX = Math.max(
+          -DELETE_WIDTH,
+          Math.min(0, gestureStartX.current + gestureState.dx),
+        );
+        if (gestureState.vx > 0.35) {
+          onClose();
+          animateTo(0);
+          return;
+        }
+        if (finalX <= -DELETE_WIDTH / 2 || gestureState.vx < -0.5) {
+          onOpen(item.id);
+          animateTo(-DELETE_WIDTH);
+        } else {
+          onClose();
+          animateTo(0);
         }
       },
-      onPanResponderRelease: (_, g) => {
-        if (g.dx < -35) openRow();
-        else closeRow();
+      onPanResponderTerminate: () => {
+        if (currentX.current <= -DELETE_WIDTH / 2) {
+          onOpen(item.id);
+          animateTo(-DELETE_WIDTH);
+        } else {
+          onClose();
+          animateTo(0);
+        }
       },
+      onPanResponderTerminationRequest: () => false,
     }),
   ).current;
+
+  const handleDelete = () => {
+    onClose();
+    animateTo(0);
+    onDelete(item);
+  };
 
   return (
     <View style={styles.swipeWrapper}>
       <View style={styles.behindDelete}>
         <TouchableOpacity
           style={styles.behindDeleteBtn}
-          onPress={() => {
-            closeRow();
-            onDelete(item);
-          }}
+          onPress={handleDelete}
         >
           <Text style={styles.behindDeleteText}>Delete</Text>
         </TouchableOpacity>
       </View>
       <Animated.View
-        style={{ transform: [{ translateX }] }}
+        style={[
+          styles.swipeFront,
+          { transform: [{ translateX }] },
+        ]}
         {...panResponder.panHandlers}
       >
         {children}
@@ -105,6 +164,9 @@ export default function FacilityNotifications() {
   const [activeTab, setActiveTab] = useState<"all" | "unread">("all");
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
+  const screenTouchStart = useRef({ x: 0, y: 0 });
+  const screenTouchMoved = useRef(false);
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
@@ -167,9 +229,10 @@ export default function FacilityNotifications() {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
-          table: "items",
+          table: "notifications",
+          filter: `profile_id=eq.${facilityId}`,
         },
         () => fetchAllFacilityUpdates(facilityId),
       )
@@ -243,18 +306,21 @@ export default function FacilityNotifications() {
       const combined: NotificationItem[] = [];
       const numericFacilityId = Number(currentFacilityId);
 
-      // 1. Fetch Conversations where the last message was sent by a USER (not this facility)
-      const { data: conversations } = await supabase
+      // 1. Fetch conversations belonging to THIS facility only.
+      const { data: conversations, error: conversationsError } = await supabase
         .from("conversations")
         .select("*")
         .eq("facility_id", currentFacilityId)
         .order("updated_at", { ascending: false });
 
-      if (conversations && conversations.length > 0) {
-        const conversationIds = conversations.map((c) => c.id);
+      if (conversationsError) {
+        console.log("FETCH FACILITY CONVERSATIONS ERROR:", conversationsError);
+      }
 
-        // Fetch the latest message for each conversation to verify who sent it
-        const { data: latestMessages } = await supabase
+      if (conversations && conversations.length > 0) {
+        const conversationIds = conversations.map((c: any) => c.id);
+
+        const { data: latestMessages, error: latestMessagesError } = await supabase
           .from("messages")
           .select(
             "conversation_id, sender_id, sender_role, sender_type, created_at, message",
@@ -262,7 +328,10 @@ export default function FacilityNotifications() {
           .in("conversation_id", conversationIds)
           .order("created_at", { ascending: false });
 
-        // Map to keep track of the latest message per conversation
+        if (latestMessagesError) {
+          console.log("FETCH LATEST FACILITY MESSAGES ERROR:", latestMessagesError);
+        }
+
         const latestMsgMap: Record<string, any> = {};
         (latestMessages || []).forEach((m: any) => {
           if (!latestMsgMap[m.conversation_id]) {
@@ -270,11 +339,15 @@ export default function FacilityNotifications() {
           }
         });
 
-        const { data: unreadMsgs } = await supabase
+        const { data: unreadMsgs, error: unreadMessagesError } = await supabase
           .from("messages")
           .select("conversation_id, id")
           .eq("receiver_id", numericFacilityId)
           .eq("is_read", false);
+
+        if (unreadMessagesError) {
+          console.log("FETCH UNREAD FACILITY MESSAGES ERROR:", unreadMessagesError);
+        }
 
         const unreadCountMap: Record<string, number> = {};
         (unreadMsgs || []).forEach((m: any) => {
@@ -286,7 +359,6 @@ export default function FacilityNotifications() {
           const lastMsgObj = latestMsgMap[c.id];
           if (!lastMsgObj) return;
 
-          // Check if the last message was sent by the facility itself
           const senderId = lastMsgObj.sender_id
             ? Number(lastMsgObj.sender_id)
             : null;
@@ -299,14 +371,14 @@ export default function FacilityNotifications() {
             senderRole === "facility" ||
             senderRole === "recycling facility";
 
-          // Skip notification if the facility was the one who sent the latest message
+          // Do not notify the facility about its own latest message.
           if (isSentByFacility) return;
 
           const userName = c.user_name || "Community User";
           const lastMsg = lastMsgObj.message || c.last_message || "";
-          const timeVal = new Date(
-            lastMsgObj.created_at || c.updated_at || c.created_at,
-          ).getTime();
+          const messageDate =
+            lastMsgObj.created_at || c.updated_at || c.created_at;
+          const timeVal = new Date(messageDate).getTime();
           const unreadForConv = unreadCountMap[c.id] || 0;
           const isUnread = !c.is_read || unreadForConv > 0;
 
@@ -316,9 +388,7 @@ export default function FacilityNotifications() {
               type: "message",
               title: `Message from ${userName}`,
               description: lastMsg,
-              createdAt: formatRelativeTime(
-                lastMsgObj.created_at || c.updated_at || c.created_at,
-              ),
+              createdAt: formatRelativeTime(messageDate),
               read: !isUnread,
               unreadCount: unreadForConv,
               timestamp: isNaN(timeVal) ? Date.now() : timeVal,
@@ -334,51 +404,123 @@ export default function FacilityNotifications() {
         });
       }
 
-      // 2. Fetch Newly Posted Items by Users or items matched to other facilities/this facility
-      const { data: recentItems } = await supabase
-        .from("items")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(15);
+      // 2. IMPORTANT: Fetch ONLY notifications addressed to THIS facility.
+      //    Do not fetch all recent items from the items table. That would make
+      //    every facility see listings belonging to other facilities.
+      const notificationProfileId = Number.isFinite(numericFacilityId)
+        ? numericFacilityId
+        : currentFacilityId;
 
-      (recentItems || []).forEach((item: any) => {
-        const itemName = item.item_name || item.item_type || "New e-waste item";
-        const submitter = item.submitter_name || "A user";
-        const timeVal = new Date(item.created_at || item.updated_at).getTime();
-        const status = String(
-          item.status || item.match_status || "Listed",
-        ).toLowerCase();
+      const { data: targetedNotifications, error: notificationsError } =
+        await supabase
+          .from("notifications")
+          .select("id, profile_id, title, message, type, is_read, data, created_at")
+          .eq("profile_id", notificationProfileId)
+          .order("created_at", { ascending: false })
+          .limit(100);
 
-        if (status === "listed" || status === "approved") {
-          combined.push({
-            id: `new-item-${item.id}`,
-            type: "item_update",
-            title: `New Item Listed: ${itemName}`,
-            description: `${submitter} listed "${itemName}". Tap to view and match.`,
-            createdAt: formatRelativeTime(item.created_at || item.updated_at),
-            read: true,
-            timestamp: isNaN(timeVal) ? Date.now() : timeVal,
-            data: {
-              item_id: item.id,
-            },
-          });
-        } else if (status === "matched" || status === "finished") {
-          combined.push({
-            id: `item-status-${item.id}`,
-            type: "item_update",
-            title: `Item Status Update: ${itemName}`,
-            description: `The status for "${itemName}" has been updated to ${status}.`,
-            createdAt: formatRelativeTime(item.updated_at || item.created_at),
-            read: true,
-            timestamp: isNaN(timeVal) ? Date.now() : timeVal,
-            data: {
-              item_id: item.id,
-            },
-          });
+      if (notificationsError) {
+        console.log("FETCH FACILITY NOTIFICATIONS ERROR:", notificationsError);
+      }
+
+      // Collect user/item IDs from targeted nearby-listing notifications so we
+      // can display the actual user who posted each item.
+      const nearbyNotifications = (targetedNotifications || []).filter(
+        (notification: any) =>
+          String(notification.type || "").toLowerCase() === "nearby_listing",
+      );
+
+      const userIds = nearbyNotifications
+        .map((notification: any) => notification?.data?.user_id)
+        .filter((id: any) => id !== null && id !== undefined && String(id) !== "")
+        .map((id: any) => String(id));
+
+      const uniqueUserIds = [...new Set(userIds)];
+
+      const userMap: Record<string, any> = {};
+
+      if (uniqueUserIds.length > 0) {
+        const { data: users, error: usersError } = await supabase
+          .from("profiles")
+          .select("id, name, full_name, username")
+          .in("id", uniqueUserIds);
+
+        if (usersError) {
+          console.log("FETCH LISTING USERS ERROR:", usersError);
         }
+
+        (users || []).forEach((profile: any) => {
+          userMap[String(profile.id)] = profile;
+        });
+      }
+
+      (targetedNotifications || []).forEach((notification: any) => {
+        const notificationType = String(notification.type || "system").toLowerCase();
+        const data = notification.data || {};
+        const userId = data.user_id ? String(data.user_id) : "";
+        const profile = userId ? userMap[userId] : null;
+
+        const userName =
+          profile?.name ||
+          profile?.full_name ||
+          profile?.username ||
+          data.user_name ||
+          "A user";
+
+        const itemName =
+          data.item_name ||
+          "listed item";
+
+        const distance = Number(data.distance_km);
+        const hasDistance = Number.isFinite(distance);
+
+        let title = notification.title || "Notification";
+        let description = notification.message || "";
+
+        // Build the facility-side nearby listing notification from the
+        // notification's targeted user/item data.
+        if (notificationType === "nearby_listing") {
+          title = `New Listing from ${userName}`;
+          description = hasDistance
+            ? `${userName} listed "${itemName}" ${distance.toFixed(1)} km from your facility. Tap to view and match.`
+            : `${userName} listed "${itemName}". Tap to view and match.`;
+        }
+
+        const createdAt = notification.created_at || new Date().toISOString();
+        const timeVal = new Date(createdAt).getTime();
+
+        combined.push({
+          id: `db-notification-${notification.id}`,
+          type:
+            notificationType === "nearby_listing"
+              ? "item_update"
+              : notificationType === "message"
+                ? "message"
+                : "system",
+          title,
+          description,
+          createdAt: formatRelativeTime(createdAt),
+          read: Boolean(notification.is_read),
+          timestamp: isNaN(timeVal) ? Date.now() : timeVal,
+          data: {
+            ...data,
+            notification_id: notification.id,
+            user_id: data.user_id || null,
+            user_name: userName,
+            item_id: data.item_id || null,
+            item_name: itemName,
+            facility_id: currentFacilityId,
+          },
+        });
       });
 
-      setNotifications(combined);
+      // Prevent duplicate notifications when the same notification is
+      // returned by multiple sources.
+      const uniqueNotifications = Array.from(
+        new Map(combined.map((notification) => [notification.id, notification])).values(),
+      );
+
+      setNotifications(uniqueNotifications);
     } catch (err) {
       console.log("FETCH FACILITY UPDATES ERROR:", err);
     } finally {
@@ -394,11 +536,25 @@ export default function FacilityNotifications() {
       ),
     );
 
+    // Mark the actual notification row as read.
+    if (item.data?.notification_id) {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", String(item.data.notification_id))
+        .eq("profile_id", Number(facilityId));
+
+      if (error) {
+        console.log("MARK FACILITY NOTIFICATION READ ERROR:", error);
+      }
+    }
+
     if (item.type === "message" && item.data?.conversation_id) {
       await supabase
         .from("conversations")
         .update({ is_read: true })
-        .eq("id", String(item.data.conversation_id));
+        .eq("id", String(item.data.conversation_id))
+        .eq("facility_id", facilityId);
 
       if (facilityId) {
         await supabase
@@ -411,11 +567,24 @@ export default function FacilityNotifications() {
   };
 
   const markAllAsRead = async () => {
+    setOpenSwipeId(null);
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read: true, unreadCount: 0 })),
     );
 
     if (!facilityId) return;
+
+    const numericId = Number(facilityId);
+
+    const { error: notificationError } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("profile_id", Number.isFinite(numericId) ? numericId : facilityId)
+      .eq("is_read", false);
+
+    if (notificationError) {
+      console.log("MARK ALL FACILITY NOTIFICATIONS READ ERROR:", notificationError);
+    }
 
     await supabase
       .from("conversations")
@@ -425,14 +594,17 @@ export default function FacilityNotifications() {
     await supabase
       .from("messages")
       .update({ is_read: true })
-      .eq("receiver_id", Number(facilityId));
+      .eq("receiver_id", numericId)
+      .eq("is_read", false);
   };
 
   const deleteNotification = (item: NotificationItem) => {
+    setOpenSwipeId(null);
     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
   };
 
   const handleOpen = async (item: NotificationItem) => {
+    setOpenSwipeId(null);
     if (dropdownOpen) setDropdownOpen(false);
     await markAsRead(item);
 
@@ -480,7 +652,13 @@ export default function FacilityNotifications() {
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => (
-    <SwipeableNotificationRow item={item} onDelete={deleteNotification}>
+    <SwipeableNotificationRow
+      item={item}
+      onDelete={deleteNotification}
+      isOpen={openSwipeId === item.id}
+      onOpen={(id) => setOpenSwipeId(id)}
+      onClose={() => setOpenSwipeId(null)}
+    >
       <TouchableOpacity
         style={[styles.itemCard, !item.read && styles.unreadItemCardHighlight]}
         activeOpacity={0.82}
@@ -544,7 +722,27 @@ export default function FacilityNotifications() {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={styles.container}
+      onTouchStart={(event) => {
+        const { pageX, pageY } = event.nativeEvent;
+        screenTouchStart.current = { x: pageX, y: pageY };
+        screenTouchMoved.current = false;
+      }}
+      onTouchMove={(event) => {
+        const { pageX, pageY } = event.nativeEvent;
+        const dx = pageX - screenTouchStart.current.x;
+        const dy = pageY - screenTouchStart.current.y;
+        if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+          screenTouchMoved.current = true;
+        }
+      }}
+      onTouchEnd={() => {
+        if (!screenTouchMoved.current && openSwipeId) {
+          setOpenSwipeId(null);
+        }
+      }}
+    >
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
         <TouchableOpacity onPress={markAllAsRead}>
@@ -560,6 +758,7 @@ export default function FacilityNotifications() {
               activeTab === "all" && styles.tabButtonActive,
             ]}
             onPress={() => {
+              setOpenSwipeId(null);
               if (dropdownOpen) setDropdownOpen(false);
               setActiveTab("all");
             }}
@@ -580,6 +779,7 @@ export default function FacilityNotifications() {
               activeTab === "unread" && styles.tabButtonActive,
             ]}
             onPress={() => {
+              setOpenSwipeId(null);
               if (dropdownOpen) setDropdownOpen(false);
               setActiveTab("unread");
             }}
@@ -598,7 +798,7 @@ export default function FacilityNotifications() {
         {/* Filter Slider Option Button */}
         <TouchableOpacity
           style={styles.filterButton}
-          onPress={() => setDropdownOpen((prev) => !prev)}
+          onPress={() => { setOpenSwipeId(null); setDropdownOpen((prev) => !prev); }}
           activeOpacity={0.7}
         >
           <Ionicons name="options-outline" size={24} color="#66BB6A" />
@@ -618,7 +818,7 @@ export default function FacilityNotifications() {
               styles.dropdownItem,
               sortOrder === "newest" && styles.dropdownItemSelected,
             ]}
-            onPress={() => selectSortOption("newest")}
+            onPress={() => { setOpenSwipeId(null); selectSortOption("newest"); }}
             activeOpacity={0.75}
           >
             <Text
@@ -641,7 +841,7 @@ export default function FacilityNotifications() {
               styles.dropdownItem,
               sortOrder === "oldest" && styles.dropdownItemSelected,
             ]}
-            onPress={() => selectSortOption("oldest")}
+            onPress={() => { setOpenSwipeId(null); selectSortOption("oldest"); }}
             activeOpacity={0.75}
           >
             <Text
@@ -811,6 +1011,9 @@ const styles = StyleSheet.create({
     position: "relative",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
+  },
+  swipeFront: {
+    backgroundColor: "#ffffff",
   },
   behindDelete: {
     position: "absolute",

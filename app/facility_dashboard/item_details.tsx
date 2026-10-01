@@ -268,12 +268,6 @@ export default function ItemDetails() {
             Posted by {item.submitter_name || "User"}
           </Text>
 
-          <View style={styles.statusBox}>
-            <Text style={styles.statusText}>
-              {item.match_status || item.status || "Listed"}
-            </Text>
-          </View>
-
           {/* Description */}
           <View style={styles.section}>
             <Text style={styles.label}>Description</Text>
@@ -388,19 +382,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#2f7d1f",
     fontWeight: "600",
-  },
-  statusBox: {
-    marginTop: 14,
-    alignSelf: "flex-start",
-    backgroundColor: "#e8f5e9",
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  statusText: {
-    color: "#2f7d1f",
-    fontWeight: "700",
-    fontSize: 12,
   },
   section: {
     marginTop: 20,

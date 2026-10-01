@@ -1,5 +1,5 @@
 from ultralytics import YOLO
 
-model = YOLO("runs/detect/train-14/weights/last.pt")
+model = YOLO("runs/detect/train-3/weights/last.pt")
 
 model.train(resume=True)

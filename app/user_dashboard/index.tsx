@@ -52,18 +52,6 @@ export default function UserDashboard() {
     }, [userId]),
   );
 
-  useEffect(() => {
-    if (!userId) return;
-
-    fetchRecentItems(userId);
-
-    const interval = setInterval(() => {
-      fetchRecentItems(userId);
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [userId]);
-
   useFocusEffect(
     useCallback(() => {
       if (userId) {
@@ -73,35 +61,35 @@ export default function UserDashboard() {
   );
 
   useEffect(() => {
-    if (!userId) {
-      setUnreadNotificationCount(0);
-      return;
-    }
+  if (!userId) {
+    setUnreadNotificationCount(0);
+    return;
+  }
 
-    fetchUnreadNotificationCount(userId);
+  fetchUnreadNotificationCount(userId);
 
-    const channelId = `dashboard-notifs-${userId}-${Date.now()}`;
-    const channel = supabase.channel(channelId);
+  const channelId = `dashboard-messages-${userId}-${Date.now()}`;
+  const channel = supabase.channel(channelId);
 
-    channel
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notifications",
-          filter: `profile_id=eq.${userId}`,
-        },
-        () => {
-          fetchUnreadNotificationCount(userId);
-        },
-      )
-      .subscribe();
+  channel
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "messages",
+        filter: `receiver_id=eq.${Number(userId)}`,
+      },
+      () => {
+        fetchUnreadNotificationCount(userId);
+      },
+    )
+    .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId]);
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [userId]);
 
   useEffect(() => {
     const delaySearch = setTimeout(() => {
@@ -116,34 +104,37 @@ export default function UserDashboard() {
     return () => clearTimeout(delaySearch);
   }, [searchText]);
 
-  const fetchUnreadNotificationCount = async (currentUserId = userId) => {
-    try {
-      if (!currentUserId) {
+    const fetchUnreadNotificationCount = async (currentUserId = userId) => {
+      try {
+        if (!currentUserId) {
+          setUnreadNotificationCount(0);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("messages")
+          .select("conversation_id")
+          .eq("receiver_id", Number(currentUserId))
+          .eq("is_read", false);
+
+        if (error) {
+          console.log("FETCH UNREAD MESSAGE COUNT ERROR:", error);
+          setUnreadNotificationCount(0);
+          return;
+        }
+
+        const unreadConversations = new Set(
+          (data || [])
+            .map((message) => message.conversation_id)
+            .filter(Boolean)
+        );
+
+        setUnreadNotificationCount(unreadConversations.size);
+      } catch (error) {
+        console.log("UNREAD MESSAGE COUNT ERROR:", error);
         setUnreadNotificationCount(0);
-        return;
       }
-
-      const { count, error } = await supabase
-        .from("notifications")
-        .select("id", {
-          count: "exact",
-          head: true,
-        })
-        .eq("profile_id", Number(currentUserId))
-        .eq("is_read", false);
-
-      if (error) {
-        console.log("FETCH UNREAD NOTIFICATION COUNT ERROR:", error);
-        setUnreadNotificationCount(0);
-        return;
-      }
-
-      setUnreadNotificationCount(count || 0);
-    } catch (error) {
-      console.log("UNREAD NOTIFICATION COUNT ERROR:", error);
-      setUnreadNotificationCount(0);
-    }
-  };
+    };
 
   const loadUser = async () => {
     try {
@@ -370,7 +361,7 @@ export default function UserDashboard() {
     }
   };
 
-  const onRefresh = async () => {
+    const onRefresh = async () => {
     setRefreshing(true);
 
     await loadUser();
@@ -379,8 +370,6 @@ export default function UserDashboard() {
       await fetchRecentItems(userId);
       await fetchUnreadNotificationCount(userId);
     }
-
-    await fetchApprovedFacilities();
 
     setRefreshing(false);
   };
@@ -680,30 +669,29 @@ export default function UserDashboard() {
           </View>
 
           <ImageBackground
-            source={require("../../assets/images/banner.jpg")}
-            style={styles.banner}
-            imageStyle={{ borderRadius: 15 }}
-          >
-            <View style={styles.overlay} />
+          source={require("../../assets/images/banner.jpg")}
+          style={styles.banner}
+          imageStyle={{
+            borderRadius: 15,
+            opacity: 0.5,
+          }}
+        >
+          <View style={styles.overlay} />
 
-            <Text style={styles.bannerTitle}>
-              RECYCLE SMARTER{"\n"}MATCH FASTER
-            </Text>
+          <Text style={styles.bannerTitle}>
+            RECYCLE SMARTER{"\n"}MATCH FASTER
+          </Text>
 
-            <Text style={styles.bannerSub}>
-              Find the right place for your e-waste with just a few clicks.
-            </Text>
-          </ImageBackground>
+          <Text style={styles.bannerSub}>
+            Find the right place for your e-waste with just a few clicks.
+          </Text>
+        </ImageBackground>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Items</Text>
-
-            <TouchableOpacity
-              onPress={() => router.push("/user_dashboard/user_myItems" as any)}
-            >
-              <Text style={styles.viewAll}>View All</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.sectionTitle}>
+            Recent Listed Items
+          </Text>
+        </View>
 
           {recentItems.length > 0 ? (
             recentItems.map((item) => {
@@ -742,18 +730,27 @@ export default function UserDashboard() {
           )}
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              Partnered Recycling Facilities
-            </Text>
+          <Text style={styles.sectionTitle}>
+            Partnered Recycling Facilities
+          </Text>
 
-            <TouchableOpacity
-              onPress={() =>
-                router.push("/user_dashboard/facility_list" as any)
-              }
-            >
-              <Text style={styles.viewAll}>View More</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.refreshFacilityButton}
+            onPress={fetchApprovedFacilities}
+            disabled={loadingFacilities}
+            activeOpacity={0.7}
+          >
+            {loadingFacilities ? (
+              <ActivityIndicator size="small" color="#2f7d1f" />
+            ) : (
+              <Ionicons
+                name="refresh-outline"
+                size={20}
+                color="#2f7d1f"
+              />
+            )}
+          </TouchableOpacity>
+        </View>
 
           {loadingFacilities ? (
             <View style={styles.emptyCard}>
@@ -761,7 +758,11 @@ export default function UserDashboard() {
               <Text style={styles.emptyText}>Loading facilities...</Text>
             </View>
           ) : partneredFacilities.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.facilitySlider}
+            >
               {partneredFacilities.map((facility) => (
                 <TouchableOpacity
                   key={`partnered-facility-${facility.id}`}
@@ -783,6 +784,25 @@ export default function UserDashboard() {
                   </Text>
                 </TouchableOpacity>
               ))}
+
+              {/* View More as the last slide */}
+              <TouchableOpacity
+                style={styles.viewMoreFacilityCard}
+                onPress={() =>
+                  router.push("/user_dashboard/facility_list" as any)
+                }
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="arrow-forward-circle-outline"
+                  size={38}
+                  color="#2f7d1f"
+                />
+
+                <Text style={styles.viewMoreFacilityText}>
+                  View More
+                </Text>
+              </TouchableOpacity>
             </ScrollView>
           ) : (
             <View style={styles.emptyCard}>
@@ -964,9 +984,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.5)",
-  },
+  ...StyleSheet.absoluteFill,
+  backgroundColor: "transparent",
+},
   bannerTitle: {
     fontSize: 22,
     fontWeight: "bold",
@@ -1070,4 +1090,37 @@ const styles = StyleSheet.create({
     color: "#777",
     lineHeight: 15,
   },
+
+  facilitySlider: {
+  paddingRight: 5,
+},
+
+viewMoreFacilityCard: {
+  width: 165,
+  backgroundColor: "#fff",
+  borderRadius: 15,
+  padding: 10,
+  marginRight: 15,
+  marginTop: 10,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+viewMoreFacilityText: {
+  marginTop: 8,
+  fontWeight: "700",
+  fontSize: 14,
+  color: "#2f7d1f",
+},
+
+refreshFacilityButton: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: "#ffffff",
+  borderWidth: 1,
+  borderColor: "#e5e5e5",
+  alignItems: "center",
+  justifyContent: "center",
+},
 });
