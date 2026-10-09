@@ -29,19 +29,31 @@ function SwipeableConversation({
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const openValue = -92;
+  // Where the row rests (0 = closed, openValue = open) so swipes start from there
+  const restingX = useRef(0);
+  const [isOpen, setIsOpen] = useState(false);
 
-  const closeRow = () => {
+  const animateTo = (toValue: number) => {
+    restingX.current = toValue;
+    setIsOpen(toValue !== 0);
     Animated.spring(translateX, {
-      toValue: 0,
+      toValue,
       useNativeDriver: true,
+      bounciness: 0,
     }).start();
   };
 
-  const openRow = () => {
-    Animated.spring(translateX, {
-      toValue: openValue,
-      useNativeDriver: true,
-    }).start();
+  const closeRow = () => animateTo(0);
+  const openRow = () => animateTo(openValue);
+
+  const settleRow = (dx: number, vx: number) => {
+    const finalX = restingX.current + dx;
+
+    // A quick flick decides direction; otherwise snap to the nearest side
+    if (vx > 0.3) return closeRow();
+    if (vx < -0.3) return openRow();
+
+    finalX < openValue / 2 ? openRow() : closeRow();
   };
 
   const panResponder = useRef(
@@ -53,19 +65,23 @@ function SwipeableConversation({
         );
       },
 
+      // Keep the gesture so the list doesn't steal it mid-swipe
+      onPanResponderTerminationRequest: () => false,
+
       onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dx < 0) {
-          const nextValue = Math.max(gestureState.dx, openValue);
-          translateX.setValue(nextValue);
-        }
+        const nextValue = Math.min(
+          0,
+          Math.max(restingX.current + gestureState.dx, openValue),
+        );
+        translateX.setValue(nextValue);
       },
 
       onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx < -45) {
-          openRow();
-        } else {
-          closeRow();
-        }
+        settleRow(gestureState.dx, gestureState.vx);
+      },
+
+      onPanResponderTerminate: (_, gestureState) => {
+        settleRow(gestureState.dx, gestureState.vx);
       },
     }),
   ).current;
@@ -95,6 +111,14 @@ function SwipeableConversation({
         {...panResponder.panHandlers}
       >
         {children}
+
+        {isOpen && (
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeRow}
+          />
+        )}
       </Animated.View>
     </View>
   );

@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
-import * as Notifications from "expo-notifications";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -77,20 +76,7 @@ export default function UserChat() {
 
   useEffect(() => {
     loadUser();
-    requestNotificationPermission();
   }, []);
-
-  const requestNotificationPermission = async () => {
-    try {
-      const { status: existingStatus } =
-        await Notifications.getPermissionsAsync();
-      if (existingStatus !== "granted") {
-        await Notifications.requestPermissionsAsync();
-      }
-    } catch (error) {
-      console.log("Error requesting notification permission:", error);
-    }
-  };
 
   useEffect(() => {
     if (!conversationId) return;
@@ -1299,12 +1285,30 @@ export default function UserChat() {
 
   const getSubtitle = () => {
     const status = conversation?.status || "match_pending";
+
     if (status === "match_pending") return "Match request pending";
     if (status === "cancelled") return "Match cancelled";
     if (status === "rejected") return "Match rejected";
+    if (status === "accepted") return "Match accepted";
+    if (status === "active") return "Match accepted";
+    if (status === "matched") return "Match accepted";
     if (status === "finish_pending") return "Waiting for other side";
     if (status === "finished") return "Match finished";
-    return "Online";
+
+    return "Chat";
+  };
+
+  const getSubtitleDotColor = () => {
+    const status = conversation?.status || "match_pending";
+
+    if (status === "match_pending") return "#f9a825";
+    if (status === "cancelled" || status === "rejected") return "#c62828";
+    if (status === "accepted" || status === "active" || status === "matched")
+      return "#1976d2";
+    if (status === "finish_pending") return "#1976d2";
+    if (status === "finished") return "#2e7d32";
+
+    return "#888";
   };
 
   const renderTopButtons = () => {
@@ -1460,10 +1464,8 @@ export default function UserChat() {
 
     const shortTimeText = formatMessageTime(item.created_at);
     const fullDateTimeText = formatMessageDateTime(item.created_at);
-    const acceptedMessage = isMatchAcceptedMessage(item);
     const rejectedMessage = isMatchRejectedMessage(item);
     const cancelledMessage = isMatchCancelledMessage(item);
-    const finishClickedMessage = isFinishClickedMessage(item);
 
     const messageKey = String(item.id || item.created_at);
     const showFullDate = visibleTimestamps[messageKey];
@@ -1490,24 +1492,8 @@ export default function UserChat() {
 
     if (isSystem) {
       return (
-        <View
-          style={[
-            styles.systemMessage,
-            acceptedMessage && styles.acceptedSystemMessage,
-            rejectedMessage && styles.rejectedSystemMessage,
-            cancelledMessage && styles.cancelledSystemMessage,
-            finishClickedMessage && styles.finishSystemMessage,
-          ]}
-        >
-          <Text
-            style={[
-              styles.systemText,
-              acceptedMessage && styles.acceptedSystemText,
-              rejectedMessage && styles.rejectedSystemText,
-              cancelledMessage && styles.cancelledSystemText,
-              finishClickedMessage && styles.finishSystemText,
-            ]}
-          >
+        <View style={styles.plainSystemContainer}>
+          <Text style={styles.plainSystemText}>
             {requestMessage
               ? "Match request sent"
               : rejectedMessage
@@ -1518,9 +1504,27 @@ export default function UserChat() {
           </Text>
 
           {requestMessage && renderRequestItemCard()}
-          {shortTimeText ? (
-            <Text style={styles.systemTime}>{shortTimeText}</Text>
-          ) : null}
+
+          {requestMessage && isCurrentAccountRequester() && (
+            <View style={styles.oneMessageNotice}>
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color="#8a6d1f"
+              />
+              <Text style={styles.oneMessageNoticeText}>
+                {hasCurrentAccountSentOffer()
+                  ? "Your message has been sent. You can chat freely once the facility accepts this request."
+                  : "To avoid spam, you can only send one message while this request is pending. Include your offer and pickup or drop-off details."}
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity onPress={toggleTimestamp}>
+            <Text style={styles.plainSystemTime}>
+              {showFullDate ? fullDateTimeText : shortTimeText}
+            </Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -1528,8 +1532,8 @@ export default function UserChat() {
     return (
       <View
         style={[
-          styles.messageRow,
-          isMine ? styles.myMessageRow : styles.otherMessageRow,
+          styles.messageContainer,
+          isMine ? styles.myMessageContainer : styles.otherMessageContainer,
         ]}
       >
         <TouchableOpacity activeOpacity={0.9} onPress={toggleTimestamp}>
@@ -1539,12 +1543,6 @@ export default function UserChat() {
               isMine ? styles.myMessage : styles.otherMessage,
             ]}
           >
-            {!isMine && (
-              <Text style={styles.senderName}>
-                {item.sender_name || facilityProfile.name || "Facility"}
-              </Text>
-            )}
-
             {isImage ? (
               <Image
                 source={{ uri: messageTextValue }}
@@ -1563,7 +1561,12 @@ export default function UserChat() {
 
         {/* Static time shows by default; when clicked, full date and time is shown */}
         {shortTimeText ? (
-          <Text style={[styles.messageTime, isMine && styles.myMessageTime]}>
+          <Text
+            style={[
+              styles.messageTime,
+              isMine ? styles.myMessageTime : styles.otherMessageTime,
+            ]}
+          >
             {showFullDate ? fullDateTimeText : shortTimeText}
           </Text>
         ) : null}
@@ -1594,18 +1597,26 @@ export default function UserChat() {
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.replace("/user_dashboard/messages" as any)}
-              style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={28} color="#222" />
+              <Text style={styles.back}>‹</Text>
             </TouchableOpacity>
 
             <Image source={getFacilityImage()} style={styles.avatarImage} />
 
-            <View style={styles.headerInfo}>
+            <View style={{ marginLeft: 12, flex: 1 }}>
               <Text style={styles.title} numberOfLines={1}>
                 {headerName}
               </Text>
-              <Text style={styles.subtitle}>{getSubtitle()}</Text>
+
+              <View style={styles.subtitleRow}>
+                <View
+                  style={[
+                    styles.subtitleDot,
+                    { backgroundColor: getSubtitleDotColor() },
+                  ]}
+                />
+                <Text style={styles.subtitle}>{getSubtitle()}</Text>
+              </View>
             </View>
           </View>
 
@@ -1650,12 +1661,12 @@ export default function UserChat() {
                 style={styles.removePreviewButton}
                 onPress={() => setSelectedImageUri(null)}
               >
-                <Ionicons name="close-circle" size={22} color="#EF4444" />
+                <Ionicons name="close-circle" size={22} color="#c62828" />
               </TouchableOpacity>
             </View>
           )}
 
-          <View style={styles.bottomBar}>
+          <View style={styles.inputRow}>
             <TouchableOpacity
               style={styles.attachButton}
               onPress={handlePickImage}
@@ -1665,21 +1676,18 @@ export default function UserChat() {
               <Ionicons
                 name="add"
                 size={22}
-                color={chatLocked ? "#B0B0B0" : "#555"}
+                color={chatLocked ? "#bbb" : "#1b5e20"}
               />
             </TouchableOpacity>
 
-            <View style={styles.inputPill}>
-              <TextInput
-                value={messageText}
-                onChangeText={setMessageText}
-                placeholder={getInputPlaceholder()}
-                placeholderTextColor="#999"
-                style={styles.input}
-                editable={canSendMessage()}
-                multiline={false}
-              />
-            </View>
+            <TextInput
+              value={messageText}
+              onChangeText={setMessageText}
+              placeholder={getInputPlaceholder()}
+              placeholderTextColor="#999"
+              style={[styles.input, chatLocked && styles.disabledInput]}
+              editable={canSendMessage()}
+            />
 
             <TouchableOpacity
               style={[
@@ -1700,7 +1708,7 @@ export default function UserChat() {
               {sending ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <Ionicons name="arrow-up" size={20} color="#ffffff" />
+                <Ionicons name="arrow-up" size={18} color="#fff" />
               )}
             </TouchableOpacity>
           </View>
@@ -1897,242 +1905,221 @@ export default function UserChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
   },
+
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 15,
     borderBottomWidth: 1,
-    borderColor: "#f0f0f0",
-    backgroundColor: "#ffffff",
+    borderColor: "#eee",
   },
-  backButton: {
-    padding: 4,
-    marginRight: 4,
+
+  back: {
+    fontSize: 36,
+    marginRight: 15,
   },
+
   avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#eee",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: "#ddd",
   },
-  headerInfo: {
-    marginLeft: 12,
-    flex: 1,
-  },
+
   title: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#111",
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#000",
   },
+
+  subtitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 3,
+    gap: 6,
+  },
+
+  subtitleDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+
   subtitle: {
-    color: "#8E8E93",
-    fontSize: 12,
-    marginTop: 1,
+    color: "gray",
   },
+
   matchActionBox: {
     flexDirection: "row",
     gap: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderColor: "#eee",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#fff",
   },
+
   cancelMatchButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#E53E3E",
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0a0a0",
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: "center",
     backgroundColor: "#fff",
   },
+
   cancelMatchText: {
-    color: "#E53E3E",
-    fontWeight: "700",
-    fontSize: 14,
+    color: "#c62828",
+    fontWeight: "600",
+    fontSize: 15,
   },
+
   finishButton: {
     flex: 1,
-    backgroundColor: "#15803D",
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: "#1b5e20",
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: "center",
   },
+
   finishText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
+    fontWeight: "bold",
+    fontSize: 15,
   },
+
   cancelButton: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#E53E3E",
-    paddingVertical: 10,
-    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e0a0a0",
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: "center",
     backgroundColor: "#fff",
   },
+
   cancelText: {
-    color: "#E53E3E",
-    fontWeight: "700",
-    fontSize: 14,
+    color: "#c62828",
+    fontWeight: "600",
+    fontSize: 15,
   },
+
   feedbackButton: {
     flex: 1,
-    backgroundColor: "#15803D",
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: "#1b5e20",
+    paddingVertical: 11,
+    borderRadius: 10,
     alignItems: "center",
   },
+
   disabledFeedbackButton: {
-    backgroundColor: "#9CA3AF",
+    backgroundColor: "#999",
   },
+
   feedbackText: {
     color: "#fff",
-    fontWeight: "700",
-    fontSize: 14,
+    fontWeight: "bold",
+    fontSize: 15,
   },
+
   statusBox: {
     padding: 12,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#f5f5f5",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
   },
+
   statusText: {
-    fontWeight: "600",
-    color: "#6B7280",
+    fontWeight: "bold",
+    color: "#555",
     textAlign: "center",
-    fontSize: 13,
   },
+
   messagesList: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    padding: 15,
     flexGrow: 1,
   },
-  todayPillContainer: {
-    alignItems: "center",
-    marginVertical: 14,
-  },
-  todayPill: {
-    backgroundColor: "#F3F4F6",
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  todayPillText: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
+
   emptyText: {
     textAlign: "center",
-    color: "#9CA3AF",
+    color: "#777",
     marginTop: 40,
-    fontSize: 14,
   },
-  messageRow: {
-    marginBottom: 14,
+
+  messageContainer: {
+    maxWidth: "80%",
+    marginBottom: 10,
   },
-  myMessageRow: {
+
+  myMessageContainer: {
+    alignSelf: "flex-end",
     alignItems: "flex-end",
   },
-  otherMessageRow: {
+
+  otherMessageContainer: {
+    alignSelf: "flex-start",
     alignItems: "flex-start",
   },
+
   messageBubble: {
-    maxWidth: "78%",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-  },
-  myMessage: {
-    backgroundColor: "#15803D",
-    borderBottomRightRadius: 4,
-  },
-  otherMessage: {
-    backgroundColor: "#F2F3F5",
-    borderBottomLeftRadius: 4,
-  },
-  senderName: {
-    fontSize: 12,
-    color: "#6B7280",
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  myMessageText: {
-    color: "#ffffff",
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  otherMessageText: {
-    color: "#1F2937",
-    fontSize: 15,
-    lineHeight: 20,
-  },
-  chatImage: {
-    width: 200,
-    height: 150,
+    padding: 10,
     borderRadius: 12,
   },
-  messageTime: {
-    fontSize: 11,
-    color: "#9CA3AF",
-    marginTop: 4,
-    marginHorizontal: 4,
+
+  myMessage: {
+    backgroundColor: "#1b5e20",
   },
+
+  otherMessage: {
+    backgroundColor: "#eee",
+  },
+
+  myMessageText: {
+    color: "#fff",
+  },
+
+  otherMessageText: {
+    color: "#000",
+  },
+
+  messageTime: {
+    fontSize: 10,
+    color: "#777",
+    marginTop: 3,
+  },
+
   myMessageTime: {
     textAlign: "right",
   },
-  systemMessage: {
+
+  otherMessageTime: {
+    textAlign: "left",
+  },
+
+  plainSystemContainer: {
     alignSelf: "center",
-    backgroundColor: "#F3F4F6",
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginVertical: 10,
-    maxWidth: "88%",
+    marginVertical: 8,
+    alignItems: "center",
+    maxWidth: "90%",
+    paddingHorizontal: 10,
   },
-  acceptedSystemMessage: {
-    backgroundColor: "#DCFCE7",
-  },
-  rejectedSystemMessage: {
-    backgroundColor: "#FEE2E2",
-  },
-  cancelledSystemMessage: {
-    backgroundColor: "#FEE2E2",
-  },
-  finishSystemMessage: {
-    backgroundColor: "#DBEAFE",
-  },
-  systemText: {
-    color: "#4B5563",
-    fontWeight: "600",
+
+  plainSystemText: {
+    color: "#2E7D32",
     fontSize: 12,
+    fontWeight: "600",
     textAlign: "center",
   },
-  acceptedSystemText: {
-    color: "#15803D",
-  },
-  rejectedSystemText: {
-    color: "#B91C1C",
-  },
-  cancelledSystemText: {
-    color: "#B91C1C",
-  },
-  finishSystemText: {
-    color: "#1D4ED8",
-  },
-  systemTime: {
-    marginTop: 4,
+
+  plainSystemTime: {
+    marginTop: 2,
     fontSize: 10,
     textAlign: "center",
-    color: "#9CA3AF",
+    color: "#888888",
   },
+
   requestItemCard: {
     marginTop: 8,
     backgroundColor: "#fff",
@@ -2141,167 +2128,184 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#ddd",
     minWidth: 230,
   },
+
   requestItemImage: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 8,
     backgroundColor: "#eee",
   },
+
   requestItemInfo: {
     flex: 1,
     marginLeft: 10,
   },
+
   requestItemLabel: {
     fontSize: 10,
-    color: "#6B7280",
+    color: "#777",
     fontWeight: "700",
     marginBottom: 2,
   },
+
   requestItemName: {
     fontSize: 13,
-    color: "#15803D",
+    color: "#1b5e20",
     fontWeight: "bold",
   },
-  imagePreviewContainer: {
+
+  oneMessageNotice: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#fff8e1",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f3e0a6",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    maxWidth: 280,
+  },
+
+  oneMessageNoticeText: {
+    flex: 1,
+    marginLeft: 6,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#8a6d1f",
+  },
+
+  inputRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#F9FAFB",
+    paddingVertical: 12,
     borderTopWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#eee",
+    backgroundColor: "#fff",
   },
-  previewThumbnail: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
-  },
-  removePreviewButton: {
-    marginLeft: 10,
-  },
-  bottomBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderColor: "#F0F0F0",
-    backgroundColor: "#ffffff",
-  },
-  attachButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 8,
-  },
-  inputPill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F3F4F6",
-    borderRadius: 22,
-    paddingHorizontal: 14,
-    minHeight: 42,
-  },
+
   input: {
     flex: 1,
+    backgroundColor: "#f1f2f6",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     fontSize: 15,
-    color: "#1F2937",
-    paddingVertical: 8,
+    color: "#000",
+    maxHeight: 100,
   },
+
+  disabledInput: {
+    backgroundColor: "#ececec",
+    color: "#999",
+  },
+
   sendButton: {
-    marginLeft: 8,
+    marginLeft: 10,
+    backgroundColor: "#1b5e20",
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#15803D",
     justifyContent: "center",
     alignItems: "center",
   },
+
   disabledButton: {
-    backgroundColor: "#D1D5DB",
+    backgroundColor: "#d1d5db",
   },
+
+  sendText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 18,
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     padding: 20,
   },
+
   modalKeyboardView: {
     width: "100%",
     justifyContent: "center",
   },
+
   feedbackBox: {
     backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 22,
+    borderRadius: 18,
+    padding: 20,
   },
+
   feedbackTitle: {
     fontSize: 20,
     fontWeight: "bold",
     textAlign: "center",
-    color: "#15803D",
+    color: "#1b5e20",
   },
+
   feedbackSubtitle: {
     textAlign: "center",
     color: "#555",
-    marginTop: 6,
-    marginBottom: 16,
-    fontSize: 14,
+    marginTop: 8,
+    marginBottom: 15,
   },
+
   starsRow: {
     flexDirection: "row",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 15,
   },
+
   star: {
     fontSize: 34,
-    color: "#E5E7EB",
+    color: "#ccc",
     marginHorizontal: 4,
   },
+
   selectedStar: {
-    color: "#FBBF24",
+    color: "#fbc02d",
   },
+
   feedbackInput: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
+    backgroundColor: "#f1f1f1",
+    borderRadius: 10,
     padding: 12,
-    minHeight: 80,
+    minHeight: 90,
     color: "#222",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
+
   modalButtons: {
     flexDirection: "row",
     justifyContent: "flex-end",
     marginTop: 18,
     gap: 10,
   },
+
   modalCancelButton: {
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#ccc",
     paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 14,
+    borderRadius: 20,
   },
+
   modalCancelText: {
-    color: "#4B5563",
+    color: "#333",
     fontWeight: "bold",
   },
+
   modalSubmitButton: {
-    backgroundColor: "#15803D",
+    backgroundColor: "#1b5e20",
     paddingVertical: 10,
     paddingHorizontal: 18,
-    borderRadius: 14,
+    borderRadius: 20,
   },
-  disabledModalButton: {
-    backgroundColor: "#86EFAC",
-  },
+
   modalSubmitText: {
     color: "#fff",
     fontWeight: "bold",
@@ -2309,114 +2313,189 @@ const styles = StyleSheet.create({
   reportSection: {
     marginTop: 16,
     borderTopWidth: 1,
-    borderTopColor: "#eee",
+    borderTopColor: "#e5e5e5",
     paddingTop: 14,
   },
+
   reportToggle: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
+
   reportCheckbox: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: "#9CA3AF",
+    borderColor: "#777",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2,
   },
+
   reportCheckboxSelected: {
-    backgroundColor: "#15803D",
-    borderColor: "#15803D",
+    backgroundColor: "#1b5e20",
+    borderColor: "#1b5e20",
   },
+
   reportCheckmark: {
     color: "#ffffff",
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "bold",
   },
+
   reportToggleContent: {
     flex: 1,
     marginLeft: 10,
   },
+
   reportToggleTitle: {
-    color: "#DC2626",
-    fontSize: 14,
+    color: "#b3261e",
+    fontSize: 15,
     fontWeight: "700",
   },
+
   reportToggleDescription: {
-    marginTop: 2,
-    color: "#6B7280",
+    marginTop: 3,
+    color: "#666",
     fontSize: 12,
-    lineHeight: 16,
+    lineHeight: 17,
   },
+
   reportForm: {
     marginTop: 14,
   },
+
   reportQuestion: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 8,
+    color: "#222",
+    marginBottom: 10,
   },
+
   reportReason: {
-    minHeight: 40,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    marginBottom: 6,
+    marginBottom: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderColor: "#dddddd",
     backgroundColor: "#ffffff",
   },
+
   reportReasonSelected: {
-    borderColor: "#15803D",
-    backgroundColor: "#F0FDF4",
+    borderColor: "#1b5e20",
+    backgroundColor: "#f1f8f2",
   },
+
   reportRadio: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 2,
-    borderColor: "#9CA3AF",
+    borderColor: "#888",
     alignItems: "center",
     justifyContent: "center",
   },
+
   reportRadioSelected: {
-    borderColor: "#15803D",
+    borderColor: "#1b5e20",
   },
+
   reportRadioInner: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#15803D",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#1b5e20",
   },
+
   reportReasonText: {
     flex: 1,
     marginLeft: 10,
     fontSize: 13,
-    color: "#4B5563",
+    color: "#444",
   },
+
   reportReasonTextSelected: {
-    color: "#15803D",
+    color: "#1b5e20",
     fontWeight: "600",
   },
+
   reportDetailsInput: {
-    minHeight: 80,
+    minHeight: 90,
     marginTop: 6,
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#E5E7EB",
-    backgroundColor: "#FAFAFA",
+    borderColor: "#cccccc",
+    backgroundColor: "#fafafa",
     color: "#222",
-    fontSize: 13,
+    fontSize: 14,
   },
+
   reportCharacterCount: {
     marginTop: 4,
     textAlign: "right",
     fontSize: 11,
-    color: "#9CA3AF",
+    color: "#888",
+  },
+
+  disabledModalButton: {
+    backgroundColor: "#81a784",
+  },
+
+  chatImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 10,
+  },
+
+  todayPillContainer: {
+    alignItems: "center",
+    marginBottom: 10,
+  },
+
+  todayPill: {
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  todayPillText: {
+    fontSize: 11,
+    color: "#777",
+  },
+
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#f1f2f6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+
+  imagePreviewContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f5f5f5",
+    borderTopWidth: 1,
+    borderColor: "#eee",
+  },
+
+  previewThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+
+  removePreviewButton: {
+    marginLeft: 10,
   },
 });

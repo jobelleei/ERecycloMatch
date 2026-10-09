@@ -72,8 +72,6 @@ export default function MyItems() {
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editedDescription, setEditedDescription] = useState("");
 
-  const [modalIssuePhotos, setModalIssuePhotos] = useState<any[]>([]);
-  const [loadingIssuePhotos, setLoadingIssuePhotos] = useState(false);
 
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImageSource, setPreviewImageSource] = useState<any>(null);
@@ -502,68 +500,6 @@ export default function MyItems() {
     };
   };
 
-  const getIssuePhotoImageSource = (photo: any) => {
-    const imagePath =
-      photo?.image_url ||
-      photo?.image_path ||
-      photo?.photo_url ||
-      photo?.photo ||
-      "";
-
-    if (!imagePath || String(imagePath).trim() === "") {
-      return require("../../assets/icons/icon.png");
-    }
-
-    if (String(imagePath).startsWith("http")) {
-      return {
-        uri: `${String(imagePath).trim()}?v=${
-          photo?.updated_at || photo?.created_at || Date.now()
-        }`,
-      };
-    }
-
-    const imageUrl = getPublicImageUrl("item-issue-photos", String(imagePath));
-
-    if (!imageUrl) {
-      return require("../../assets/icons/icon.png");
-    }
-
-    return {
-      uri: `${imageUrl}?v=${
-        photo?.updated_at || photo?.created_at || Date.now()
-      }`,
-    };
-  };
-
-  const fetchIssuePhotosForItem = async (item: any) => {
-    try {
-      if (!item?.id) {
-        setModalIssuePhotos([]);
-        return;
-      }
-
-      setLoadingIssuePhotos(true);
-
-      const { data, error } = await supabase
-        .from("item_issue_photos")
-        .select("*")
-        .eq("item_id", item.id)
-        .order("created_at", { ascending: true });
-
-      if (error) {
-        setModalIssuePhotos([]);
-        return;
-      }
-
-      setModalIssuePhotos(data || []);
-    } catch (error) {
-      console.log("FETCH ISSUE PHOTOS ERROR:", error);
-      setModalIssuePhotos([]);
-    } finally {
-      setLoadingIssuePhotos(false);
-    }
-  };
-
   const openImagePreview = (source: any, title: string) => {
     setPreviewImageSource(source);
     setPreviewTitle(title);
@@ -587,13 +523,10 @@ export default function MyItems() {
     }
   };
 
-  const openItemModal = async (item: any) => {
+  const openItemModal = (item: any) => {
     setEditingItem(item);
     setEditedDescription(item.description || "");
-    setModalIssuePhotos([]);
     setEditVisible(true);
-
-    await fetchIssuePhotosForItem(item);
   };
 
   const updateDescription = async () => {
@@ -624,7 +557,6 @@ export default function MyItems() {
 
       setEditVisible(false);
       setEditingItem(null);
-      setModalIssuePhotos([]);
       fetchItems();
     } catch (error) {
       console.log("UPDATE DESCRIPTION ERROR:", error);
@@ -842,14 +774,18 @@ export default function MyItems() {
     );
   };
 
-  const cleanIssues = (issues: string) => {
-    if (!issues) return "None";
+  const getIssueList = (issues: any): string[] => {
+    if (!issues) return [];
 
-    return issues
+    const raw = Array.isArray(issues) ? issues.join(",") : String(issues);
+
+    return raw
       .replace(/\s*\([^)]*\)/g, "")
       .replace(/\s*recyclability/gi, "")
       .replace(/\s*hazard/gi, "")
-      .trim();
+      .split(",")
+      .map((issue) => issue.trim())
+      .filter(Boolean);
   };
 
   const renderItem = ({ item }: any) => {
@@ -1051,71 +987,31 @@ export default function MyItems() {
                         Tap the image to view the whole photo.
                       </Text>
 
-                      <Text style={styles.modalLabel}>
-                        Submitted Issue Photos
-                      </Text>
-
-                      {loadingIssuePhotos ? (
-                        <View style={styles.issuePhotosEmptyBox}>
-                          <Text style={styles.issuePhotosEmptyText}>
-                            Loading issue photos...
-                          </Text>
-                        </View>
-                      ) : modalIssuePhotos.length > 0 ? (
-                        <ScrollView
-                          horizontal
-                          showsHorizontalScrollIndicator={false}
-                          style={styles.issuePhotosScroll}
-                        >
-                          {modalIssuePhotos.map((photo, index) => {
-                            const source = getIssuePhotoImageSource(photo);
-
-                            return (
-                              <TouchableOpacity
-                                key={`issue-photo-${photo.id || index}`}
-                                style={styles.issuePhotoPreviewCard}
-                                activeOpacity={0.85}
-                                onPress={() =>
-                                  openImagePreview(
-                                    source,
-                                    photo.issue_name ||
-                                      `Issue Photo ${index + 1}`,
-                                  )
-                                }
-                              >
-                                <Image
-                                  source={source}
-                                  style={styles.issuePhotoPreviewImage}
-                                />
-
-                                <Text
-                                  style={styles.issuePhotoPreviewTitle}
-                                  numberOfLines={2}
-                                >
-                                  {photo.issue_name ||
-                                    `Issue Photo ${index + 1}`}
-                                </Text>
-                              </TouchableOpacity>
-                            );
-                          })}
-                        </ScrollView>
-                      ) : (
-                        <View style={styles.issuePhotosEmptyBox}>
-                          <Text style={styles.issuePhotosEmptyText}>
-                            No issue photos submitted for this item.
-                          </Text>
-                        </View>
-                      )}
-
                       <Text style={styles.modalLabel}>Item Name</Text>
                       <Text style={styles.readOnlyText}>
                         {editingItem.item_name}
                       </Text>
 
                       <Text style={styles.modalLabel}>Issues</Text>
-                      <Text style={styles.readOnlyText}>
-                        {cleanIssues(editingItem.issues)}
-                      </Text>
+                      <View style={styles.readOnlyText}>
+                        {getIssueList(editingItem.issues).length > 0 ? (
+                          getIssueList(editingItem.issues).map(
+                            (issue, index) => (
+                              <View
+                                key={`issue-${index}`}
+                                style={styles.issueBulletRow}
+                              >
+                                <Text style={styles.issueBullet}>•</Text>
+                                <Text style={styles.issueBulletText}>
+                                  {issue}
+                                </Text>
+                              </View>
+                            ),
+                          )
+                        ) : (
+                          <Text>None</Text>
+                        )}
+                      </View>
 
                       <Text style={styles.modalLabel}>Hazard Status</Text>
                       <Text style={styles.readOnlyText}>
@@ -1192,7 +1088,6 @@ export default function MyItems() {
                       onPress={() => {
                         Keyboard.dismiss();
                         setEditVisible(false);
-                        setModalIssuePhotos([]);
                       }}
                     >
                       <Text style={styles.cancelText}>
@@ -1552,6 +1447,20 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
 
+  issueBulletRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginVertical: 2,
+  },
+
+  issueBullet: {
+    width: 14,
+  },
+
+  issueBulletText: {
+    flex: 1,
+  },
+
   rejectionBox: {
     backgroundColor: "#ffebee",
     padding: 10,
@@ -1566,51 +1475,11 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  issuePhotosScroll: {
-    marginTop: 8,
-    marginBottom: 8,
-  },
 
-  issuePhotoPreviewCard: {
-    width: 120,
-    marginRight: 10,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 10,
-    padding: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
 
-  issuePhotoPreviewImage: {
-    width: "100%",
-    height: 90,
-    borderRadius: 8,
-    backgroundColor: "#ddd",
-    resizeMode: "cover",
-  },
 
-  issuePhotoPreviewTitle: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#333",
-    fontWeight: "600",
-    textAlign: "center",
-  },
 
-  issuePhotosEmptyBox: {
-    marginTop: 8,
-    backgroundColor: "#f5f5f5",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-  },
 
-  issuePhotosEmptyText: {
-    color: "#777",
-    fontSize: 13,
-    textAlign: "center",
-  },
 
   input: {
     backgroundColor: "#fff",

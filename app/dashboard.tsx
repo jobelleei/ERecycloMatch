@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { styles } from './styles/dashboard';
+import { styles } from '../styles/dashboard';
 
 const HomeScreen = () => {
   const [liked1, setLiked1] = useState(false);

@@ -1175,7 +1175,7 @@ export default function UserViewProfile() {
           onPress={() => openMessage(item)}
         >
           <Text style={styles.interestedText}>
-            {isOpeningThisChat ? "Opening chat..." : "Interested to this item"}
+            {isOpeningThisChat ? "Opening chat..." : "Interested in this item"}
           </Text>
         </TouchableOpacity>
       </View>
