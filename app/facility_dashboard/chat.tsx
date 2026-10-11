@@ -1224,7 +1224,7 @@ export default function FacilityChat() {
     if (isCurrentAccountRequester()) {
       return hasCurrentAccountSentOffer()
         ? "Offer sent. Wait for response"
-        : "Send your offer (1) message...";
+        : "Send your offer message...";
     }
 
     if (isPendingMatch()) {
@@ -1508,6 +1508,21 @@ export default function FacilityChat() {
           </Text>
 
           {requestMessage && renderRequestItemCard()}
+
+          {requestMessage && isCurrentAccountRequester() && (
+            <View style={styles.oneMessageNotice}>
+              <Ionicons
+                name="information-circle-outline"
+                size={16}
+                color="#8a6d1f"
+              />
+              <Text style={styles.oneMessageNoticeText}>
+                {hasCurrentAccountSentOffer()
+                  ? "Your message has been sent. You can chat freely once the user accepts this request."
+                  : "To avoid spam, you can only send one message while this request is pending. Include your offer and pickup or drop-off details."}
+              </Text>
+            </View>
+          )}
 
           {/* Always show time underneath by default, tap to show full date/time */}
           <TouchableOpacity
@@ -2089,6 +2104,27 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#1b5e20",
     fontWeight: "bold",
+  },
+
+  oneMessageNotice: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#fff8e1",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f3e0a6",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    maxWidth: 280,
+  },
+
+  oneMessageNoticeText: {
+    flex: 1,
+    marginLeft: 6,
+    fontSize: 12,
+    lineHeight: 17,
+    color: "#8a6d1f",
   },
 
   inputRow: {

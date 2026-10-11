@@ -51,6 +51,8 @@ type MapPin = {
 
   acceptedItemTypes?: string;
   availableServices?: string;
+
+  profileImage?: string;
 };
 
 const DEFAULT_DROP_OFF_BINS: MapPin[] = [
@@ -1050,6 +1052,9 @@ const getRoadRoute = async (
         operatingHoursTo: getFacilityOperatingHoursTo(facility),
         acceptedItemTypes: getFacilityAcceptedItemTypes(facility),
         availableServices: getFacilityAvailableServices(facility),
+        profileImage: String(
+          facility.profile_image || facility.profileImage || "",
+        ).trim(),
       });
     }
 
@@ -1685,6 +1690,30 @@ const getRoadRoute = async (
     );
   };
 
+  const getSearchResultImage = (pin: MapPin) => {
+    if (pin.type !== "facilities") {
+      return require("../../assets/icons/bin.png");
+    }
+
+    const imagePath = pin.profileImage || "";
+
+    if (!imagePath) {
+      return require("../../assets/icons/avatar.png");
+    }
+
+    if (imagePath.startsWith("http")) {
+      return { uri: imagePath };
+    }
+
+    const { data } = supabase.storage
+      .from("profile-images")
+      .getPublicUrl(imagePath.replace(/^\/+/, "").replace(/^profile-images\//, ""));
+
+    return data?.publicUrl
+      ? { uri: data.publicUrl }
+      : require("../../assets/icons/avatar.png");
+  };
+
   const currentMapPins =
     search.trim().length > 0
       ? filterPinsBySearch([...facilities, ...dropOffBins], search)
@@ -1740,11 +1769,14 @@ const getRoadRoute = async (
                     openPinDetails(item);
                   }}
                 >
-                  <View style={styles.searchSuggestionIcon}>
-                    <Text style={styles.searchSuggestionIconText}>
-                      {item.type === "facilities" ? "♻" : "⌖"}
-                    </Text>
-                  </View>
+                  <Image
+                    source={getSearchResultImage(item)}
+                    style={[
+                      styles.searchSuggestionIcon,
+                      item.type !== "facilities" &&
+                        styles.searchSuggestionBinIcon,
+                    ]}
+                  />
 
                   <View style={styles.searchSuggestionContent}>
                     <Text style={styles.searchSuggestionName} numberOfLines={1}>
@@ -2135,7 +2167,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 62,
     left: 10,
-    right: 60,
+    right: 10,
     maxHeight: 330,
     backgroundColor: "#fff",
     borderRadius: 18,
@@ -2172,9 +2204,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
-  searchSuggestionIconText: {
-    fontSize: 23,
-    color: "#315d2d",
+  searchSuggestionBinIcon: {
+    resizeMode: "contain",
   },
 
   searchSuggestionContent: {

@@ -82,14 +82,17 @@ export default function ItemDetails() {
   };
 
   const openOwnerProfile = () => {
-    const rawUserId =
-      item?.user_id || item?.submitter_user_id || item?.owner_id || "";
+    const userId = item?.user_id || item?.submitter_user_id || item?.owner_id;
+
+    if (!userId) {
+      Alert.alert("Error", "User profile could not be found.");
+      return;
+    }
 
     router.push({
       pathname: "/facility_dashboard/user_view_profile" as any,
       params: {
-        user_id: String(rawUserId),
-        name: String(item?.submitter_name || "User"),
+        user_id: String(userId),
       },
     });
   };
@@ -98,9 +101,8 @@ export default function ItemDetails() {
     try {
       setSubmittingInterest(true);
 
-      // Validate numeric facility ID
-      const facilityIdNum = Number(facility?.id || facility?.facility_id);
-      if (isNaN(facilityIdNum) || facilityIdNum <= 0) {
+      const facilityId = String(facility?.id || facility?.facility_id || "");
+      if (!facilityId) {
         Alert.alert(
           "Error",
           "Facility account session not found. Please log in again.",
@@ -108,12 +110,18 @@ export default function ItemDetails() {
         return;
       }
 
-      // Validate numeric user & item ID
-      const itemUserIdNum = Number(item?.user_id || item?.submitter_user_id);
-      const itemIdNum = Number(item?.id);
+      const userId = String(
+        item?.user_id || item?.submitter_user_id || item?.owner_id || "",
+      );
+      const itemId = String(item?.id || "");
 
-      if (isNaN(itemUserIdNum) || isNaN(itemIdNum)) {
+      if (!userId || !itemId) {
         Alert.alert("Error", "Invalid user or item reference.");
+        return;
+      }
+
+      if (userId === facilityId) {
+        Alert.alert("Error", "You cannot send a request for your own item.");
         return;
       }
 
@@ -122,82 +130,164 @@ export default function ItemDetails() {
         facility?.facility_name ||
         facility?.username ||
         "Recycling Facility";
+      const facilityProfileImage =
+        facility?.profile_image || facility?.profileImage || "";
+      const userName = String(item?.submitter_name || "User");
+      const itemName = String(item?.item_name || item?.item_type || "Item");
+      const now = new Date().toISOString();
 
-      const itemName = item?.item_name || item?.item_type || "Item";
+      // Same conversation id format used across the app: user_facility_item
+      const conversationId = `${userId}_${facilityId}_${itemId}`;
 
-      // 1. Check for existing conversation with NUMERIC IDs
-      const { data: existingConv, error: checkError } = await supabase
+      const { data: existingConversation, error: findError } = await supabase
         .from("conversations")
         .select("*")
-        .eq("facility_id", facilityIdNum)
-        .eq("user_id", itemUserIdNum)
-        .eq("item_id", itemIdNum)
+        .eq("id", conversationId)
         .maybeSingle();
 
-      if (checkError) {
-        console.log("CHECK CONVERSATION ERROR:", checkError);
+      if (findError) {
+        console.log("FIND INTEREST CONVERSATION ERROR:", findError);
       }
 
-      let conversationId = existingConv?.id;
+      // New conversations: DB triggers notify the user and mark the item
+      // "Pending Match". Re-sent requests (update) don't trigger the notify.
+      let requestSent = false;
+      let needsNotification = false;
 
-      // 2. Create conversation if it doesn't already exist
-      if (!conversationId) {
-        const { data: newConv, error: insertConvError } = await supabase
+      if (!existingConversation) {
+        const { error: insertError } = await supabase
           .from("conversations")
-          .insert({
-            facility_id: facilityIdNum,
-            user_id: itemUserIdNum,
-            item_id: itemIdNum,
-            facility_name: facilityName,
-            item_name: itemName,
-            status: "active",
-            is_read: false,
-          })
-          .select()
-          .single();
+          .insert([
+            {
+              id: conversationId,
+              user_id: userId,
+              user_name: userName,
+              user_profile_image: "",
+              facility_id: facilityId,
+              facility_name: facilityName,
+              facility_profile_image: facilityProfileImage,
+              item_id: itemId,
+              item_name: itemName,
+              last_message: "Match request sent",
+              status: "match_pending",
+              is_read: false,
+              requested_by: "facility",
+              request_sender_role: "facility",
+              request_receiver_role: "user",
+              user_finished: false,
+              facility_finished: false,
+              user_feedback_given: false,
+              facility_feedback_given: false,
+              created_at: now,
+              updated_at: now,
+            },
+          ]);
 
-        if (insertConvError) {
-          Alert.alert("Message Error", insertConvError.message);
+        if (insertError) {
+          console.log("CREATE INTEREST CONVERSATION ERROR:", insertError);
+          Alert.alert(
+            "Message Error (create conversation)",
+            [insertError.message, insertError.details, insertError.hint]
+              .filter(Boolean)
+              .join("\n"),
+          );
           return;
         }
 
-        conversationId = newConv?.id;
+        requestSent = true;
+      } else {
+        const reusableStatuses = ["cancelled", "rejected"];
+
+        if (reusableStatuses.includes(String(existingConversation.status))) {
+          const { error: updateError } = await supabase
+            .from("conversations")
+            .update({
+              status: "match_pending",
+              last_message: "Match request sent",
+              is_read: false,
+              requested_by: "facility",
+              request_sender_role: "facility",
+              request_receiver_role: "user",
+              user_finished: false,
+              facility_finished: false,
+              user_feedback_given: false,
+              facility_feedback_given: false,
+              updated_at: now,
+            })
+            .eq("id", conversationId);
+
+          if (updateError) {
+            console.log("UPDATE INTEREST CONVERSATION ERROR:", updateError);
+            Alert.alert(
+              "Message Error (update conversation)",
+              [updateError.message, updateError.details, updateError.hint]
+                .filter(Boolean)
+                .join("\n"),
+            );
+            return;
+          }
+
+          requestSent = true;
+          needsNotification = true;
+        }
       }
 
-      // 3. Send initial interest message
-      const initialMessage = `Hello! We are interested in accepting your "${itemName}". Can we arrange a drop-off or pickup?`;
+      if (requestSent) {
+        // Request card shown in both users' chat
+        const { error: messageError } = await supabase.from("messages").insert([
+          {
+            conversation_id: conversationId,
+            sender_id: null,
+            sender_name: "System",
+            sender_role: "system",
+            sender_type: "system",
+            receiver_id: null,
+            type: "system",
+            message_type: "match_request",
+            message: "Match request sent",
+            created_at: now,
+          },
+        ]);
 
-      const { error: messageError } = await supabase.from("messages").insert({
-        conversation_id: Number(conversationId),
-        sender_id: facilityIdNum,
-        message_text: initialMessage,
-        is_read: false,
-      });
+        if (messageError) {
+          console.log("ADD INTEREST REQUEST MESSAGE ERROR:", messageError);
+        }
 
-      if (messageError) {
-        Alert.alert("Message Error", messageError.message);
-        return;
+        if (needsNotification) {
+          const { error: notifError } = await supabase
+            .from("notifications")
+            .insert([
+              {
+                profile_id: userId,
+                type: "match_request",
+                title: "New Match Request",
+                message: `${facilityName} is interested in your "${itemName}".`,
+                is_read: false,
+                data: {
+                  conversation_id: conversationId,
+                  facility_id: facilityId,
+                  item_id: itemId,
+                },
+                created_at: now,
+              },
+            ]);
+
+          if (notifError) {
+            console.log("INTEREST NOTIFICATION ERROR:", notifError);
+          }
+        }
       }
 
-      // 4. Update conversation updated_at and last_message
-      await supabase
-        .from("conversations")
-        .update({
-          last_message: initialMessage,
-          updated_at: new Date().toISOString(),
-          is_read: false,
-        })
-        .eq("id", Number(conversationId));
-
-      // 5. Navigate straight into chat
       router.push({
         pathname: "/facility_dashboard/chat" as any,
         params: {
-          conversationId: String(conversationId),
-          user_id: String(itemUserIdNum),
-          user_name: String(item?.submitter_name || "User"),
-          item_id: String(itemIdNum),
+          conversationId,
+          user_id: userId,
+          user_name: userName,
+          item_id: itemId,
           item_name: itemName,
+          request_sender_role: "facility",
+          request_receiver_role: "user",
         },
       });
     } catch (err: any) {

@@ -745,8 +745,15 @@ export default function FacilityNotifications() {
     >
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
-        <TouchableOpacity onPress={markAllAsRead}>
-          <Text style={styles.markAllRead}>Mark all as read</Text>
+        <TouchableOpacity disabled={unreadCount === 0} onPress={markAllAsRead}>
+          <Text
+            style={[
+              styles.markAllRead,
+              unreadCount === 0 && styles.markAllReadDisabled,
+            ]}
+          >
+            Mark all as read
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -920,6 +927,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#1B5E20",
+  },
+  markAllReadDisabled: {
+    color: "#bbbbbb",
   },
   tabsRow: {
     flexDirection: "row",
