@@ -72,3 +72,5 @@ backend/*.zip
 .venv/
 venv/
 env/
+# Stale dependency copies
+node_modules_old/
