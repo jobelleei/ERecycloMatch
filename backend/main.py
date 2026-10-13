@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from ultralytics import YOLO
+import numpy as np
 import os
 import shutil
 import uuid
@@ -22,6 +23,15 @@ MODEL_PATH = "runs/detect/train-14/weights/best.pt"
 print("Loading YOLO model...")
 model = YOLO(MODEL_PATH)
 print("YOLO model loaded successfully.")
+
+# Warm up once so the first real scan isn't slowed by model initialization.
+model.predict(
+    source=np.zeros((416, 416, 3), dtype=np.uint8),
+    imgsz=416,
+    device="cpu",
+    verbose=False,
+)
+print("YOLO model warmed up.")
 
 
 @app.get("/")

@@ -760,7 +760,7 @@ export default function FacilityDashboard() {
                             source={
                               profileImage
                                 ? { uri: profileImage }
-                                : require("../../assets/icons/avatar.png")
+                                : require("../../assets/images/default_profile_pic.jpg")
                             }
                             style={styles.searchRoundImage}
                           />

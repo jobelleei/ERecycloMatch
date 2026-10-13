@@ -257,7 +257,7 @@ export default function FacilityChat() {
       "";
 
     if (!imagePath) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/images/default_profile_pic.jpg");
     }
 
     if (String(imagePath).startsWith("http")) {
@@ -271,7 +271,7 @@ export default function FacilityChat() {
     const imageUrl = getPublicImageUrl("profile-images", imagePath);
 
     if (!imageUrl) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/images/default_profile_pic.jpg");
     }
 
     return {

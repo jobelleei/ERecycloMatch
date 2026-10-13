@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -15,6 +16,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import UserBottomNav from "../../components/UserBottomNav";
 
 import { YOLO_URL } from "../../config";
+import { setScanPhoto } from "../../utils/scanPhoto";
+
+// Full camera photos (e.g. 4608px) exceed Android's max drawable size and show
+// blank, so the scan and the listing both use this resized copy.
+const SCAN_UPLOAD_WIDTH = 1280;
 
 export default function ScanScreen() {
   const cameraRef = useRef<any>(null);
@@ -26,6 +32,7 @@ export default function ScanScreen() {
   const [flash, setFlash] = useState<"on" | "off">("off");
   const [facing, setFacing] = useState<CameraType>("back");
   const [showUnknownModal, setShowUnknownModal] = useState(false);
+  const [capturedPreview, setCapturedPreview] = useState("");
 
   const router = useRouter();
 
@@ -50,35 +57,6 @@ export default function ScanScreen() {
 
     loadUser();
   }, []);
-
-  const pingBackend = async () => {
-    const controller = new AbortController();
-
-    const timeout = setTimeout(() => {
-      controller.abort();
-    }, 5000);
-
-    try {
-      const response = await fetch(YOLO_URL, {
-        method: "GET",
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        throw new Error(`Backend returned status ${response.status}`);
-      }
-
-      return true;
-    } catch (error: any) {
-      clearTimeout(timeout);
-      throw new Error(
-        "Cannot reach YOLO backend from your phone. Open this on your phone browser first: " +
-          YOLO_URL,
-      );
-    }
-  };
 
   const getDetectedLabel = (data: any) => {
     if (data?.label) return data.label;
@@ -144,7 +122,8 @@ export default function ScanScreen() {
       xhr.onerror = () => {
         reject(
           new Error(
-            "Network error. Your phone cannot reach the YOLO backend. Check Wi-Fi and network configuration.",
+            "Cannot reach YOLO backend from your phone. Check Wi-Fi, or open this on your phone browser first: " +
+              YOLO_URL,
           ),
         );
       };
@@ -161,6 +140,39 @@ export default function ScanScreen() {
     });
   };
 
+  // Resized copy used for YOLO (fast upload through the tunnel), the result
+  // preview (base64) and the listing photo. Falls back to the original photo
+  // if resizing fails.
+  const resizeForScan = async (
+    photoUri: string,
+  ): Promise<{ uri: string; base64?: string }> => {
+    // Keep references to the context and image until saving finishes;
+    // otherwise they can be released mid-render and the job gets cancelled.
+    const context = ImageManipulator.manipulate(photoUri);
+
+    try {
+      context.resize({ width: SCAN_UPLOAD_WIDTH });
+      const rendered = await context.renderAsync();
+
+      try {
+        const saved = await rendered.saveAsync({
+          compress: 0.7,
+          format: SaveFormat.JPEG,
+          base64: true,
+        });
+
+        return { uri: saved.uri, base64: saved.base64 };
+      } finally {
+        rendered.release();
+      }
+    } catch (error) {
+      console.warn("[scan] resize failed, using original photo:", error);
+      return { uri: photoUri };
+    } finally {
+      context.release();
+    }
+  };
+
   const takePicture = async () => {
     if (scanning) return;
 
@@ -171,12 +183,7 @@ export default function ScanScreen() {
       }
 
       setScanning(true);
-      await pingBackend();
-
-      if (!cameraRef.current) {
-        Alert.alert("Camera Error", "Camera is not ready.");
-        return;
-      }
+      const scanStart = Date.now();
 
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.5,
@@ -190,7 +197,26 @@ export default function ScanScreen() {
         return;
       }
 
-      const data = await uploadToYolo(photo.uri);
+      const scanImage = await resizeForScan(photo.uri);
+      const resizeDone = Date.now();
+
+      // Freeze the captured photo over the camera while YOLO runs.
+      setCapturedPreview(
+        scanImage.base64
+          ? `data:image/jpeg;base64,${scanImage.base64}`
+          : scanImage.uri,
+      );
+
+      const data = await uploadToYolo(scanImage.uri);
+      const yoloDone = Date.now();
+
+      console.log("[scan] timing (ms):", {
+        captureAndResize: resizeDone - scanStart,
+        yoloRequest: yoloDone - resizeDone,
+        serverPredict: Math.round(Number(data?.processing_time || 0) * 1000),
+        total: yoloDone - scanStart,
+        label: data?.label,
+      });
 
       if (data?.success === false) {
         Alert.alert(
@@ -234,10 +260,12 @@ export default function ScanScreen() {
           ? String(data.total_time)
           : "0";
 
+      setScanPhoto(scanImage.uri, scanImage.base64);
+
       router.push({
         pathname: "/user_dashboard/user_result" as any,
         params: {
-          image: photo.uri,
+          image: scanImage.uri,
           label: detected,
           confidence: confidence,
           processing_time: processingTime,
@@ -252,6 +280,7 @@ export default function ScanScreen() {
       );
     } finally {
       setScanning(false);
+      setCapturedPreview("");
     }
   };
 
@@ -311,6 +340,14 @@ export default function ScanScreen() {
           );
         }}
         />
+
+        {capturedPreview ? (
+          <Image
+            source={{ uri: capturedPreview }}
+            style={styles.capturedPreview}
+            resizeMode="cover"
+          />
+        ) : null}
 
         <TouchableOpacity
           style={styles.flashButton}
@@ -450,6 +487,14 @@ const styles = StyleSheet.create({
   height: "100%",
   transform: [{ scale: 1.08 }],
 },
+  capturedPreview: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#000",
+  },
   flashButton: {
     position: "absolute",
     top: 20,
