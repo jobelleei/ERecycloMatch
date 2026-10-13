@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
+import { Image as ExpoImage } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
@@ -16,6 +17,10 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  getScanPhotoDisplayUri,
+  getScanPhotoUri,
+} from "../../utils/scanPhoto";
 import { supabase } from "../../utils/supabase";
 
 type IssueOption = {
@@ -1271,8 +1276,12 @@ const formatSuggestionBlock = (title: string, suggestions: string[]) => {
 };
 
 export default function ScanResult() {
-  const { image, label } = useLocalSearchParams();
+  const { image: imageParam, label } = useLocalSearchParams();
   const router = useRouter();
+
+  const image =
+    getScanPhotoUri() || (typeof imageParam === "string" ? imageParam : "");
+  const displayImage = getScanPhotoDisplayUri() || image;
 
   const itemName = typeof label === "string" ? label : "Unknown";
   const isUnknownItem = normalizeText(itemName) === "unknown";
@@ -2711,7 +2720,15 @@ export default function ScanResult() {
         </View>
 
         {image ? (
-          <Image source={{ uri: image as string }} style={styles.image} />
+          <ExpoImage
+            source={{ uri: displayImage }}
+            style={styles.image}
+            contentFit="cover"
+            onLoad={() => console.log("[scan] result image loaded")}
+            onError={(e) =>
+              console.warn("Scan image failed to load:", image, e.error)
+            }
+          />
         ) : (
           <View style={styles.noImageBox}>
             <Text>No Image</Text>

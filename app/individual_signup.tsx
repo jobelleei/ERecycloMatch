@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import {
   Image,
   ImageBackground,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -19,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
 import { supabase } from "../utils/supabase";
@@ -723,25 +723,26 @@ export default function IndividualSignup() {
         />
       </Pressable>
 
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         style={{
           flex: 1,
           backgroundColor: "transparent",
         }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            flexGrow: 1,
+            paddingBottom: 80,
+            backgroundColor: "transparent",
+          },
+        ]}
+        enableOnAndroid
+        enableAutomaticScroll
+        extraScrollHeight={Platform.OS === "ios" ? 20 : 40}
+        keyboardOpeningTime={0}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            {
-              flexGrow: 1,
-              paddingBottom: 80,
-              backgroundColor: "transparent",
-            },
-          ]}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
           <Image
             source={require("../assets/icons/icon.png")}
             style={styles.logo}
@@ -1029,8 +1030,7 @@ export default function IndividualSignup() {
               {isSubmitting ? "Submitting..." : "Sign Up"}
             </Text>
           </Pressable>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       {/* Terms and Conditions Modal */}
       <Modal

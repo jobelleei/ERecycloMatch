@@ -733,7 +733,7 @@ export default function Profile() {
                   source={
                     user.profileImage
                       ? { uri: user.profileImage }
-                      : require("../../assets/icons/avatar.png")
+                      : require("../../assets/images/default_profile_pic.jpg")
                   }
                   style={styles.avatar}
                 />

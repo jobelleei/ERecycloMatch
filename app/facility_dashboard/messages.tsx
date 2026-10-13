@@ -605,7 +605,7 @@ export default function FacilityMessages() {
       "";
 
     if (!imagePath || String(imagePath).trim() === "") {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/images/default_profile_pic.jpg");
     }
 
     if (String(imagePath).startsWith("http")) {
@@ -619,7 +619,7 @@ export default function FacilityMessages() {
     const imageUrl = getPublicImageUrl("profile-images", String(imagePath));
 
     if (!imageUrl) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/images/default_profile_pic.jpg");
     }
 
     return {

@@ -533,7 +533,7 @@ export default function Settings() {
             source={
               user.profileImage
                 ? { uri: user.profileImage }
-                : require("../../assets/icons/avatar.png")
+                : require("../../assets/images/default_profile_pic.jpg")
             }
             style={styles.avatar}
           />
@@ -661,7 +661,7 @@ export default function Settings() {
                   source={
                     editProfileImage
                       ? { uri: editProfileImage }
-                      : require("../../assets/icons/avatar.png")
+                      : require("../../assets/images/default_profile_pic.jpg")
                   }
                   style={styles.modalAvatar}
                 />
