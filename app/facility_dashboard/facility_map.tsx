@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
@@ -20,6 +21,11 @@ import {
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 const NAV_HEIGHT = 70;
@@ -140,6 +146,94 @@ export default function FacilityMapScreen() {
   const [loadingPins, setLoadingPins] = useState(false);
 
   const translateY = useRef(new Animated.Value(300)).current;
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const searchBarRef = useRef<View>(null);
+  const facilitiesModeRef = useRef<any>(null);
+  const binsModeRef = useRef<any>(null);
+  const showListRef = useRef<any>(null);
+  const legendRef = useRef<View>(null);
+  const mapHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!facility?.id) return;
+
+    hasCompletedTour("facility_map", String(facility.id)).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [facility?.id]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "map-outline",
+      title: "Facility Map",
+      description:
+        "See your facility, other recycling facilities and e-waste drop off bins around you. Here's a quick guide to the buttons.",
+    },
+    {
+      key: "search",
+      icon: "search-outline",
+      title: "Search",
+      description:
+        "Search facilities and drop off bins by name, location, accepted items or services.",
+      targetRef: searchBarRef,
+    },
+    {
+      key: "facilities-mode",
+      icon: "business-outline",
+      title: "Facilities",
+      description:
+        "Show approved recycling facilities on the map, including your own.",
+      targetRef: facilitiesModeRef,
+    },
+    {
+      key: "bins-mode",
+      icon: "trash-bin-outline",
+      title: "E-Waste Drop Off Bins",
+      description: "Show the e-waste drop off bins on the map.",
+      targetRef: binsModeRef,
+    },
+    {
+      key: "show-list",
+      icon: "list-outline",
+      title: "Show List",
+      description:
+        "Open a list sorted by distance from you. Tap an entry to see its details.",
+      targetRef: showListRef,
+    },
+    {
+      key: "legend",
+      icon: "color-palette-outline",
+      title: "Map Legend",
+      description:
+        "Blue is your location, green pins are recycling facilities and orange pins are drop off bins. When you get directions, the route line shows here too.",
+      targetRef: legendRef,
+    },
+    {
+      key: "pins",
+      icon: "location-outline",
+      title: "Tap a Pin",
+      description:
+        "Tap any pin to see its details. Use View Profile to open a facility's profile, or Go to get directions. Tapping your own pin opens View My Profile.",
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: mapHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (facility?.id) {
+      markTourCompleted("facility_map", String(facility.id));
+    }
+  };
 
   const loadFacility = async () => {
     try {
@@ -1517,6 +1611,11 @@ export default function FacilityMapScreen() {
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={{ flex: 1 }}>
         <View style={styles.searchContainer}>
+          <View
+            ref={searchBarRef}
+            collapsable={false}
+            style={styles.searchBarWrapper}
+          >
           <TextInput
             placeholder="Search facilities or drop off bins..."
             style={styles.searchInput}
@@ -1534,6 +1633,15 @@ export default function FacilityMapScreen() {
               <Text style={styles.clearSearchText}>×</Text>
             </TouchableOpacity>
           )}
+          </View>
+
+          <TouchableOpacity
+            ref={mapHelpRef}
+            style={styles.clearSearchButton}
+            onPress={() => setShowTour(true)}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#555" />
+          </TouchableOpacity>
 
           <Image
             source={require("../../assets/icons/icon.png")}
@@ -1543,6 +1651,7 @@ export default function FacilityMapScreen() {
 
         <View style={styles.modeButtonContainer}>
           <TouchableOpacity
+            ref={facilitiesModeRef}
             style={[
               styles.modeButton,
               mapMode === "facilities" && styles.activeModeButton,
@@ -1560,6 +1669,7 @@ export default function FacilityMapScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            ref={binsModeRef}
             style={[
               styles.modeButton,
               mapMode === "bins" && styles.activeModeButton,
@@ -1577,7 +1687,11 @@ export default function FacilityMapScreen() {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={openPinsList}>
+        <TouchableOpacity
+          ref={showListRef}
+          style={styles.button}
+          onPress={openPinsList}
+        >
           {loadingPins ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -1648,7 +1762,7 @@ export default function FacilityMapScreen() {
           )}
         </MapView>
 
-        <View style={styles.legend}>
+        <View ref={legendRef} collapsable={false} style={styles.legend}>
           <Text style={styles.legendTitle}>Legend</Text>
 
           <View style={styles.row}>
@@ -1862,6 +1976,12 @@ export default function FacilityMapScreen() {
 
         <FacilityBottomNav facilityId={facility?.id || ""} active="map" />
       </View>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -1873,6 +1993,12 @@ const styles = StyleSheet.create({
     left: 10,
     right: 10,
     zIndex: 3,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchBarWrapper: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },

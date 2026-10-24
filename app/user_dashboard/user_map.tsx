@@ -1,3 +1,9 @@
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -130,6 +136,14 @@ export default function UserMapScreen() {
   const [userLocation, setUserLocation] = useState<Coord | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("facilities");
   const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const searchBarRef = useRef<View>(null);
+  const facilitiesModeRef = useRef<any>(null);
+  const binsModeRef = useRef<any>(null);
+  const showListRef = useRef<any>(null);
+  const mapHelpRef = useRef<any>(null);
 
   const [showList, setShowList] = useState(false);
   const [sortedPins, setSortedPins] = useState<MapPin[]>([]);
@@ -296,16 +310,35 @@ export default function UserMapScreen() {
     ? `${incomingSelectedBin.id}-${incomingSelectedBin.latitude}-${incomingSelectedBin.longitude}`
     : "";
 
+  // Scroll position of the facilities / drop off bins list, so a swipe down
+  // only closes the sheet when the list is already scrolled to the top.
+  const listScrollOffset = useRef(0);
+
+  const isSwipeDown = (gesture: { dx: number; dy: number }) =>
+    gesture.dy > 10 &&
+    Math.abs(gesture.dy) > Math.abs(gesture.dx) &&
+    listScrollOffset.current <= 0;
+
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
+      onMoveShouldSetPanResponder: (_, gesture) => isSwipeDown(gesture),
+      // Take the gesture away from the list rows and FlatList on a swipe down
+      onMoveShouldSetPanResponderCapture: (_, gesture) => isSwipeDown(gesture),
+      onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
         if (gesture.dy > 0) {
           translateY.setValue(gesture.dy);
         }
       },
+      onPanResponderTerminate: () => {
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      },
       onPanResponderRelease: (_, gesture) => {
-        if (gesture.dy > 100) {
+        if (gesture.dy > 100 || gesture.vy > 0.8) {
           Animated.timing(translateY, {
             toValue: 300,
             duration: 200,
@@ -1690,15 +1723,13 @@ const getRoadRoute = async (
     );
   };
 
+  // Returns the profile picture of a search result, or null when it has none
+  // so an icon is shown instead.
   const getSearchResultImage = (pin: MapPin) => {
-    if (pin.type !== "facilities") {
-      return require("../../assets/icons/bin.png");
-    }
-
-    const imagePath = pin.profileImage || "";
+    const imagePath = String(pin.profileImage || "").trim();
 
     if (!imagePath) {
-      return require("../../assets/icons/avatar.png");
+      return null;
     }
 
     if (imagePath.startsWith("http")) {
@@ -1709,9 +1740,7 @@ const getRoadRoute = async (
       .from("profile-images")
       .getPublicUrl(imagePath.replace(/^\/+/, "").replace(/^profile-images\//, ""));
 
-    return data?.publicUrl
-      ? { uri: data.publicUrl }
-      : require("../../assets/icons/avatar.png");
+    return data?.publicUrl ? { uri: data.publicUrl } : null;
   };
 
   const currentMapPins =
@@ -1721,11 +1750,88 @@ const getRoadRoute = async (
         ? filterPinsBySearch(facilities, search)
         : filterPinsBySearch(dropOffBins, search);
 
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "map-outline",
+      title: "Find Where to Recycle",
+      description:
+        "This map shows approved recycling facilities and e-waste drop off bins near you. Here's a quick guide to the buttons.",
+    },
+    {
+      key: "search",
+      icon: "search-outline",
+      title: "Search",
+      description:
+        "Search by name, location or item (for example \"laptop\") to find facilities and drop off bins that accept it.",
+      targetRef: searchBarRef,
+    },
+    {
+      key: "facilities-mode",
+      icon: "business-outline",
+      title: "Facilities",
+      description:
+        "Show recycling facilities on the map. They appear as green pins.",
+      targetRef: facilitiesModeRef,
+    },
+    {
+      key: "bins-mode",
+      icon: "trash-bin-outline",
+      title: "E-Waste Drop Off Bins",
+      description:
+        "Show drop off bins where you can leave small e-waste. They appear as orange pins.",
+      targetRef: binsModeRef,
+    },
+    {
+      key: "show-list",
+      icon: "list-outline",
+      title: "Show List",
+      description:
+        "Open a list sorted by distance. Tap an entry to see its details, or swipe the list down to hide it.",
+      targetRef: showListRef,
+    },
+    {
+      key: "pins",
+      icon: "location-outline",
+      title: "Tap a Pin",
+      description:
+        "Tap any pin on the map to see its details. Use View Profile to see a facility's profile, or Go to get directions there.",
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: mapHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (currentUser?.id) {
+      markTourCompleted("user_map", String(currentUser.id));
+    }
+  };
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    hasCompletedTour("user_map", String(currentUser.id)).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [currentUser?.id]);
+
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
         <View style={styles.searchContainer}>
+          <View
+            ref={searchBarRef}
+            collapsable={false}
+            style={styles.searchBarWrapper}
+          >
           <TextInput
             placeholder="Search facilities or drop off bins..."
             style={styles.searchInput}
@@ -1743,6 +1849,18 @@ const getRoadRoute = async (
               <Text style={styles.clearSearchText}>×</Text>
             </TouchableOpacity>
           )}
+          </View>
+
+          <TouchableOpacity
+            ref={mapHelpRef}
+            style={styles.clearSearchButton}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowTour(true);
+            }}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#555" />
+          </TouchableOpacity>
 
           <Image
             source={require("../../assets/icons/icon.png")}
@@ -1769,14 +1887,20 @@ const getRoadRoute = async (
                     openPinDetails(item);
                   }}
                 >
-                  <Image
-                    source={getSearchResultImage(item)}
-                    style={[
-                      styles.searchSuggestionIcon,
-                      item.type !== "facilities" &&
-                        styles.searchSuggestionBinIcon,
-                    ]}
-                  />
+                  {getSearchResultImage(item) ? (
+                    <Image
+                      source={getSearchResultImage(item)!}
+                      style={styles.searchSuggestionIcon}
+                    />
+                  ) : (
+                    <View style={styles.searchSuggestionIcon}>
+                      <MaterialCommunityIcons
+                        name="recycle"
+                        size={24}
+                        color="#2e7d32"
+                      />
+                    </View>
+                  )}
 
                   <View style={styles.searchSuggestionContent}>
                     <Text style={styles.searchSuggestionName} numberOfLines={1}>
@@ -1802,6 +1926,7 @@ const getRoadRoute = async (
 
         <View style={styles.modeButtonContainer}>
           <TouchableOpacity
+            ref={facilitiesModeRef}
             style={[
               styles.modeButton,
               mapMode === "facilities" && styles.activeModeButton,
@@ -1819,6 +1944,7 @@ const getRoadRoute = async (
           </TouchableOpacity>
 
           <TouchableOpacity
+            ref={binsModeRef}
             style={[
               styles.modeButton,
               mapMode === "bins" && styles.activeModeButton,
@@ -1836,7 +1962,11 @@ const getRoadRoute = async (
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.button} onPress={openPinsList}>
+        <TouchableOpacity
+          ref={showListRef}
+          style={styles.button}
+          onPress={openPinsList}
+        >
           {loadingPins ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
@@ -2059,6 +2189,10 @@ const getRoadRoute = async (
               data={sortedPins}
               keyExtractor={(item) => `${item.type}-${item.id}`}
               keyboardShouldPersistTaps="handled"
+              onScroll={(event) => {
+                listScrollOffset.current = event.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.listItem}
@@ -2112,6 +2246,12 @@ const getRoadRoute = async (
         )}
       </View>
       </TouchableWithoutFeedback>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -2123,6 +2263,12 @@ const styles = StyleSheet.create({
     left: 10,
     right: 10,
     zIndex: 3,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  searchBarWrapper: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
   },
@@ -2202,10 +2348,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
-  },
-
-  searchSuggestionBinIcon: {
-    resizeMode: "contain",
   },
 
   searchSuggestionContent: {

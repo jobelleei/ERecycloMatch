@@ -1,10 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import { Image as ExpoImage } from "expo-image";
 import * as Location from "expo-location";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -21,6 +22,11 @@ import {
   getScanPhotoDisplayUri,
   getScanPhotoUri,
 } from "../../utils/scanPhoto";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 type IssueOption = {
@@ -1291,6 +1297,19 @@ export default function ScanResult() {
   const [selectedIssues, setSelectedIssues] = useState<IssueOption[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const [tourUserId, setTourUserId] = useState("");
+  const scrollRef = useRef<ScrollView>(null);
+  const cardY = useRef(0);
+  const scoresRef = useRef<View>(null);
+  const descriptionRef = useRef<any>(null);
+  const issuesRef = useRef<any>(null);
+  const uploadRef = useRef<any>(null);
+  const scanAgainRef = useRef<any>(null);
+  const closeRef = useRef<any>(null);
+  const resultHelpRef = useRef<any>(null);
 
   const [matchModalVisible, setMatchModalVisible] = useState(false);
   const [matchFound, setMatchFound] = useState(false);
@@ -2705,18 +2724,131 @@ export default function ScanResult() {
     }
   };
 
+  const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
+  const scrollToCard = () =>
+    scrollRef.current?.scrollTo({
+      y: Math.max(0, cardY.current - 80),
+      animated: true,
+    });
+  const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "scan-outline",
+      title: "Your Scan Result",
+      description: isUnknownItem
+        ? "The app couldn't recognize this item, but you can still submit it. Here's how to fill in the details."
+        : `The app identified this item as "${itemName}". Add a few details, then upload it for review.`,
+    },
+    {
+      key: "scores",
+      icon: "speedometer-outline",
+      title: "Hazard & Recyclability",
+      description:
+        "These scores update based on the issues you select below. They help facilities know how to handle the item safely.",
+      targetRef: scoresRef,
+      prepare: scrollToCard,
+    },
+    {
+      key: "description",
+      icon: "create-outline",
+      title: "Description",
+      description: isUnknownItem
+        ? "Required. Write what the item might be, for example \"laptop charger\", plus its condition."
+        : "Required. Describe the item's condition, for example whether it still turns on, its brand or any missing parts.",
+      targetRef: descriptionRef,
+      prepare: scrollToCard,
+    },
+    {
+      key: "issues",
+      icon: "warning-outline",
+      title: "Issues",
+      description:
+        "Tap to pick the problems the item has, such as a cracked screen or a glued battery. Select at least one (or None if it has no issues), then tap Done.",
+      targetRef: issuesRef,
+      prepare: scrollToCard,
+    },
+    {
+      key: "upload",
+      icon: "cloud-upload-outline",
+      title: "Upload Item",
+      description:
+        "Submit the item. You'll see whether it's approved, rejected or waiting for admin review. Approved items can be matched with a facility right away, and rejected ones can go to a drop off bin.",
+      targetRef: uploadRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "scan-again",
+      icon: "refresh-outline",
+      title: "Scan Another Item",
+      description: "Discard this result and go back to the camera.",
+      targetRef: scanAgainRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "close",
+      icon: "close-outline",
+      title: "Close",
+      description: "Leave this result without uploading and return to the scanner.",
+      targetRef: closeRef,
+      prepare: scrollToTop,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: resultHelpRef,
+      prepare: scrollToTop,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+    scrollToTop();
+
+    if (tourUserId) {
+      markTourCompleted("user_scan_result", tourUserId);
+    }
+  };
+
+  useEffect(() => {
+    getLoggedInUser().then(async (loggedInUser) => {
+      const id = String(loggedInUser?.userId || "");
+      if (!id || id === "0") return;
+
+      setTourUserId(id);
+
+      if (!(await hasCompletedTour("user_scan_result", id))) {
+        setShowTour(true);
+      }
+    });
+  }, []);
+
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>Scanning E-Waste</Text>
 
-          <Text
-            style={styles.close}
-            onPress={() => router.replace("/user_dashboard/user_scan" as any)}
-          >
-            ✕
-          </Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              ref={resultHelpRef}
+              onPress={() => setShowTour(true)}
+              disabled={uploading}
+            >
+              <Ionicons name="help-circle-outline" size={28} color="#333" />
+            </TouchableOpacity>
+
+            <Text
+              ref={closeRef}
+              style={styles.close}
+              onPress={() => router.replace("/user_dashboard/user_scan" as any)}
+            >
+              ✕
+            </Text>
+          </View>
         </View>
 
         {image ? (
@@ -2739,7 +2871,12 @@ export default function ScanResult() {
           <Text style={styles.identified}>Item identified</Text>
         )}
 
-        <View style={styles.card}>
+        <View
+          style={styles.card}
+          onLayout={(event) => {
+            cardY.current = event.nativeEvent.layout.y;
+          }}
+        >
           {!isUnknownItem && <Text style={styles.item}>{itemName}</Text>}
 
           {isUnknownItem && (
@@ -2753,17 +2890,20 @@ export default function ScanResult() {
             </View>
           )}
 
-          <Text style={styles.statusText}>
-            Hazard Status: <Text style={styles.bold}>{hazardStatus}%</Text>
-          </Text>
+          <View ref={scoresRef} collapsable={false}>
+            <Text style={styles.statusText}>
+              Hazard Status: <Text style={styles.bold}>{hazardStatus}%</Text>
+            </Text>
 
-          <Text style={styles.statusText}>
-            Recyclability: <Text style={styles.bold}>{recyclability}%</Text>
-          </Text>
+            <Text style={styles.statusText}>
+              Recyclability: <Text style={styles.bold}>{recyclability}%</Text>
+            </Text>
+          </View>
 
           <Text style={styles.label}>Description:</Text>
 
           <TextInput
+            ref={descriptionRef}
             placeholder={
               isUnknownItem
                 ? "Example: This item is a laptop charger..."
@@ -2780,6 +2920,7 @@ export default function ScanResult() {
           <Text style={styles.label}>Issues:</Text>
 
           <TouchableOpacity
+            ref={issuesRef}
             style={styles.dropdown}
             onPress={() => {
               if (!uploading) {
@@ -3090,6 +3231,7 @@ export default function ScanResult() {
         </Modal>
 
         <TouchableOpacity
+          ref={uploadRef}
           style={[styles.button, uploading && styles.disabledButton]}
           onPress={handleUploadForVerification}
           disabled={uploading}
@@ -3100,12 +3242,19 @@ export default function ScanResult() {
         </TouchableOpacity>
 
         <Text
+          ref={scanAgainRef}
           style={styles.scanAgain}
           onPress={() => router.replace("/user_dashboard/user_scan" as any)}
         >
           ⟳ Scan Another Item
         </Text>
       </ScrollView>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -3131,6 +3280,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
 
   close: {

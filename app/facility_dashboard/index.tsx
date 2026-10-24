@@ -3,6 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 
 import {
   ActivityIndicator,
@@ -45,6 +50,25 @@ export default function FacilityDashboard() {
   const [isSearching, setIsSearching] = useState(false);
   const [loadingListedItems, setLoadingListedItems] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const searchRef = useRef<View>(null);
+  const notificationRef = useRef<any>(null);
+  const homeHelpRef = useRef<any>(null);
+  const reminderRef = useRef<View>(null);
+  const listedItemsRef = useRef<View>(null);
+  const refreshItemsRef = useRef<any>(null);
+  const firstItemRef = useRef<any>(null);
+  const listedItemsY = useRef(0);
+  const navRefs = {
+    home: useRef<any>(null),
+    map: useRef<any>(null),
+    messages: useRef<any>(null),
+    profile: useRef<any>(null),
+    settings: useRef<any>(null),
+  };
 
   useEffect(() => {
     loadFacility();
@@ -232,19 +256,32 @@ export default function FacilityDashboard() {
     if (missingFields.length > 0 && !reminderShownRef.current) {
       reminderShownRef.current = true;
 
-      Alert.alert(
-        "Complete Facility Details",
-        `Please specify your ${missingFields.join(
-          ", ",
-        )} in Edit Profile at Settings.`,
-        [
-          { text: "Later", style: "cancel" },
-          {
-            text: "Go to Settings",
-            onPress: () => router.push("/facility_dashboard/settings" as any),
-          },
-        ],
-      );
+      const showReminderAlert = () =>
+        Alert.alert(
+          "Complete Facility Details",
+          `Please specify your ${missingFields.join(
+            ", ",
+          )} in Edit Profile at Settings.`,
+          [
+            { text: "Later", style: "cancel" },
+            {
+              text: "Go to Settings",
+              onPress: () => router.push("/facility_dashboard/settings" as any),
+            },
+          ],
+        );
+
+      // New facilities get the onboarding tour instead, which points at the
+      // reminder card, so the alert doesn't pop up on top of it.
+      const profileId = String(profile?.id || "");
+
+      if (!profileId) {
+        showReminderAlert();
+      } else {
+        hasCompletedTour("facility_home", profileId).then((completed) => {
+          if (completed) showReminderAlert();
+        });
+      }
     }
   };
 
@@ -651,6 +688,128 @@ export default function FacilityDashboard() {
 
   const hasResults = searchedUsers.length > 0 || searchedItems.length > 0;
 
+  const scrollToY = (y: number) =>
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "leaf-outline",
+      title: "Welcome to ERecycloMatch!",
+      description:
+        "Let's take a quick tour of your facility dashboard so you know what each button does. You can skip it anytime.",
+    },
+    ...(showProfileReminder && missingProfileFields.length > 0
+      ? [
+          {
+            key: "profile-reminder",
+            icon: "alert-circle-outline" as const,
+            title: "Complete Your Profile",
+            description: `Your ${missingProfileFields.join(
+              ", ",
+            )} are still missing. Add them in Settings > Edit Profile so users know what your facility accepts.`,
+            targetRef: reminderRef,
+            prepare: () => scrollToY(0),
+          },
+        ]
+      : []),
+    {
+      key: "search",
+      icon: "search-outline",
+      title: "Search",
+      description:
+        "Search for users by name or username, or for listed items. Tap a result to open the user's profile or the item's details.",
+      targetRef: searchRef,
+    },
+    {
+      key: "notifications",
+      icon: "notifications-outline",
+      title: "Notifications",
+      description:
+        "See new messages, match requests and nearby listings. The red badge shows how many are unread.",
+      targetRef: notificationRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: homeHelpRef,
+    },
+    {
+      key: "listed-items",
+      icon: "cube-outline",
+      title: "Listed Items by Users",
+      description:
+        "A selection of e-waste items users have listed for recycling. Tap an item to see its details and send a match request.",
+      targetRef: firstItemRef,
+      prepare: () => scrollToY(listedItemsY.current - 120),
+    },
+    {
+      key: "refresh-items",
+      icon: "refresh-outline",
+      title: "Show Other Items",
+      description: "Tap to load a different set of listed items.",
+      targetRef: refreshItemsRef,
+      prepare: () => scrollToY(listedItemsY.current - 120),
+    },
+    {
+      key: "nav-home",
+      icon: "home-outline",
+      title: "Home",
+      description: "Come back to this dashboard from any screen.",
+      targetRef: navRefs.home,
+    },
+    {
+      key: "nav-map",
+      icon: "map-outline",
+      title: "Map",
+      description: "Find recycling facilities and e-waste drop off bins on the map and get directions to them.",
+      targetRef: navRefs.map,
+    },
+    {
+      key: "nav-messages",
+      icon: "chatbubble-ellipses-outline",
+      title: "Messages",
+      description:
+        "Chat with users about their items and handle match requests. A red dot appears when you have unread messages.",
+      targetRef: navRefs.messages,
+    },
+    {
+      key: "nav-profile",
+      icon: "business-outline",
+      title: "Profile",
+      description:
+        "See your facility profile as users see it, your postings and your feedback, and create new item requests.",
+      targetRef: navRefs.profile,
+    },
+    {
+      key: "nav-settings",
+      icon: "settings-outline",
+      title: "Settings",
+      description:
+        "Edit your facility details, manage your postings, see your recycling history and log out.",
+      targetRef: navRefs.settings,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+    scrollToY(0);
+
+    if (facility?.id) {
+      markTourCompleted("facility_home", String(facility.id));
+    }
+  };
+
+  useEffect(() => {
+    if (!facility?.id) return;
+
+    hasCompletedTour("facility_home", String(facility.id)).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [facility?.id]);
+
   return (
     <SafeAreaView
       style={{ flex: 1, backgroundColor: "#f5f5f5" }}
@@ -666,6 +825,19 @@ export default function FacilityDashboard() {
 
             <View style={styles.headerActions}>
               <TouchableOpacity
+                ref={homeHelpRef}
+                style={[styles.notificationButton, { marginRight: 10 }]}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setShowSearchResults(false);
+                  setShowTour(true);
+                }}
+              >
+                <Ionicons name="help-circle-outline" size={26} color="#000000" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                ref={notificationRef}
                 style={styles.notificationButton}
                 activeOpacity={0.8}
                 onPress={() =>
@@ -689,7 +861,7 @@ export default function FacilityDashboard() {
           </View>
 
           {/* Search Box */}
-          <View style={styles.searchBox}>
+          <View ref={searchRef} collapsable={false} style={styles.searchBox}>
             <TextInput
               placeholder="Search for users, usernames, or listed items"
               placeholderTextColor="#777"
@@ -861,13 +1033,18 @@ export default function FacilityDashboard() {
 
         {/* Main Content Area */}
         <ScrollView
+          ref={scrollRef}
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           {showProfileReminder && missingProfileFields.length > 0 && (
-            <View style={styles.profileReminderBox}>
+            <View
+              ref={reminderRef}
+              collapsable={false}
+              style={styles.profileReminderBox}
+            >
               <View style={styles.profileReminderHeader}>
                 <Text style={styles.profileReminderTitle}>
                   Complete your facility profile
@@ -915,10 +1092,18 @@ export default function FacilityDashboard() {
             </Text>
           </ImageBackground>
 
-          <View style={styles.sectionHeader}>
+          <View
+            ref={listedItemsRef}
+            collapsable={false}
+            style={styles.sectionHeader}
+            onLayout={(event) => {
+              listedItemsY.current = event.nativeEvent.layout.y;
+            }}
+          >
             <Text style={styles.sectionTitle}>Listed Items by Users</Text>
 
             <TouchableOpacity
+              ref={refreshItemsRef}
               style={styles.refreshFacilityButton}
               onPress={() => fetchRandomListedItems(facility)}
               disabled={loadingListedItems}
@@ -943,6 +1128,7 @@ export default function FacilityDashboard() {
               return (
                 <TouchableOpacity
                   key={`random-listed-${item.id}-${index}`}
+                  ref={index === 0 ? firstItemRef : undefined}
                   style={styles.postCard}
                   activeOpacity={0.8}
                   onPress={() => openItemDetails(item)}
@@ -1000,8 +1186,18 @@ export default function FacilityDashboard() {
           )}
         </ScrollView>
 
-        <FacilityBottomNav facilityId={facility?.id || ""} active="home" />
+        <FacilityBottomNav
+          facilityId={facility?.id || ""}
+          active="home"
+          tourRefs={navRefs}
+        />
       </View>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }

@@ -16,6 +16,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
@@ -194,6 +199,86 @@ export default function UserNotifications() {
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const screenTouchStart = useRef({ x: 0, y: 0 });
   const screenTouchMoved = useRef(false);
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const markAllRef = useRef<any>(null);
+  const allTabRef = useRef<any>(null);
+  const unreadTabRef = useRef<any>(null);
+  const sortButtonRef = useRef<any>(null);
+  const firstNotificationRef = useRef<View>(null);
+  const notificationsHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!userId || loading) return;
+
+    hasCompletedTour("user_notifications", userId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [userId, loading]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "notifications-outline",
+      title: "Notifications",
+      description:
+        "Messages from facilities, updates on your listings and nearby recycling facilities all show up here.",
+    },
+    {
+      key: "mark-all",
+      icon: "checkmark-done-outline",
+      title: "Mark All as Read",
+      description:
+        "Clear all unread highlights at once. It's greyed out when everything is already read.",
+      targetRef: markAllRef,
+    },
+    {
+      key: "all-tab",
+      icon: "albums-outline",
+      title: "All",
+      description: "Show every notification.",
+      targetRef: allTabRef,
+    },
+    {
+      key: "unread-tab",
+      icon: "mail-unread-outline",
+      title: "Unread",
+      description:
+        "Show only notifications you haven't opened yet. The number shows how many there are.",
+      targetRef: unreadTabRef,
+    },
+    {
+      key: "sort",
+      icon: "options-outline",
+      title: "Sort",
+      description: "Choose whether the newest or the oldest notifications show first.",
+      targetRef: sortButtonRef,
+    },
+    {
+      key: "notification",
+      icon: "hand-left-outline",
+      title: "Open or Delete",
+      description:
+        "Unread notifications are highlighted in green. Tap one to open it: messages open the chat, listing updates open My Items, and nearby facilities open their profile. Swipe left to delete it.",
+      targetRef: firstNotificationRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: notificationsHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (userId) {
+      markTourCompleted("user_notifications", userId);
+    }
+  };
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
@@ -574,7 +659,17 @@ export default function UserNotifications() {
     }
   };
 
-  const renderItem = ({ item }: { item: NotificationItem }) => (
+  const renderItem = ({
+    item,
+    index,
+  }: {
+    item: NotificationItem;
+    index: number;
+  }) => (
+    <View
+      ref={index === 0 ? firstNotificationRef : undefined}
+      collapsable={false}
+    >
     <SwipeableNotificationRow
       item={item}
       onDelete={deleteNotification}
@@ -642,6 +737,7 @@ export default function UserNotifications() {
         </View>
       </TouchableOpacity>
     </SwipeableNotificationRow>
+    </View>
   );
 
   return (
@@ -669,25 +765,40 @@ export default function UserNotifications() {
     >
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
-        <TouchableOpacity
-          disabled={unreadCount === 0}
-          onPress={() => { setOpenSwipeId(null); markAllAsRead(); }}
-        >
-          <Text
-            style={[
-              styles.markAllRead,
-              unreadCount === 0 && styles.markAllReadDisabled,
-            ]}
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            ref={markAllRef}
+            disabled={unreadCount === 0}
+            onPress={() => { setOpenSwipeId(null); markAllAsRead(); }}
           >
-            Mark all as read
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.markAllRead,
+                unreadCount === 0 && styles.markAllReadDisabled,
+              ]}
+            >
+              Mark all as read
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            ref={notificationsHelpRef}
+            onPress={() => {
+              setOpenSwipeId(null);
+              setDropdownOpen(false);
+              setShowTour(true);
+            }}
+          >
+            <Ionicons name="help-circle-outline" size={24} color="#333" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Tabs and Dropdown Toggle Bar */}
       <View style={styles.tabsRow}>
         <View style={styles.tabsLeft}>
           <TouchableOpacity
+            ref={allTabRef}
             style={[
               styles.tabButton,
               activeTab === "all" && styles.tabButtonActive,
@@ -709,6 +820,7 @@ export default function UserNotifications() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            ref={unreadTabRef}
             style={[
               styles.tabButton,
               activeTab === "unread" && styles.tabButtonActive,
@@ -732,6 +844,7 @@ export default function UserNotifications() {
 
         {/* Light green options-outline filter button[cite: 8] */}
         <TouchableOpacity
+          ref={sortButtonRef}
           style={styles.filterButton}
           onPress={() => { setOpenSwipeId(null); setDropdownOpen((prev) => !prev); }}
           activeOpacity={0.7}
@@ -829,6 +942,12 @@ export default function UserNotifications() {
       )}
 
       {userId ? <UserBottomNav userId={userId} active="home" /> : null}
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -850,6 +969,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "800",
     color: "#111111",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
   },
   markAllRead: {
     fontSize: 13,

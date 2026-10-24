@@ -1,9 +1,10 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -20,6 +21,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 const ACCEPTED_ITEM_OPTIONS = [
@@ -207,6 +213,100 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
   const [selectedHour, setSelectedHour] = useState("8");
   const [selectedMinute, setSelectedMinute] = useState("00");
   const [selectedPeriod, setSelectedPeriod] = useState("AM");
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const myPostingsRef = useRef<any>(null);
+  const historyRef = useRef<any>(null);
+  const editProfileRef = useRef<any>(null);
+  const logoutRef = useRef<any>(null);
+  const deleteAccountRef = useRef<any>(null);
+  const settingsHelpRef = useRef<any>(null);
+
+  const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
+  const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "settings-outline",
+      title: "Facility Settings",
+      description:
+        "Manage your postings, facility details and account from here. Here's what each option does.",
+    },
+    {
+      key: "my-postings",
+      icon: "pricetags-outline",
+      title: "My Postings",
+      description:
+        "Create and manage posts for the e-waste items your facility is looking for, so users can send you match requests.",
+      targetRef: myPostingsRef,
+      prepare: scrollToTop,
+    },
+    {
+      key: "history",
+      icon: "time-outline",
+      title: "Recycling History",
+      description:
+        "See every match your facility has finished, with the user and the dates.",
+      targetRef: historyRef,
+      prepare: scrollToTop,
+    },
+    {
+      key: "edit-profile",
+      icon: "create-outline",
+      title: "Edit Profile",
+      description:
+        "Update your facility photo, name, accepted items, opening days and operating hours. Users see these on your profile and on the map.",
+      targetRef: editProfileRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "logout",
+      icon: "log-out-outline",
+      title: "Logout",
+      description: "Sign out of your facility account on this phone.",
+      targetRef: logoutRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "delete-account",
+      icon: "warning-outline",
+      title: "Delete Account",
+      description:
+        "Permanently delete your facility account and its data. This can't be undone, so you'll be asked to confirm first.",
+      targetRef: deleteAccountRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: settingsHelpRef,
+      prepare: scrollToTop,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+    scrollToTop();
+
+    if (facility.id) {
+      markTourCompleted("facility_settings", String(facility.id));
+    }
+  };
+
+  useEffect(() => {
+    if (!facility.id) return;
+
+    hasCompletedTour("facility_settings", String(facility.id)).then(
+      (completed) => {
+        if (!completed) setShowTour(true);
+      },
+    );
+  }, [facility.id]);
 
   useEffect(() => {
     loadFacility();
@@ -1223,13 +1323,21 @@ openingDaysTo:
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => router.replace("/facility_dashboard/profile" as any)}>
             <Text style={styles.back}>←</Text>
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Settings</Text>
+
+          <TouchableOpacity
+            ref={settingsHelpRef}
+            style={styles.helpButton}
+            onPress={() => setShowTour(true)}
+          >
+            <Ionicons name="help-circle-outline" size={26} color="#fff" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.profileHeader}>
@@ -1260,6 +1368,7 @@ openingDaysTo:
         <View style={styles.profileSectionSpacing}>
           <View style={styles.menu}>
             <TouchableOpacity
+              ref={myPostingsRef}
               style={styles.item}
               onPress={() =>
                 router.push("/facility_dashboard/my_postings" as any)
@@ -1275,6 +1384,7 @@ openingDaysTo:
             </TouchableOpacity>
 
             <TouchableOpacity
+              ref={historyRef}
               style={styles.item}
               onPress={() =>
                 router.push("/user_dashboard/recycling_history" as any)
@@ -1294,7 +1404,11 @@ openingDaysTo:
         <Text style={styles.sectionTitle}>Account</Text>
 
         <View style={styles.menu}>
-          <TouchableOpacity style={styles.item} onPress={openEditProfileModal}>
+          <TouchableOpacity
+            ref={editProfileRef}
+            style={styles.item}
+            onPress={openEditProfileModal}
+          >
             <Image
               source={require("../../assets/icons/setting_user.png")}
               style={styles.icon}
@@ -1319,7 +1433,11 @@ openingDaysTo:
           </View>
         </View>
 
-        <TouchableOpacity style={styles.logoutBox} onPress={confirmLogout}>
+        <TouchableOpacity
+          ref={logoutRef}
+          style={styles.logoutBox}
+          onPress={confirmLogout}
+        >
           <Image
             source={require("../../assets/icons/logout_copy.png")}
             style={styles.logoutIcon}
@@ -1328,7 +1446,11 @@ openingDaysTo:
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteBox} onPress={deleteAccount}>
+        <TouchableOpacity
+          ref={deleteAccountRef}
+          style={styles.deleteBox}
+          onPress={deleteAccount}
+        >
           <Image
             source={require("../../assets/icons/bin.png")}
             style={styles.deleteIcon}
@@ -1550,6 +1672,12 @@ openingDaysTo:
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -1562,6 +1690,10 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     paddingBottom: 30,
+  },
+
+  helpButton: {
+    marginLeft: "auto",
   },
 
   topBar: {

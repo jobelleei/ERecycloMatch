@@ -7,6 +7,7 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Image,
   ImageBackground,
   Keyboard,
@@ -587,6 +588,42 @@ export default function FacilitySignup() {
         height: asset.height,
       });
     }
+  };
+
+  const pickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Toast.show({
+        type: "error",
+        text1: "Photo library permission is required",
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+
+      setImage({
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
+    }
+  };
+
+  const chooseImageSource = () => {
+    Alert.alert(image ? "Change Photo" : "Add Photo", "Choose a source", [
+      { text: "Take Photo", onPress: openCamera },
+      { text: "Upload Image", onPress: pickFromGallery },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const getImageExtension = (uri: string) => {
@@ -1431,7 +1468,7 @@ export default function FacilitySignup() {
         </View>
 
         <Pressable
-          onPress={openCamera}
+          onPress={chooseImageSource}
           style={[
             styles.uploadBox,
             image && {
@@ -1444,7 +1481,7 @@ export default function FacilitySignup() {
           ) : (
             <View style={{ alignItems: "center", gap: 6 }}>
               <Text style={{ fontSize: 13, color: "#555" }}>
-                Tap to Open Camera
+                Tap to take or upload a photo
               </Text>
             </View>
           )}

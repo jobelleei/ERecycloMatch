@@ -1,15 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { RefObject, useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../utils/supabase";
 
+type NavKey = "home" | "scan" | "map" | "messages" | "profile" | "settings";
+
 interface UserBottomNavProps {
   userId: string;
-  active: "home" | "scan" | "map" | "messages" | "profile" | "settings";
+  active: NavKey;
+  // Lets the onboarding tour highlight individual nav buttons
+  tourRefs?: Partial<Record<NavKey, RefObject<any>>>;
 }
 
-export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
+export default function UserBottomNav({
+  userId,
+  active,
+  tourRefs,
+}: UserBottomNavProps) {
   const router = useRouter();
   const [hasUnreadMessages, setHasUnreadMessages] = useState<boolean>(false);
 
@@ -20,17 +28,36 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
     }
 
     try {
-      const { count, error } = await supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", String(userId))
-        .eq("is_read", false);
+      // Unread chat messages received by this account
+      const numericId = Number(userId);
+      const { count: unreadMessageCount, error: messagesError } =
+        Number.isFinite(numericId)
+          ? await supabase
+              .from("messages")
+              .select("id", { count: "exact", head: true })
+              .eq("receiver_id", numericId)
+              .eq("is_read", false)
+          : { count: 0, error: null };
 
-      if (!error && count !== null) {
-        setHasUnreadMessages(count > 0);
-      } else {
-        setHasUnreadMessages(false);
+      if (messagesError) {
+        console.log("NAV UNREAD MESSAGES ERROR:", messagesError);
       }
+
+      // Unread conversations (e.g. new match requests)
+      const { count: unreadConversationCount, error: conversationsError } =
+        await supabase
+          .from("conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", String(userId))
+          .eq("is_read", false);
+
+      if (conversationsError) {
+        console.log("NAV UNREAD CONVERSATIONS ERROR:", conversationsError);
+      }
+
+      setHasUnreadMessages(
+        (unreadMessageCount ?? 0) > 0 || (unreadConversationCount ?? 0) > 0,
+      );
     } catch (e) {
       console.log("NAV UNREAD ERROR:", e);
       setHasUnreadMessages(false);
@@ -65,9 +92,10 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
+          filter: `receiver_id=eq.${userId}`,
         },
         () => fetchUnreadStatus(),
       )
@@ -81,6 +109,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
   return (
     <View style={navStyles.container}>
       <TouchableOpacity
+        ref={tourRefs?.home}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard" as any)}
       >
@@ -100,6 +129,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       </TouchableOpacity>
 
       <TouchableOpacity
+        ref={tourRefs?.scan}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard/user_scan" as any)}
       >
@@ -119,6 +149,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       </TouchableOpacity>
 
       <TouchableOpacity
+        ref={tourRefs?.map}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard/user_map" as any)}
       >
@@ -138,6 +169,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       </TouchableOpacity>
 
       <TouchableOpacity
+        ref={tourRefs?.messages}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard/messages" as any)}
       >
@@ -164,6 +196,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       </TouchableOpacity>
 
       <TouchableOpacity
+        ref={tourRefs?.profile}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard/profile" as any)}
       >
@@ -183,6 +216,7 @@ export default function UserBottomNav({ userId, active }: UserBottomNavProps) {
       </TouchableOpacity>
 
       <TouchableOpacity
+        ref={tourRefs?.settings}
         style={navStyles.navItem}
         onPress={() => router.push("/user_dashboard/settings" as any)}
       >

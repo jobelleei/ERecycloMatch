@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +14,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 export default function FacilityList() {
@@ -22,6 +28,85 @@ export default function FacilityList() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const [tourUserId, setTourUserId] = useState("");
+  const searchRef = useRef<View>(null);
+  const firstCardRef = useRef<any>(null);
+  const listHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    const loadTourUser = async () => {
+      try {
+        const stored = await AsyncStorage.getItem("user");
+        if (!stored) return;
+
+        const parsed = JSON.parse(stored);
+        const actualUser = parsed?.user || parsed?.data || parsed;
+        setTourUserId(String(actualUser?.id || parsed?.id || ""));
+      } catch (error) {
+        console.log("LOAD TOUR USER ERROR:", error);
+      }
+    };
+
+    loadTourUser();
+  }, []);
+
+  useEffect(() => {
+    if (!tourUserId || loading) return;
+
+    hasCompletedTour("user_facility_list", tourUserId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [tourUserId, loading]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "business-outline",
+      title: "Partnered Facilities",
+      description:
+        "All approved recycling facilities in ERecycloMatch, sorted by name.",
+    },
+    {
+      key: "search",
+      icon: "search-outline",
+      title: "Search",
+      description:
+        "Type a facility name or location to narrow the list. Tap ✕ to clear it.",
+      targetRef: searchRef,
+    },
+    {
+      key: "facility",
+      icon: "person-circle-outline",
+      title: "View a Facility",
+      description:
+        "Tap a facility to open its profile. There you can see what it accepts, its opening hours and its postings, and send a match request.",
+      targetRef: firstCardRef,
+    },
+    {
+      key: "refresh",
+      icon: "refresh-outline",
+      title: "Refresh the List",
+      description: "Pull down on the list to load newly approved facilities.",
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: listHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (tourUserId) {
+      markTourCompleted("user_facility_list", tourUserId);
+    }
+  };
 
   useEffect(() => {
     fetchFacilities();
@@ -90,12 +175,18 @@ export default function FacilityList() {
           <Ionicons name="arrow-back" size={24} color="#1B5E20" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Partnered Facilities</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          ref={listHelpRef}
+          onPress={() => setShowTour(true)}
+          style={styles.backButton}
+        >
+          <Ionicons name="help-circle-outline" size={24} color="#1B5E20" />
+        </TouchableOpacity>
       </View>
 
       {/* Filter / Search Bar */}
       <View style={styles.searchWrapper}>
-        <View style={styles.searchBox}>
+        <View ref={searchRef} collapsable={false} style={styles.searchBox}>
           <TextInput
             placeholder="Search facility or location..."
             placeholderTextColor="#777"
@@ -138,8 +229,9 @@ export default function FacilityList() {
               <Text style={styles.emptyText}>No facilities found.</Text>
             </View>
           }
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <TouchableOpacity
+              ref={index === 0 ? firstCardRef : undefined}
               style={styles.card}
               activeOpacity={0.88}
               onPress={() =>
@@ -174,6 +266,12 @@ export default function FacilityList() {
           )}
         />
       )}
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
