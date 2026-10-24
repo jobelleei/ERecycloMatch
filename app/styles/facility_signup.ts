@@ -119,7 +119,7 @@ export default StyleSheet.create({
   borderRadius: 10,
   justifyContent: "center",
   alignItems: "center",
-  marginBottom: 5,
+  marginBottom: 15,
   overflow: "hidden", // 🔥 important
 },
 

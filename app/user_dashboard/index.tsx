@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
@@ -36,6 +41,154 @@ export default function UserDashboard() {
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   const router = useRouter();
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const searchRef = useRef<View>(null);
+  const notificationRef = useRef<any>(null);
+  const helpRef = useRef<any>(null);
+  const recentItemsRef = useRef<View>(null);
+  const facilitiesRef = useRef<View>(null);
+  const refreshFacilitiesRef = useRef<any>(null);
+  const recentItemsY = useRef(0);
+  const facilitiesY = useRef(0);
+  const navRefs = {
+    home: useRef<any>(null),
+    scan: useRef<any>(null),
+    map: useRef<any>(null),
+    messages: useRef<any>(null),
+    profile: useRef<any>(null),
+    settings: useRef<any>(null),
+  };
+
+  const scrollToY = (y: number) =>
+    scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "leaf-outline",
+      title: "Welcome to ERecycloMatch!",
+      description:
+        "Let's take a quick tour so you know what each button does. You can skip it anytime.",
+    },
+    {
+      key: "search",
+      icon: "search-outline",
+      title: "Search Facilities",
+      description:
+        "Type a facility name or location to find approved recycling facilities near you.",
+      targetRef: searchRef,
+      prepare: () => scrollToY(0),
+    },
+    {
+      key: "notifications",
+      icon: "notifications-outline",
+      title: "Notifications",
+      description:
+        "See match requests, replies and updates here. The red badge shows how many are unread.",
+      targetRef: notificationRef,
+      prepare: () => scrollToY(0),
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: helpRef,
+      prepare: () => scrollToY(0),
+    },
+    {
+      key: "recent-items",
+      icon: "list-outline",
+      title: "Recent Listed Items",
+      description:
+        "Your latest listed e-waste items show up here so you can check their status at a glance.",
+      targetRef: recentItemsRef,
+      prepare: () => scrollToY(recentItemsY.current - 150),
+    },
+    {
+      key: "facilities",
+      icon: "business-outline",
+      title: "Partnered Facilities",
+      description:
+        "Swipe sideways to browse approved facilities. Tap one to view its profile and send a match request, or tap View More at the end to see them all.",
+      targetRef: facilitiesRef,
+      prepare: () => scrollToY(facilitiesY.current - 150),
+    },
+    {
+      key: "refresh-facilities",
+      icon: "refresh-outline",
+      title: "Refresh Facilities",
+      description: "Tap to reload the list of partnered facilities.",
+      targetRef: refreshFacilitiesRef,
+      prepare: () => scrollToY(facilitiesY.current - 150),
+    },
+    {
+      key: "nav-home",
+      icon: "home-outline",
+      title: "Home",
+      description: "Come back to this dashboard from any screen.",
+      targetRef: navRefs.home,
+    },
+    {
+      key: "nav-scan",
+      icon: "scan-outline",
+      title: "Scan E-Waste",
+      description:
+        "Take a photo of your e-waste. The app identifies the item and helps you list it for recycling.",
+      targetRef: navRefs.scan,
+    },
+    {
+      key: "nav-map",
+      icon: "map-outline",
+      title: "Map",
+      description:
+        "Find recycling facilities and e-waste drop off bins near you and get directions.",
+      targetRef: navRefs.map,
+    },
+    {
+      key: "nav-messages",
+      icon: "chatbubble-ellipses-outline",
+      title: "Messages",
+      description:
+        "Chat with facilities about your items. A red dot appears when you have unread messages.",
+      targetRef: navRefs.messages,
+    },
+    {
+      key: "nav-profile",
+      icon: "person-outline",
+      title: "Profile",
+      description:
+        "View and edit your profile, your listed items and your recycling history.",
+      targetRef: navRefs.profile,
+    },
+    {
+      key: "nav-settings",
+      icon: "settings-outline",
+      title: "Settings",
+      description: "Manage your account, preferences and log out.",
+      targetRef: navRefs.settings,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+    scrollToY(0);
+
+    if (userId) {
+      markTourCompleted("user_dashboard", userId);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+
+    hasCompletedTour("user_dashboard", userId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [userId]);
 
   useEffect(() => {
     loadUser();
@@ -542,6 +695,7 @@ export default function UserDashboard() {
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={{ flex: 1 }}>
         <ScrollView
+          ref={scrollRef}
           style={styles.container}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -558,6 +712,16 @@ export default function UserDashboard() {
 
             <View style={styles.headerActions}>
               <TouchableOpacity
+                ref={helpRef}
+                style={styles.notificationButton}
+                activeOpacity={0.8}
+                onPress={() => setShowTour(true)}
+              >
+                <Ionicons name="help-circle-outline" size={27} color="#000000" />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                ref={notificationRef}
                 style={styles.notificationButton}
                 activeOpacity={0.8}
                 onPress={() =>
@@ -585,7 +749,7 @@ export default function UserDashboard() {
 
           {/* Search Bar */}
           <View style={styles.searchArea}>
-            <View style={styles.searchBox}>
+            <View ref={searchRef} collapsable={false} style={styles.searchBox}>
               <TextInput
                 placeholder="Search approved facilities or location"
                 placeholderTextColor="#777"
@@ -687,7 +851,14 @@ export default function UserDashboard() {
           </Text>
         </ImageBackground>
 
-          <View style={styles.sectionHeader}>
+          <View
+            ref={recentItemsRef}
+            collapsable={false}
+            style={styles.sectionHeader}
+            onLayout={(event) => {
+              recentItemsY.current = event.nativeEvent.layout.y;
+            }}
+          >
           <Text style={styles.sectionTitle}>
             Recent Listed Items
           </Text>
@@ -729,12 +900,20 @@ export default function UserDashboard() {
             </View>
           )}
 
-          <View style={styles.sectionHeader}>
+          <View
+            ref={facilitiesRef}
+            collapsable={false}
+            style={styles.sectionHeader}
+            onLayout={(event) => {
+              facilitiesY.current = event.nativeEvent.layout.y;
+            }}
+          >
           <Text style={styles.sectionTitle}>
             Partnered Recycling Facilities
           </Text>
 
           <TouchableOpacity
+            ref={refreshFacilitiesRef}
             style={styles.refreshFacilityButton}
             onPress={fetchApprovedFacilities}
             disabled={loadingFacilities}
@@ -813,8 +992,14 @@ export default function UserDashboard() {
           )}
         </ScrollView>
 
-        <UserBottomNav userId={userId} active="home" />
+        <UserBottomNav userId={userId} active="home" tourRefs={navRefs} />
       </View>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }

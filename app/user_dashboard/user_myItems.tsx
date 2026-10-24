@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Dimensions,
@@ -20,6 +21,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
@@ -65,6 +71,22 @@ export default function MyItems() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [submitterName, setSubmitterName] = useState("");
   const [userId, setUserId] = useState("");
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const statsRef = useRef<View>(null);
+  const filtersRef = useRef<View>(null);
+  const firstCardRef = useRef<any>(null);
+  const firstDotsRef = useRef<any>(null);
+  const itemsHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    hasCompletedTour("user_my_items", userId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [userId]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("All");
 
@@ -788,7 +810,7 @@ export default function MyItems() {
       .filter(Boolean);
   };
 
-  const renderItem = ({ item }: any) => {
+  const renderItem = ({ item, index }: any) => {
     const status = getItemStatus(item);
     const uniqueKey = `${item.id}-${status}`;
     const isMenuOpen = openMenuId === String(item.id);
@@ -808,6 +830,7 @@ export default function MyItems() {
     return (
       <View>
         <TouchableOpacity
+          ref={index === 0 ? firstCardRef : undefined}
           style={styles.card}
           onPress={() =>
             setSelectedItem(selectedItem === uniqueKey ? null : uniqueKey)
@@ -828,6 +851,7 @@ export default function MyItems() {
           </View>
 
           <TouchableOpacity
+            ref={index === 0 ? firstDotsRef : undefined}
             style={styles.dotsButton}
             onPress={(e) => {
               e.stopPropagation();
@@ -854,6 +878,63 @@ export default function MyItems() {
     );
   };
 
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "cube-outline",
+      title: "My Items",
+      description:
+        "Every item you scan and submit shows up here. The admin reviews each one before you can list it for recycling.",
+    },
+    {
+      key: "stats",
+      icon: "stats-chart-outline",
+      title: "Item Summary",
+      description:
+        "See how many items you have in total and how many are approved, listed or rejected.",
+      targetRef: statsRef,
+    },
+    {
+      key: "filters",
+      icon: "funnel-outline",
+      title: "Filter by Status",
+      description:
+        "• Pending: waiting for admin review\n• Approved: ready to be listed\n• Listed: visible to facilities\n• Rejected: not accepted by the admin",
+      targetRef: filtersRef,
+    },
+    {
+      key: "item-card",
+      icon: "hand-left-outline",
+      title: "Item Actions",
+      description:
+        "Tap an item to show what you can do with it. Depending on its status you can List it for facilities, Update its details, View Details or Delete it.",
+      targetRef: firstCardRef,
+    },
+    {
+      key: "item-dots",
+      icon: "ellipsis-vertical",
+      title: "Review Status",
+      description:
+        "Tap ⋮ to see who reviewed the item and when it was last updated.",
+      targetRef: firstDotsRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: itemsHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (userId) {
+      markTourCompleted("user_my_items", userId);
+    }
+  };
+
   return (
     <TouchableWithoutFeedback
       onPress={() => {
@@ -861,9 +942,22 @@ export default function MyItems() {
       }}
     >
       <SafeAreaView style={styles.container}>
-        <Text style={styles.header}>My Items</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.header}>My Items</Text>
 
-        <View style={styles.statsContainer}>
+          <TouchableOpacity
+            ref={itemsHelpRef}
+            style={styles.helpButton}
+            onPress={() => {
+              setOpenMenuId(null);
+              setShowTour(true);
+            }}
+          >
+            <Ionicons name="help-circle-outline" size={26} color="#333" />
+          </TouchableOpacity>
+        </View>
+
+        <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
           <View style={styles.statsCard}>
             <Text style={styles.statsNumber}>{items.length}</Text>
             <Text style={styles.statsLabel}>Total</Text>
@@ -897,7 +991,7 @@ export default function MyItems() {
           </View>
         </View>
 
-        <View style={styles.filterWrapper}>
+        <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -1153,6 +1247,12 @@ export default function MyItems() {
         </Modal>
 
         <UserBottomNav userId={userId} active="profile" />
+
+        <OnboardingTour
+          visible={showTour}
+          steps={tourSteps}
+          onFinish={finishTour}
+        />
       </SafeAreaView>
     </TouchableWithoutFeedback>
   );
@@ -1165,10 +1265,20 @@ const styles = StyleSheet.create({
     padding: 20,
   },
 
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
   header: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 20,
+  },
+
+  helpButton: {
+    padding: 4,
   },
 
   statsContainer: {

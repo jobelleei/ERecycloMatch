@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 export default function ItemDetails() {
@@ -23,6 +28,100 @@ export default function ItemDetails() {
   const [facility, setFacility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submittingInterest, setSubmittingInterest] = useState(false);
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const titleRef = useRef<View>(null);
+  const issuesRef = useRef<View>(null);
+  const locationRef = useRef<View>(null);
+  const interestedRef = useRef<any>(null);
+  const ownerProfileRef = useRef<any>(null);
+  const detailsHelpRef = useRef<any>(null);
+  const facilityTourId = String(facility?.id || facility?.facility_id || "");
+
+  useEffect(() => {
+    if (!facilityTourId || loading || !item) return;
+
+    hasCompletedTour("facility_item_details", facilityTourId).then(
+      (completed) => {
+        if (!completed) setShowTour(true);
+      },
+    );
+  }, [facilityTourId, loading, item]);
+
+  const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
+  const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "cube-outline",
+      title: "Item Details",
+      description:
+        "This is an e-waste item a user has listed for recycling. Check the details to decide if your facility wants it.",
+    },
+    {
+      key: "title",
+      icon: "pricetag-outline",
+      title: "Item & Owner",
+      description: "The item's name and the user who posted it.",
+      targetRef: titleRef,
+      prepare: scrollToTop,
+    },
+    {
+      key: "issues",
+      icon: "warning-outline",
+      title: "Issues / Condition",
+      description:
+        "The problems the user reported, such as a cracked screen or a glued battery. Make sure your facility can handle them.",
+      targetRef: issuesRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "location",
+      icon: "location-outline",
+      title: "Location",
+      description: "Where the item is, so you can plan the pickup or drop-off.",
+      targetRef: locationRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "interested",
+      icon: "heart-outline",
+      title: "Interested in this Item",
+      description:
+        "Sends a match request to the user and opens a chat with them. If the user accepts another facility's request instead, yours is rejected automatically.",
+      targetRef: interestedRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "owner-profile",
+      icon: "person-outline",
+      title: "View User Profile",
+      description:
+        "See the user's profile, their other listed items, their rating and the feedback other facilities left them.",
+      targetRef: ownerProfileRef,
+      prepare: scrollToBottom,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: detailsHelpRef,
+      prepare: scrollToTop,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+    scrollToTop();
+
+    if (facilityTourId) {
+      markTourCompleted("facility_item_details", facilityTourId);
+    }
+  };
 
   useEffect(() => {
     loadFacilityAndItem();
@@ -327,7 +426,7 @@ export default function ItemDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -335,7 +434,12 @@ export default function ItemDetails() {
           </TouchableOpacity>
 
           <Text style={styles.headerTitle}>Item Details</Text>
-          <View style={{ width: 26 }} />
+          <TouchableOpacity
+            ref={detailsHelpRef}
+            onPress={() => setShowTour(true)}
+          >
+            <Ionicons name="help-circle-outline" size={26} color="#222" />
+          </TouchableOpacity>
         </View>
 
         {/* Item Image */}
@@ -350,13 +454,15 @@ export default function ItemDetails() {
 
         {/* Content */}
         <View style={styles.content}>
-          <Text style={styles.title}>
-            {item.item_name || item.item_type || "Unnamed Item"}
-          </Text>
+          <View ref={titleRef} collapsable={false}>
+            <Text style={styles.title}>
+              {item.item_name || item.item_type || "Unnamed Item"}
+            </Text>
 
-          <Text style={styles.postedBy}>
-            Posted by {item.submitter_name || "User"}
-          </Text>
+            <Text style={styles.postedBy}>
+              Posted by {item.submitter_name || "User"}
+            </Text>
+          </View>
 
           {/* Description */}
           <View style={styles.section}>
@@ -367,7 +473,7 @@ export default function ItemDetails() {
           </View>
 
           {/* Issues / Condition */}
-          <View style={styles.section}>
+          <View ref={issuesRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Issues / Condition</Text>
             <Text style={styles.value}>
               {item.issues || item.selected_issues || "No issues specified."}
@@ -375,7 +481,7 @@ export default function ItemDetails() {
           </View>
 
           {/* Location */}
-          <View style={styles.section}>
+          <View ref={locationRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Location</Text>
             <Text style={styles.value}>
               {item.location || item.address || "No location provided."}
@@ -385,6 +491,7 @@ export default function ItemDetails() {
           {/* Action Buttons */}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
+              ref={interestedRef}
               style={styles.interestedButton}
               activeOpacity={0.85}
               disabled={submittingInterest}
@@ -400,6 +507,7 @@ export default function ItemDetails() {
             </TouchableOpacity>
 
             <TouchableOpacity
+              ref={ownerProfileRef}
               style={styles.secondaryButton}
               activeOpacity={0.8}
               onPress={openOwnerProfile}
@@ -409,6 +517,12 @@ export default function ItemDetails() {
           </View>
         </View>
       </ScrollView>
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }

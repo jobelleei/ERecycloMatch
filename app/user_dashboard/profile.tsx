@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -11,12 +12,26 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const ratingRef = useRef<View>(null);
+  const myItemsRef = useRef<any>(null);
+  const myListingsRef = useRef<any>(null);
+  const listedTabRef = useRef<any>(null);
+  const feedbacksTabRef = useRef<any>(null);
+  const profileHelpRef = useRef<any>(null);
 
   const [user, setUser] = useState({
     id: "",
@@ -299,6 +314,14 @@ export default function Profile() {
       fetchListings();
       fetchFeedbacks();
     }
+  }, [user.id]);
+
+  useEffect(() => {
+    if (!user.id) return;
+
+    hasCompletedTour("user_profile", String(user.id)).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
   }, [user.id]);
 
   const loadUser = async () => {
@@ -703,6 +726,70 @@ export default function Profile() {
 
   const listData = activeSection === "listed" ? items : sortedFeedbacks;
 
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "person-outline",
+      title: "Your Profile",
+      description:
+        "This is how facilities see you. Here's a quick guide to what you can do on this page.",
+    },
+    {
+      key: "rating",
+      icon: "star-outline",
+      title: "Your Rating",
+      description:
+        "Facilities rate you after each finished match. Your average rating and number of feedbacks show here.",
+      targetRef: ratingRef,
+    },
+    {
+      key: "my-items",
+      icon: "cube-outline",
+      title: "My Items",
+      description:
+        "See every item you've scanned and submitted, and whether it's pending, approved or rejected.",
+      targetRef: myItemsRef,
+    },
+    {
+      key: "my-listings",
+      icon: "pricetags-outline",
+      title: "My Listings",
+      description:
+        "Manage items listed for recycling: edit them, check match requests and see which facility you matched with.",
+      targetRef: myListingsRef,
+    },
+    {
+      key: "listed-tab",
+      icon: "list-outline",
+      title: "Listed Items",
+      description: "Shows the items you currently have listed, below.",
+      targetRef: listedTabRef,
+    },
+    {
+      key: "feedbacks-tab",
+      icon: "chatbox-ellipses-outline",
+      title: "Feedbacks",
+      description:
+        "Read what facilities said about you. You can sort them by newest, oldest, highest or lowest rating.",
+      targetRef: feedbacksTabRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: profileHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (user.id) {
+      markTourCompleted("user_profile", String(user.id));
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <FlatList
@@ -726,6 +813,14 @@ export default function Profile() {
                 onPress={() => router.back()}
               >
                 <Text style={styles.backText}>←</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                ref={profileHelpRef}
+                style={styles.helpButton}
+                onPress={() => setShowTour(true)}
+              >
+                <Ionicons name="help-circle-outline" size={26} color="#fff" />
               </TouchableOpacity>
 
               <View style={styles.avatarWrapper}>
@@ -754,7 +849,11 @@ export default function Profile() {
                 <Text style={styles.headerAddress}>{user.address}</Text>
               </View>
 
-              <View style={styles.ratingSummaryBox}>
+              <View
+                ref={ratingRef}
+                collapsable={false}
+                style={styles.ratingSummaryBox}
+              >
                 <Text style={styles.ratingSummaryStars}>
                   {renderStars(Math.round(averageRating))}
                 </Text>
@@ -770,6 +869,7 @@ export default function Profile() {
 
               <View style={styles.profileActionButtons}>
                 <TouchableOpacity
+                  ref={myItemsRef}
                   style={styles.profileActionButton}
                   onPress={() => goToPage("/user_dashboard/user_myItems")}
                 >
@@ -777,6 +877,7 @@ export default function Profile() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  ref={myListingsRef}
                   style={styles.profileActionButton}
                   onPress={() => goToPage("/user_dashboard/user_myListing")}
                 >
@@ -788,6 +889,7 @@ export default function Profile() {
 
               <View style={styles.sectionTabs}>
                 <TouchableOpacity
+                  ref={listedTabRef}
                   style={[
                     styles.sectionTabButton,
                     activeSection === "listed" && styles.activeSectionTab,
@@ -805,6 +907,7 @@ export default function Profile() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  ref={feedbacksTabRef}
                   style={[
                     styles.sectionTabButton,
                     activeSection === "feedbacks" && styles.activeSectionTab,
@@ -839,6 +942,12 @@ export default function Profile() {
       />
 
       {user.id ? <UserBottomNav userId={user.id} active="profile" /> : null}
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -866,6 +975,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     top: 18,
+    zIndex: 10,
+  },
+
+  helpButton: {
+    position: "absolute",
+    right: 20,
+    top: 20,
     zIndex: 10,
   },
 

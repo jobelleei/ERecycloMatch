@@ -1,6 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import {
   Alert,
@@ -79,6 +85,21 @@ export default function MyListing() {
   const [previewTitle, setPreviewTitle] = useState("");
 
   const [userId, setUserId] = useState("");
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const statsRef = useRef<View>(null);
+  const filtersRef = useRef<View>(null);
+  const firstCardRef = useRef<any>(null);
+  const listingHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    hasCompletedTour("user_my_listing", userId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [userId]);
   const [userName, setUserName] = useState("");
 
   const getItemTimeValue = (item: any) => {
@@ -1661,7 +1682,7 @@ export default function MyListing() {
     }
   };
 
-  const renderItem = ({ item }: any) => {
+  const renderItem = ({ item, index }: any) => {
     const uniqueKey = `listed-${item.id}`;
     const matchStatus = getMatchStatus(item);
     const isMatchingThisItem = String(matchingItemId) === String(item.id);
@@ -1670,6 +1691,7 @@ export default function MyListing() {
     return (
       <View>
         <TouchableOpacity
+          ref={index === 0 ? firstCardRef : undefined}
           style={styles.card}
           onPress={() =>
             setSelectedItem(selectedItem === uniqueKey ? null : uniqueKey)
@@ -1730,11 +1752,73 @@ export default function MyListing() {
     );
   };
 
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "pricetags-outline",
+      title: "My Listing",
+      description:
+        "These are the items you've listed for recycling. Here's how to manage them and find a facility.",
+    },
+    {
+      key: "stats",
+      icon: "stats-chart-outline",
+      title: "Listing Summary",
+      description:
+        "See how many items you've listed, how many are matched with a facility and how many are waiting for a reply.",
+      targetRef: statsRef,
+    },
+    {
+      key: "filters",
+      icon: "funnel-outline",
+      title: "Filter Your Items",
+      description:
+        "Tap All, Listed, Matched or Pending Match to show only items with that status.",
+      targetRef: filtersRef,
+    },
+    {
+      key: "item-card",
+      icon: "ellipsis-vertical",
+      title: "Item Actions",
+      description:
+        "Tap an item to show its actions:\n• Find a Match: see facilities that accept this item and send a request\n• Update: edit the item's details\n• Delete: remove the listing",
+      targetRef: firstCardRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: listingHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (userId) {
+      markTourCompleted("user_my_listing", userId);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>My Listing</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>My Listing</Text>
 
-      <View style={styles.statsContainer}>
+        <TouchableOpacity
+          ref={listingHelpRef}
+          style={styles.helpButton}
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowTour(true);
+          }}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
         <View style={styles.statsCard}>
           <Text style={styles.statsNumber}>{items.length}</Text>
           <Text style={styles.statsLabel}>Listed Items</Text>
@@ -1758,7 +1842,7 @@ export default function MyListing() {
         </View>
       </View>
 
-      <View style={styles.filterWrapper}>
+      <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -2177,6 +2261,12 @@ export default function MyListing() {
         userId={userId}
         active="profile"
       />
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -2184,7 +2274,16 @@ export default function MyListing() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
 
-  header: { fontSize: 24, fontWeight: "bold", marginBottom: 20 },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  header: { fontSize: 24, fontWeight: "bold" },
+
+  helpButton: { padding: 4 },
 
   statsContainer: {
     flexDirection: "row",

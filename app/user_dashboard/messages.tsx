@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -15,6 +16,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
@@ -132,6 +138,69 @@ export default function UserMessages() {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const firstConversationRef = useRef<View>(null);
+  const firstStatusRef = useRef<View>(null);
+  const messagesHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!user?.id || loading) return;
+
+    hasCompletedTour("user_messages", String(user.id)).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [user?.id, loading]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "chatbubble-ellipses-outline",
+      title: "Messages",
+      description:
+        "Your conversations with recycling facilities. Each facility has one conversation that holds all your match requests with them.",
+    },
+    {
+      key: "conversation",
+      icon: "chatbubbles-outline",
+      title: "Open a Conversation",
+      description:
+        "Tap a conversation to chat with the facility, send offers and accept or reject match requests. Unread conversations are highlighted in green with a dot on the photo.",
+      targetRef: firstConversationRef,
+    },
+    {
+      key: "status",
+      icon: "pulse-outline",
+      title: "Match Status",
+      description:
+        "Shows where the latest match stands:\n• Request Sent / Received: waiting for a reply\n• Matched: the match was accepted\n• Finish Pending: waiting for the other side to finish\n• Finished, Cancelled or Rejected: the match is closed",
+      targetRef: firstStatusRef,
+    },
+    {
+      key: "delete",
+      icon: "trash-outline",
+      title: "Delete a Conversation",
+      description:
+        "Swipe a conversation to the left and tap Delete to remove it and its messages. You'll be asked to confirm first.",
+      targetRef: firstConversationRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: messagesHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (user?.id) {
+      markTourCompleted("user_messages", String(user.id));
+    }
+  };
 
   useEffect(() => {
     loadUser();
@@ -618,10 +687,14 @@ export default function UserMessages() {
     });
   };
 
-  const renderConversation = ({ item }: any) => {
+  const renderConversation = ({ item, index }: any) => {
     const isUnread = !item.is_read;
 
     return (
+      <View
+        ref={index === 0 ? firstConversationRef : undefined}
+        collapsable={false}
+      >
       <SwipeableConversation item={item} onDelete={deleteConversation}>
         <TouchableOpacity
           style={[
@@ -673,7 +746,11 @@ export default function UserMessages() {
               Latest item: {item.item_name || "Unnamed Item"}
             </Text>
 
-            <View style={styles.statusRow}>
+            <View
+              ref={index === 0 ? firstStatusRef : undefined}
+              collapsable={false}
+              style={styles.statusRow}
+            >
               <View style={[styles.statusDot, getStatusDotStyle(item)]} />
               <Text style={[styles.statusText, getStatusStyle(item)]}>
                 {getConversationStatus(item)}
@@ -682,6 +759,7 @@ export default function UserMessages() {
           </View>
         </TouchableOpacity>
       </SwipeableConversation>
+      </View>
     );
   };
 
@@ -696,7 +774,17 @@ export default function UserMessages() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Messages</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Messages</Text>
+
+        <TouchableOpacity
+          ref={messagesHelpRef}
+          style={styles.helpButton}
+          onPress={() => setShowTour(true)}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={conversations}
@@ -720,6 +808,12 @@ export default function UserMessages() {
       />
 
       {user?.id && <UserBottomNav userId={user.id} active="messages" />}
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -742,12 +836,20 @@ const styles = StyleSheet.create({
     color: "#1b5e20",
     fontWeight: "600",
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 15,
+  },
   header: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#111",
-    marginTop: 15,
-    marginBottom: 15,
+  },
+  helpButton: {
+    padding: 4,
   },
   listContent: {
     paddingBottom: 110,

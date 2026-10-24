@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
+  Alert,
   Image,
   ImageBackground,
   Modal,
@@ -350,6 +351,42 @@ export default function IndividualSignup() {
         height: asset.height,
       });
     }
+  };
+
+  const pickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (!permission.granted) {
+      Toast.show({
+        type: "error",
+        text1: "Photo library permission is required",
+      });
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: false,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const asset = result.assets[0];
+
+      setImage({
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+      });
+    }
+  };
+
+  const chooseImageSource = () => {
+    Alert.alert(image ? "Change Photo" : "Add Photo", "Choose a source", [
+      { text: "Take Photo", onPress: openCamera },
+      { text: "Upload Image", onPress: pickFromGallery },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const getImageExtension = (uri: string) => {
@@ -916,7 +953,7 @@ export default function IndividualSignup() {
 
           <Text style={styles.label}>ID Verification</Text>
           <Pressable
-            onPress={openCamera}
+            onPress={chooseImageSource}
             style={[
               styles.uploadBox,
               image && {
@@ -927,7 +964,7 @@ export default function IndividualSignup() {
             {image ? (
               <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
             ) : (
-              <Text>Tap to Open Camera</Text>
+              <Text>Tap to take or upload a photo</Text>
             )}
           </Pressable>
 

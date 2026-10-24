@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +17,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 function SwipeableConversation({
@@ -133,6 +139,71 @@ export default function FacilityMessages() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const isFocusedRef = useRef(true);
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const firstConversationRef = useRef<View>(null);
+  const firstStatusRef = useRef<View>(null);
+  const messagesHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!facility?.id || loading) return;
+
+    hasCompletedTour("facility_messages", String(facility.id)).then(
+      (completed) => {
+        if (!completed) setShowTour(true);
+      },
+    );
+  }, [facility?.id, loading]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "chatbubble-ellipses-outline",
+      title: "Messages",
+      description:
+        "Your conversations with users. Each user has one conversation that holds all your match requests with them.",
+    },
+    {
+      key: "conversation",
+      icon: "chatbubbles-outline",
+      title: "Open a Conversation",
+      description:
+        "Tap a conversation to chat with the user, send offers and accept or reject match requests. Unread conversations are highlighted in green with a dot on the photo.",
+      targetRef: firstConversationRef,
+    },
+    {
+      key: "status",
+      icon: "pulse-outline",
+      title: "Match Status",
+      description:
+        "Shows where the latest match stands:\n• Pending Match: waiting for a reply\n• Matched: the match was accepted\n• Finish Pending: waiting for the other side to finish\n• Finished, Cancelled or Rejected: the match is closed",
+      targetRef: firstStatusRef,
+    },
+    {
+      key: "delete",
+      icon: "trash-outline",
+      title: "Delete a Conversation",
+      description:
+        "Swipe a conversation to the left and tap Delete to remove it. You'll be asked to confirm first.",
+      targetRef: firstConversationRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: messagesHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (facility?.id) {
+      markTourCompleted("facility_messages", String(facility.id));
+    }
+  };
 
   useEffect(() => {
     loadFacility();
@@ -845,10 +916,14 @@ export default function FacilityMessages() {
     });
   };
 
-  const renderConversation = ({ item }: any) => {
+  const renderConversation = ({ item, index }: any) => {
     const isUnread = !!item.hasUnread;
 
     return (
+      <View
+        ref={index === 0 ? firstConversationRef : undefined}
+        collapsable={false}
+      >
       <SwipeableConversation item={item} onDelete={deleteConversation}>
         <TouchableOpacity
           style={[
@@ -900,7 +975,11 @@ export default function FacilityMessages() {
               Latest item: {item.item_name || "Unnamed Item"}
             </Text>
 
-            <View style={styles.statusRow}>
+            <View
+              ref={index === 0 ? firstStatusRef : undefined}
+              collapsable={false}
+              style={styles.statusRow}
+            >
               <View style={[styles.statusDot, getStatusDotStyle(item)]} />
               <Text style={[styles.statusText, getStatusStyle(item)]}>
                 {getConversationStatus(item)}
@@ -909,6 +988,7 @@ export default function FacilityMessages() {
           </View>
         </TouchableOpacity>
       </SwipeableConversation>
+      </View>
     );
   };
 
@@ -923,7 +1003,17 @@ export default function FacilityMessages() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>Messages</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Messages</Text>
+
+        <TouchableOpacity
+          ref={messagesHelpRef}
+          style={styles.helpButton}
+          onPress={() => setShowTour(true)}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={conversations}
@@ -948,6 +1038,12 @@ export default function FacilityMessages() {
       />
 
       <FacilityBottomNav facilityId={facility?.id || ""} active="messages" />
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -970,12 +1066,20 @@ const styles = StyleSheet.create({
     color: "#1b5e20",
     fontWeight: "600",
   },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 15,
+  },
   header: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#111",
-    marginTop: 15,
-    marginBottom: 15,
+  },
+  helpButton: {
+    padding: 4,
   },
   listContent: {
     paddingBottom: 110,

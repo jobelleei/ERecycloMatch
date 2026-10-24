@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +14,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 type HistoryItem = {
@@ -46,6 +52,22 @@ export default function RecyclingHistory() {
   const [accountId, setAccountId] = useState("");
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
   const [filter, setFilter] = useState<"Latest" | "Oldest">("Latest");
+
+  // Onboarding tour for new users
+  const [showTour, setShowTour] = useState(false);
+  const summaryRef = useRef<View>(null);
+  const filtersRef = useRef<View>(null);
+  const firstCardRef = useRef<View>(null);
+  const historyHelpRef = useRef<any>(null);
+  const tourName = `recycling_history_${accountRole || "user"}`;
+
+  useEffect(() => {
+    if (!accountId || loading) return;
+
+    hasCompletedTour(tourName, accountId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [accountId, loading, tourName]);
 
   useEffect(() => {
     loadAccount();
@@ -295,9 +317,19 @@ export default function RecyclingHistory() {
     router.back();
   };
 
-  const renderHistoryItem = ({ item }: { item: HistoryItem }) => {
+  const renderHistoryItem = ({
+    item,
+    index,
+  }: {
+    item: HistoryItem;
+    index: number;
+  }) => {
     return (
-      <View style={styles.card}>
+      <View
+        ref={index === 0 ? firstCardRef : undefined}
+        collapsable={false}
+        style={styles.card}
+      >
         <Image source={getHistoryImageSource(item)} style={styles.itemImage} />
 
         <View style={styles.cardContent}>
@@ -331,7 +363,7 @@ export default function RecyclingHistory() {
     const filters: ("Latest" | "Oldest")[] = ["Latest", "Oldest"];
 
     return (
-      <View style={styles.filterWrapper}>
+      <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -361,6 +393,59 @@ export default function RecyclingHistory() {
     );
   };
 
+  const isFacility = accountRole === "facility";
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "time-outline",
+      title: "Recycling History",
+      description: isFacility
+        ? "Every match your facility has finished is recorded here."
+        : "Every item you've successfully recycled is recorded here. A match is added once both you and the facility mark it as finished.",
+    },
+    {
+      key: "summary",
+      icon: "ribbon-outline",
+      title: "Completed Matches",
+      description: isFacility
+        ? "The total number of matches your facility has completed."
+        : "The total number of items you've recycled through ERecycloMatch.",
+      targetRef: summaryRef,
+    },
+    {
+      key: "filters",
+      icon: "swap-vertical-outline",
+      title: "Sort Your History",
+      description: "Tap Latest or Oldest to change the order of your records.",
+      targetRef: filtersRef,
+    },
+    {
+      key: "record",
+      icon: "document-text-outline",
+      title: "History Record",
+      description: isFacility
+        ? "Each record shows the item, the user you matched with, and when the match was made and finished."
+        : "Each record shows the item, the facility you matched with, and when the match was made and finished.",
+      targetRef: firstCardRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: historyHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (accountId) {
+      markTourCompleted(tourName, accountId);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
@@ -381,9 +466,17 @@ export default function RecyclingHistory() {
           <Text style={styles.header}>Recycling History</Text>
           <Text style={styles.subtitle}>{getSubtitle()}</Text>
         </View>
+
+        <TouchableOpacity
+          ref={historyHelpRef}
+          style={styles.helpButton}
+          onPress={() => setShowTour(true)}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#333" />
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.summaryBox}>
+      <View ref={summaryRef} collapsable={false} style={styles.summaryBox}>
         <Text style={styles.summaryNumber}>{history.length}</Text>
         <Text style={styles.summaryLabel}>Completed Match Records</Text>
       </View>
@@ -409,6 +502,12 @@ export default function RecyclingHistory() {
             </Text>
           </View>
         }
+      />
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
       />
     </SafeAreaView>
   );
@@ -451,6 +550,11 @@ const styles = StyleSheet.create({
 
   headerTextBox: {
     flex: 1,
+  },
+
+  helpButton: {
+    marginLeft: 10,
+    padding: 4,
   },
 
   header: {

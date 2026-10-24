@@ -19,6 +19,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
+import { rejectCompetingRequests } from "../../utils/rejectCompetingRequests";
+import {
+  detectSensitiveInfo,
+  formatSensitiveInfoList,
+} from "../../utils/sensitiveInfo";
 
 export default function FacilityChat() {
   const router = useRouter();
@@ -739,6 +744,11 @@ export default function FacilityChat() {
 
               await addSystemMessage("Match accepted. You can now chat.");
 
+              await rejectCompetingRequests({
+                ...conversation,
+                id: conversation?.id || conversationId,
+              });
+
               fetchConversation();
             } catch (error: any) {
               console.log("ACCEPT MATCH ERROR:", error);
@@ -1234,7 +1244,33 @@ export default function FacilityChat() {
     return "Chat is locked until the match is active";
   };
 
-  const sendMessage = async () => {
+  // Warn before sending phone numbers, addresses, payment or ID details
+  const sendMessage = () => {
+    const sensitiveInfo = detectSensitiveInfo(messageText);
+
+    if (sensitiveInfo.length === 0) {
+      sendMessageNow();
+      return;
+    }
+
+    Alert.alert(
+      "Sensitive Information",
+      `Your message seems to contain ${formatSensitiveInfoList(
+        sensitiveInfo,
+      )}. For your safety, avoid sharing personal or payment details in chat. Only send them if you trust the other person.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Send Anyway",
+          style: "destructive",
+          onPress: () => sendMessageNow(),
+        },
+      ],
+      { cancelable: true },
+    );
+  };
+
+  const sendMessageNow = async () => {
     if (!messageText.trim()) return;
 
     if (!facility?.id) {

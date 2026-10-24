@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -19,6 +20,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
 const ITEM_OPTIONS = [
@@ -257,6 +263,90 @@ export default function FacilityProfile() {
       fetchFeedbacks();
     }
   }, [facility.id]);
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const infoBoxRef = useRef<View>(null);
+  const ratingRef = useRef<View>(null);
+  const postingsTabRef = useRef<any>(null);
+  const feedbacksTabRef = useRef<any>(null);
+  const createPostRef = useRef<any>(null);
+  const profileHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!facility.id) return;
+
+    hasCompletedTour("facility_profile", String(facility.id)).then(
+      (completed) => {
+        if (!completed) setShowTour(true);
+      },
+    );
+  }, [facility.id]);
+
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "business-outline",
+      title: "Your Facility Profile",
+      description:
+        "This is how users see your facility. Here's a quick guide to what's on this page.",
+    },
+    {
+      key: "info",
+      icon: "information-circle-outline",
+      title: "Facility Details",
+      description:
+        "Your opening days, operating hours, accepted items and services. Keep them up to date in Settings > Edit Profile so users know what you accept.",
+      targetRef: infoBoxRef,
+    },
+    {
+      key: "rating",
+      icon: "star-outline",
+      title: "Your Rating",
+      description:
+        "Users rate your facility after each finished match. Your average rating and number of feedbacks show here.",
+      targetRef: ratingRef,
+    },
+    {
+      key: "postings-tab",
+      icon: "pricetags-outline",
+      title: "My Postings",
+      description:
+        "Shows the item requests you've posted. Users who have those items can send you a match request.",
+      targetRef: postingsTabRef,
+    },
+    {
+      key: "feedbacks-tab",
+      icon: "chatbox-ellipses-outline",
+      title: "Feedbacks",
+      description:
+        "Read what users said about your facility. You can sort them by newest, oldest, highest or lowest rating.",
+      targetRef: feedbacksTabRef,
+    },
+    {
+      key: "create-post",
+      icon: "add-circle-outline",
+      title: "Create Item Request",
+      description:
+        "Tap + to post the e-waste item your facility needs, with a description and the conditions you accept or reject.",
+      targetRef: createPostRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: profileHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (facility.id) {
+      markTourCompleted("facility_profile", String(facility.id));
+    }
+  };
 
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
@@ -1116,6 +1206,14 @@ export default function FacilityProfile() {
                 <Text style={styles.backText}>←</Text>
               </TouchableOpacity>
 
+              <TouchableOpacity
+                ref={profileHelpRef}
+                style={styles.helpButton}
+                onPress={() => setShowTour(true)}
+              >
+                <Ionicons name="help-circle-outline" size={26} color="#fff" />
+              </TouchableOpacity>
+
               <View style={styles.avatarWrapper}>
                 <Image
                   source={
@@ -1140,7 +1238,11 @@ export default function FacilityProfile() {
                 </Text>
               </View>
 
-              <View style={styles.headerInfoBox}>
+              <View
+                ref={infoBoxRef}
+                collapsable={false}
+                style={styles.headerInfoBox}
+              >
                 {renderHeaderInfoRow(
                   "Opening Days",
                   `${facility.openingDaysFrom || "Not specified"} - ${
@@ -1167,7 +1269,11 @@ export default function FacilityProfile() {
                 )}
               </View>
 
-              <View style={styles.ratingSummaryBox}>
+              <View
+                ref={ratingRef}
+                collapsable={false}
+                style={styles.ratingSummaryBox}
+              >
                 <Text style={styles.ratingSummaryStars}>
                   {renderStars(Math.round(averageRating))}
                 </Text>
@@ -1184,6 +1290,7 @@ export default function FacilityProfile() {
 
             <View style={styles.sectionTabs}>
               <TouchableOpacity
+                ref={postingsTabRef}
                 style={[
                   styles.sectionTabButton,
                   activeSection === "postings" && styles.activeSectionTab,
@@ -1201,6 +1308,7 @@ export default function FacilityProfile() {
               </TouchableOpacity>
 
               <TouchableOpacity
+                ref={feedbacksTabRef}
                 style={[
                   styles.sectionTabButton,
                   activeSection === "feedbacks" && styles.activeSectionTab,
@@ -1231,7 +1339,11 @@ export default function FacilityProfile() {
         }
       />
 
-      <TouchableOpacity style={styles.floatingButton} onPress={openCreateModal}>
+      <TouchableOpacity
+        ref={createPostRef}
+        style={styles.floatingButton}
+        onPress={openCreateModal}
+      >
         <Text style={styles.floatingPlus}>＋</Text>
       </TouchableOpacity>
 
@@ -1347,6 +1459,12 @@ export default function FacilityProfile() {
       </Modal>
 
       <FacilityBottomNav facilityId={facility.id} active="profile" />
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -1374,6 +1492,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 20,
     top: 18,
+    zIndex: 10,
+  },
+
+  helpButton: {
+    position: "absolute",
+    right: 20,
+    top: 20,
     zIndex: 10,
   },
 

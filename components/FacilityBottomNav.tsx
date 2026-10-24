@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { RefObject, useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { supabase } from "../utils/supabase";
 
@@ -9,6 +9,8 @@ type ActivePage = "home" | "map" | "messages" | "profile" | "settings";
 type Props = {
   facilityId: string;
   active: ActivePage;
+  // Lets the onboarding tour highlight individual nav buttons
+  tourRefs?: Partial<Record<ActivePage, RefObject<any>>>;
 };
 
 interface NavItemConfig {
@@ -19,7 +21,11 @@ interface NavItemConfig {
   route: string;
 }
 
-export default function FacilityBottomNav({ facilityId, active }: Props) {
+export default function FacilityBottomNav({
+  facilityId,
+  active,
+  tourRefs,
+}: Props) {
   const router = useRouter();
   const [hasUnreadMessages, setHasUnreadMessages] = useState<boolean>(false);
 
@@ -30,17 +36,36 @@ export default function FacilityBottomNav({ facilityId, active }: Props) {
     }
 
     try {
-      const { count, error } = await supabase
-        .from("conversations")
-        .select("id", { count: "exact", head: true })
-        .eq("facility_id", String(facilityId))
-        .eq("is_read", false);
+      // Unread chat messages received by this account
+      const numericId = Number(facilityId);
+      const { count: unreadMessageCount, error: messagesError } =
+        Number.isFinite(numericId)
+          ? await supabase
+              .from("messages")
+              .select("id", { count: "exact", head: true })
+              .eq("receiver_id", numericId)
+              .eq("is_read", false)
+          : { count: 0, error: null };
 
-      if (!error && count !== null) {
-        setHasUnreadMessages(count > 0);
-      } else {
-        setHasUnreadMessages(false);
+      if (messagesError) {
+        console.log("FACILITY NAV UNREAD MESSAGES ERROR:", messagesError);
       }
+
+      // Unread conversations (e.g. new match requests)
+      const { count: unreadConversationCount, error: conversationsError } =
+        await supabase
+          .from("conversations")
+          .select("id", { count: "exact", head: true })
+          .eq("facility_id", String(facilityId))
+          .eq("is_read", false);
+
+      if (conversationsError) {
+        console.log("FACILITY NAV UNREAD CONVERSATIONS ERROR:", conversationsError);
+      }
+
+      setHasUnreadMessages(
+        (unreadMessageCount ?? 0) > 0 || (unreadConversationCount ?? 0) > 0,
+      );
     } catch (e) {
       console.log("FACILITY NAV UNREAD ERROR:", e);
       setHasUnreadMessages(false);
@@ -77,9 +102,10 @@ export default function FacilityBottomNav({ facilityId, active }: Props) {
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "messages",
+          filter: `receiver_id=eq.${facilityId}`,
         },
         () => fetchUnreadStatus(),
       )
@@ -138,6 +164,7 @@ export default function FacilityBottomNav({ facilityId, active }: Props) {
         return (
           <TouchableOpacity
             key={item.key}
+            ref={tourRefs?.[item.key]}
             style={navStyles.navItem}
             activeOpacity={0.7}
             onPress={() => router.push(item.route as any)}

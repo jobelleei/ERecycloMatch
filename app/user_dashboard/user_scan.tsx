@@ -22,6 +22,35 @@ import { setScanPhoto } from "../../utils/scanPhoto";
 // blank, so the scan and the listing both use this resized copy.
 const SCAN_UPLOAD_WIDTH = 1280;
 
+const SCAN_GUIDE_HIDDEN_KEY = "scanGuideHidden";
+
+const SCAN_TIPS: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  text: string;
+}[] = [
+  {
+    icon: "sunny-outline",
+    title: "Use good lighting",
+    text: "Scan in a bright place. Avoid dark rooms, shadows and glare. Turn on Flash if it's dim.",
+  },
+  {
+    icon: "scan-outline",
+    title: "Fit the whole item",
+    text: "Keep the entire item inside the frame and let it fill most of the screen.",
+  },
+  {
+    icon: "cube-outline",
+    title: "One item at a time",
+    text: "Scan a single item and remove other objects from the background.",
+  },
+  {
+    icon: "hand-left-outline",
+    title: "Hold steady",
+    text: "Keep your phone still when you tap Capture so the photo isn't blurry.",
+  },
+];
+
 export default function ScanScreen() {
   const cameraRef = useRef<any>(null);
 
@@ -33,6 +62,8 @@ export default function ScanScreen() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [showUnknownModal, setShowUnknownModal] = useState(false);
   const [capturedPreview, setCapturedPreview] = useState("");
+  const [showGuide, setShowGuide] = useState(false);
+  const [dontShowGuideAgain, setDontShowGuideAgain] = useState(false);
 
   const router = useRouter();
 
@@ -57,6 +88,34 @@ export default function ScanScreen() {
 
     loadUser();
   }, []);
+
+  useEffect(() => {
+    const loadGuidePreference = async () => {
+      try {
+        const hidden = await AsyncStorage.getItem(SCAN_GUIDE_HIDDEN_KEY);
+        setDontShowGuideAgain(hidden === "true");
+        if (hidden !== "true") setShowGuide(true);
+      } catch {
+        setShowGuide(true);
+      }
+    };
+
+    loadGuidePreference();
+  }, []);
+
+  const closeGuide = async () => {
+    setShowGuide(false);
+
+    try {
+      if (dontShowGuideAgain) {
+        await AsyncStorage.setItem(SCAN_GUIDE_HIDDEN_KEY, "true");
+      } else {
+        await AsyncStorage.removeItem(SCAN_GUIDE_HIDDEN_KEY);
+      }
+    } catch (error) {
+      console.log("SAVE SCAN GUIDE PREFERENCE ERROR:", error);
+    }
+  };
 
   const getDetectedLabel = (data: any) => {
     if (data?.label) return data.label;
@@ -174,7 +233,7 @@ export default function ScanScreen() {
   };
 
   const takePicture = async () => {
-    if (scanning) return;
+    if (scanning || showGuide) return;
 
     try {
       if (!cameraRef.current) {
@@ -314,10 +373,21 @@ export default function ScanScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Scan E-Waste</Text>
 
-        <Image
-          source={require("../../assets/icons/icon.png")}
-          style={styles.logo}
-        />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.tipsButton}
+            onPress={() => setShowGuide(true)}
+            disabled={scanning}
+          >
+            <Ionicons name="help-circle-outline" size={20} color="#1b5e20" />
+            <Text style={styles.tipsButtonText}>Tips</Text>
+          </TouchableOpacity>
+
+          <Image
+            source={require("../../assets/icons/icon.png")}
+            style={styles.logo}
+          />
+        </View>
       </View>
 
       <View style={styles.scanBox}>
@@ -332,13 +402,13 @@ export default function ScanScreen() {
             console.log("CAMERA READY");
           }}
           onMountError={(error) => {
-          console.error("CAMERA MOUNT ERROR:", error);
+            console.error("CAMERA MOUNT ERROR:", error);
 
-          Alert.alert(
-            "Camera Error",
-            error.message || "The camera preview could not start."
-          );
-        }}
+            Alert.alert(
+              "Camera Error",
+              error.message || "The camera preview could not start.",
+            );
+          }}
         />
 
         {capturedPreview ? (
@@ -384,7 +454,7 @@ export default function ScanScreen() {
       <TouchableOpacity
         style={[styles.button, scanning && styles.disabledButton]}
         onPress={takePicture}
-        disabled={scanning}
+        disabled={scanning || showGuide}
       >
         <Image
           source={require("../../assets/icons/camera.png")}
@@ -421,6 +491,66 @@ export default function ScanScreen() {
               }}
             >
               <Text style={styles.modalButtonText}>Scan Again</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => {
+                setShowUnknownModal(false);
+                setScanning(false);
+                setShowGuide(true);
+              }}
+            >
+              <Text style={styles.modalLinkText}>View scanning tips</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {showGuide && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Ionicons
+              name="camera-outline"
+              size={46}
+              color="#15803D"
+              style={styles.modalIcon}
+            />
+
+            <Text style={styles.modalTitle}>Before You Scan</Text>
+            <Text style={styles.guideSubtitle}>
+              Follow these tips for a more accurate result.
+            </Text>
+
+            <View style={styles.tipsList}>
+              {SCAN_TIPS.map((tip) => (
+                <View key={tip.title} style={styles.tipRow}>
+                  <View style={styles.tipIconWrapper}>
+                    <Ionicons name={tip.icon} size={20} color="#15803D" />
+                  </View>
+
+                  <View style={styles.tipTextWrapper}>
+                    <Text style={styles.tipTitle}>{tip.title}</Text>
+                    <Text style={styles.tipText}>{tip.text}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={styles.checkboxRow}
+              activeOpacity={0.7}
+              onPress={() => setDontShowGuideAgain((prev) => !prev)}
+            >
+              <Ionicons
+                name={dontShowGuideAgain ? "checkbox" : "square-outline"}
+                size={20}
+                color="#15803D"
+              />
+              <Text style={styles.checkboxText}>Don't show this again</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.modalButton} onPress={closeGuide}>
+              <Text style={styles.modalButtonText}>Got It</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -467,6 +597,25 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "600",
   },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  tipsButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#e8f5e9",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  tipsButtonText: {
+    color: "#1b5e20",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   logo: {
     width: 45,
     height: 45,
@@ -483,10 +632,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   camera: {
-  width: "100%",
-  height: "100%",
-  transform: [{ scale: 1.08 }],
-},
+    width: "100%",
+    height: "100%",
+    transform: [{ scale: 1.08 }],
+  },
   capturedPreview: {
     position: "absolute",
     top: 0,
@@ -526,15 +675,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   center: {
-  position: "absolute",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  justifyContent: "center",
-  alignItems: "center",
-  zIndex: 5,
-},
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 5,
+  },
   cameraIcon: {
     width: 45,
     height: 45,
@@ -620,5 +769,60 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 13,
     fontWeight: "700",
+  },
+  modalLinkText: {
+    marginTop: 12,
+    color: "#15803D",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  guideSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#555",
+    textAlign: "center",
+  },
+  tipsList: {
+    width: "100%",
+    marginTop: 16,
+    gap: 12,
+  },
+  tipRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  tipIconWrapper: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#e8f5e9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  tipTextWrapper: {
+    flex: 1,
+  },
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#222",
+  },
+  tipText: {
+    marginTop: 2,
+    fontSize: 12,
+    color: "#555",
+    lineHeight: 17,
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    marginTop: 18,
+  },
+  checkboxText: {
+    fontSize: 13,
+    color: "#333",
   },
 });

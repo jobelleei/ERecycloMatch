@@ -1,7 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
-import { useCallback, useEffect, useState } from "react";
+import OnboardingTour, {
+  hasCompletedTour,
+  markTourCompleted,
+  TourStep,
+} from "../../components/OnboardingTour";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -25,6 +31,22 @@ export default function MyPostings() {
   const router = useRouter();
 
   const [facilityId, setFacilityId] = useState("");
+
+  // Onboarding tour for new facilities
+  const [showTour, setShowTour] = useState(false);
+  const statsRef = useRef<View>(null);
+  const filtersRef = useRef<View>(null);
+  const firstCardRef = useRef<View>(null);
+  const firstActionsRef = useRef<View>(null);
+  const postingsHelpRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!facilityId) return;
+
+    hasCompletedTour("facility_my_postings", facilityId).then((completed) => {
+      if (!completed) setShowTour(true);
+    });
+  }, [facilityId]);
   const [facilityName, setFacilityName] = useState("");
   const [facilityLocation, setFacilityLocation] = useState("");
 
@@ -557,12 +579,16 @@ useFocusEffect(
     );
   };
 
-  const renderPosting = ({ item }: any) => {
+  const renderPosting = ({ item, index }: any) => {
     const status = getStatus(item);
     const locked = !canEditOrDelete(item);
 
     return (
-      <View style={styles.card}>
+      <View
+        ref={index === 0 ? firstCardRef : undefined}
+        collapsable={false}
+        style={styles.card}
+      >
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => {
@@ -612,7 +638,11 @@ useFocusEffect(
           </Text>
         </TouchableOpacity>
 
-        <View style={styles.cardActions}>
+        <View
+          ref={index === 0 ? firstActionsRef : undefined}
+          collapsable={false}
+          style={styles.cardActions}
+        >
           <TouchableOpacity
             style={[
               styles.editActionButton,
@@ -646,11 +676,78 @@ useFocusEffect(
     );
   };
 
+  const tourSteps: TourStep[] = [
+    {
+      key: "welcome",
+      icon: "pricetags-outline",
+      title: "My Postings",
+      description:
+        "These are the item requests your facility has posted. Users who have these items can send you a match request. To create a new one, tap + on your Profile.",
+    },
+    {
+      key: "stats",
+      icon: "stats-chart-outline",
+      title: "Posting Summary",
+      description:
+        "See how many postings are open, matched with a user, or waiting on a pending match request.",
+      targetRef: statsRef,
+    },
+    {
+      key: "filters",
+      icon: "funnel-outline",
+      title: "Filter Your Postings",
+      description:
+        "Tap All, Posted, Matched or Pending Match to show only postings with that status.",
+      targetRef: filtersRef,
+    },
+    {
+      key: "posting-card",
+      icon: "document-text-outline",
+      title: "Posting Details",
+      description:
+        "Each posting shows the item you need, its status, its description and when it was posted. Once a user sends a request, the posting also shows its match details. Tap a posting to edit it.",
+      targetRef: firstCardRef,
+    },
+    {
+      key: "posting-actions",
+      icon: "create-outline",
+      title: "Edit or Delete",
+      description:
+        "Use Edit to change the item needed or description, and Delete to remove the posting. Both only work while the posting is still Posted. They lock once a user sends a match request.",
+      targetRef: firstActionsRef,
+    },
+    {
+      key: "help",
+      icon: "help-circle-outline",
+      title: "Need Help?",
+      description: "Tap this button anytime to replay this guide.",
+      targetRef: postingsHelpRef,
+    },
+  ];
+
+  const finishTour = () => {
+    setShowTour(false);
+
+    if (facilityId) {
+      markTourCompleted("facility_my_postings", facilityId);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.header}>My Postings</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>My Postings</Text>
 
-      <View style={styles.statsContainer}>
+        <TouchableOpacity
+          ref={postingsHelpRef}
+          style={styles.helpButton}
+          onPress={() => setShowTour(true)}
+        >
+          <Ionicons name="help-circle-outline" size={26} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
         <View style={styles.statsItem}>
           <Text style={styles.statsNumber}>{postedCount}</Text>
           <Text style={styles.statsLabel}>Posted</Text>
@@ -667,7 +764,7 @@ useFocusEffect(
         </View>
       </View>
 
-      <View style={styles.filterWrapper}>
+      <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -769,6 +866,12 @@ useFocusEffect(
         facilityId={facilityId}
         active="profile"
       />
+
+      <OnboardingTour
+        visible={showTour}
+        steps={tourSteps}
+        onFinish={finishTour}
+      />
     </SafeAreaView>
   );
 }
@@ -781,12 +884,22 @@ const styles = StyleSheet.create({
     paddingTop: 20,
   },
 
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 20,
+    marginBottom: 20,
+  },
+
   header: {
     fontSize: 24,
     fontWeight: "bold",
-    marginTop: 20,
-    marginBottom: 20,
     color: "#000",
+  },
+
+  helpButton: {
+    padding: 4,
   },
 
   statsContainer: {
