@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -206,7 +206,7 @@ export default function UserNotifications() {
   const allTabRef = useRef<any>(null);
   const unreadTabRef = useRef<any>(null);
   const sortButtonRef = useRef<any>(null);
-  const firstNotificationRef = useRef<View>(null);
+  const firstNotificationRef = useRef<ComponentRef<typeof View>>(null);
   const notificationsHelpRef = useRef<any>(null);
 
   useEffect(() => {

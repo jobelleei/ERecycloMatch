@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -32,7 +32,7 @@ export default function FacilityList() {
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const [tourUserId, setTourUserId] = useState("");
-  const searchRef = useRef<View>(null);
+  const searchRef = useRef<ComponentRef<typeof View>>(null);
   const firstCardRef = useRef<any>(null);
   const listHelpRef = useRef<any>(null);
 

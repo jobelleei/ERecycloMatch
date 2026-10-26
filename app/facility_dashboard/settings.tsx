@@ -4,7 +4,7 @@ import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -216,7 +216,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const myPostingsRef = useRef<any>(null);
   const historyRef = useRef<any>(null);
   const editProfileRef = useRef<any>(null);
@@ -2069,7 +2069,7 @@ const styles = StyleSheet.create({
   },
 
   centerTimeOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 9999,
     elevation: 9999,
     alignItems: "center",
@@ -2077,7 +2077,7 @@ const styles = StyleSheet.create({
   },
 
   centerTimeBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.45)",
   },
 

@@ -7,7 +7,7 @@ import OnboardingTour, {
   markTourCompleted,
   TourStep,
 } from "../../components/OnboardingTour";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -34,10 +34,10 @@ export default function MyPostings() {
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const statsRef = useRef<View>(null);
-  const filtersRef = useRef<View>(null);
-  const firstCardRef = useRef<View>(null);
-  const firstActionsRef = useRef<View>(null);
+  const statsRef = useRef<ComponentRef<typeof View>>(null);
+  const filtersRef = useRef<ComponentRef<typeof View>>(null);
+  const firstCardRef = useRef<ComponentRef<typeof View>>(null);
+  const firstActionsRef = useRef<ComponentRef<typeof View>>(null);
   const postingsHelpRef = useRef<any>(null);
 
   useEffect(() => {

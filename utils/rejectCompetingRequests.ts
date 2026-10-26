@@ -114,7 +114,7 @@ export async function rejectCompetingRequests(acceptedConversation: any) {
           created_at: now,
         };
       })
-      .filter(Boolean);
+      .filter((notification) => notification !== null);
 
     if (notifications.length > 0) {
       const { error: notificationError } = await supabase

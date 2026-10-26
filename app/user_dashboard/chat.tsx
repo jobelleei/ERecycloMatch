@@ -1679,7 +1679,7 @@ export default function UserChat() {
                     </Text>
                   </View>
                 </View>
-              ) : null
+              ) : undefined
             }
             ListEmptyComponent={
               <Text style={styles.emptyText}>No messages yet.</Text>

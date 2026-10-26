@@ -1,7 +1,7 @@
 import { Feather, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
 import OnboardingTour, {
   hasCompletedTour,
@@ -53,12 +53,12 @@ export default function FacilityDashboard() {
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const searchRef = useRef<View>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const searchRef = useRef<ComponentRef<typeof View>>(null);
   const notificationRef = useRef<any>(null);
   const homeHelpRef = useRef<any>(null);
-  const reminderRef = useRef<View>(null);
-  const listedItemsRef = useRef<View>(null);
+  const reminderRef = useRef<ComponentRef<typeof View>>(null);
+  const listedItemsRef = useRef<ComponentRef<typeof View>>(null);
   const refreshItemsRef = useRef<any>(null);
   const firstItemRef = useRef<any>(null);
   const listedItemsY = useRef(0);
