@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -141,8 +141,8 @@ export default function UserMessages() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const firstConversationRef = useRef<View>(null);
-  const firstStatusRef = useRef<View>(null);
+  const firstConversationRef = useRef<ComponentRef<typeof View>>(null);
+  const firstStatusRef = useRef<ComponentRef<typeof View>>(null);
   const messagesHelpRef = useRef<any>(null);
 
   useEffect(() => {

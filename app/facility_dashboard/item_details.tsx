@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -31,10 +31,10 @@ export default function ItemDetails() {
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const titleRef = useRef<View>(null);
-  const issuesRef = useRef<View>(null);
-  const locationRef = useRef<View>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const titleRef = useRef<ComponentRef<typeof View>>(null);
+  const issuesRef = useRef<ComponentRef<typeof View>>(null);
+  const locationRef = useRef<ComponentRef<typeof View>>(null);
   const interestedRef = useRef<any>(null);
   const ownerProfileRef = useRef<any>(null);
   const detailsHelpRef = useRef<any>(null);

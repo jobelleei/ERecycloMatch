@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -44,12 +44,12 @@ export default function UserDashboard() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
-  const searchRef = useRef<View>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  const searchRef = useRef<ComponentRef<typeof View>>(null);
   const notificationRef = useRef<any>(null);
   const helpRef = useRef<any>(null);
-  const recentItemsRef = useRef<View>(null);
-  const facilitiesRef = useRef<View>(null);
+  const recentItemsRef = useRef<ComponentRef<typeof View>>(null);
+  const facilitiesRef = useRef<ComponentRef<typeof View>>(null);
   const refreshFacilitiesRef = useRef<any>(null);
   const recentItemsY = useRef(0);
   const facilitiesY = useRef(0);

@@ -8,7 +8,7 @@ export default StyleSheet.create({
   },
 
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(207,232,198,0.85)",
   },
 

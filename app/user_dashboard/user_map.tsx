@@ -25,7 +25,7 @@ import {
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../utils/supabase";
@@ -139,7 +139,7 @@ export default function UserMapScreen() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const searchBarRef = useRef<View>(null);
+  const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
   const binsModeRef = useRef<any>(null);
   const showListRef = useRef<any>(null);

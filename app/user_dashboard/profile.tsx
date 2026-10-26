@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Image,
@@ -26,7 +26,7 @@ export default function Profile() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const ratingRef = useRef<View>(null);
+  const ratingRef = useRef<ComponentRef<typeof View>>(null);
   const myItemsRef = useRef<any>(null);
   const myListingsRef = useRef<any>(null);
   const listedTabRef = useRef<any>(null);

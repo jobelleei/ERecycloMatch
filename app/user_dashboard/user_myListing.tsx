@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect, useRouter } from "expo-router";
 import OnboardingTour, {
   hasCompletedTour,
@@ -88,8 +88,8 @@ export default function MyListing() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const statsRef = useRef<View>(null);
-  const filtersRef = useRef<View>(null);
+  const statsRef = useRef<ComponentRef<typeof View>>(null);
+  const filtersRef = useRef<ComponentRef<typeof View>>(null);
   const firstCardRef = useRef<any>(null);
   const listingHelpRef = useRef<any>(null);
 

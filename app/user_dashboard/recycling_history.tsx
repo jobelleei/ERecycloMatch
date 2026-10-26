@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, usePathname, useRouter } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { type ComponentRef, useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -55,9 +55,9 @@ export default function RecyclingHistory() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const summaryRef = useRef<View>(null);
-  const filtersRef = useRef<View>(null);
-  const firstCardRef = useRef<View>(null);
+  const summaryRef = useRef<ComponentRef<typeof View>>(null);
+  const filtersRef = useRef<ComponentRef<typeof View>>(null);
+  const firstCardRef = useRef<ComponentRef<typeof View>>(null);
   const historyHelpRef = useRef<any>(null);
   const tourName = `recycling_history_${accountRole || "user"}`;
 

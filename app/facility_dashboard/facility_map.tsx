@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -149,11 +149,11 @@ export default function FacilityMapScreen() {
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const searchBarRef = useRef<View>(null);
+  const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
   const binsModeRef = useRef<any>(null);
   const showListRef = useRef<any>(null);
-  const legendRef = useRef<View>(null);
+  const legendRef = useRef<ComponentRef<typeof View>>(null);
   const mapHelpRef = useRef<any>(null);
 
   useEffect(() => {

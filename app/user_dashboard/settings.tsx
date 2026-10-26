@@ -4,7 +4,7 @@ import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { type ComponentRef, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -30,7 +30,7 @@ export default function Settings() {
 
   // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
-  const scrollRef = useRef<ScrollView>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const myItemsRef = useRef<any>(null);
   const myListingsRef = useRef<any>(null);
   const historyRef = useRef<any>(null);

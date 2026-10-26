@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -25,6 +25,7 @@ import OnboardingTour, {
   markTourCompleted,
   TourStep,
 } from "../../components/OnboardingTour";
+import { getItemConditions } from "../../utils/itemConditions";
 import { supabase } from "../../utils/supabase";
 
 const ITEM_OPTIONS = [
@@ -104,60 +105,12 @@ const ITEM_OPTIONS = [
   "Electric Toothbrush",
   "Stylus Pen",
   "Digital Clock",
+  "9V Battery",
+  "Internal HDD",
+  "Network Switch",
+  "TV Remote Control",
+  "USB Flash Drive",
   "Unknown",
-];
-
-const CONDITION_OPTIONS = [
-  "Battery glued",
-  "Screen cracked",
-  "PCB corroded",
-  "Mixed plastic case",
-  "Mixed plastics",
-  "Mixed plastics/metals",
-  "Mixed metals",
-  "Hazardous substances",
-  "Rare earth magnets unrecoverable",
-  "Rare earth magnets",
-  "Magnet unrecoverable",
-  "Toner residue",
-  "Lens cracked",
-  "Non-removable",
-  "Damaged",
-  "Hazardous chemicals",
-  "Magnetron damaged",
-  "Glass plate broken",
-  "Hazardous capacitors",
-  "Heating element damaged",
-  "Heating element corroded",
-  "Heating coil damaged",
-  "Compressor damaged",
-  "Insulation foam",
-  "Hazardous refrigerants",
-  "Plastic case",
-  "Plastic case damaged",
-  "Motor corroded",
-  "Motor damaged",
-  "Wires damaged",
-  "Glass broken",
-  "Glass cracked",
-  "Hazardous mercury",
-  "Keys damaged",
-  "Hazardous coatings",
-  "Hazardous substances (lead solder)",
-  "Rare earth components",
-  "Hazardous flame retardants",
-  "Battery damaged",
-  "Battery glued/damaged",
-  "Lamp broken",
-  "Battery glued/damaged (if present)",
-  "Corroded",
-  "Insulation damaged",
-  "Battery glued (if present)",
-  "Non-removable battery (if present)",
-  "Unknown material composition",
-  "Unknown classification",
-  "Hazardous substances (potential)",
-  "Blades damaged",
 ];
 
 export default function FacilityProfile() {
@@ -200,10 +153,6 @@ export default function FacilityProfile() {
   const [conditionsRejected, setConditionsRejected] = useState("");
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showAcceptedConditionsDropdown, setShowAcceptedConditionsDropdown] =
-    useState(false);
-  const [showRejectedConditionsDropdown, setShowRejectedConditionsDropdown] =
-    useState(false);
 
   const [savingPost, setSavingPost] = useState(false);
 
@@ -266,8 +215,8 @@ export default function FacilityProfile() {
 
   // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
-  const infoBoxRef = useRef<View>(null);
-  const ratingRef = useRef<View>(null);
+  const infoBoxRef = useRef<ComponentRef<typeof View>>(null);
+  const ratingRef = useRef<ComponentRef<typeof View>>(null);
   const postingsTabRef = useRef<any>(null);
   const feedbacksTabRef = useRef<any>(null);
   const createPostRef = useRef<any>(null);
@@ -382,61 +331,58 @@ export default function FacilityProfile() {
     return uniqueValues.join(", ");
   };
 
-  const getCurrentTypingValue = (value: string) => {
-    const parts = String(value || "").split(",");
-    return parts[parts.length - 1]?.trim() || "";
-  };
+  const findItemOption = (name: string) =>
+    ITEM_OPTIONS.find(
+      (option) => option.toLowerCase() === String(name || "").trim().toLowerCase(),
+    ) || "";
 
-  const getFilteredConditions = (value: string) => {
-    const keyword = getCurrentTypingValue(value).toLowerCase();
+  // An item counts as selected once its name matches one from the item list.
+  // Only that item's own conditions are offered.
+  const selectedItemOption = findItemOption(itemName);
+  const itemConditions = selectedItemOption
+    ? getItemConditions(selectedItemOption)
+    : [];
 
-    if (!keyword) {
-      return [];
-    }
-
-    return CONDITION_OPTIONS.filter((option) =>
-      option.toLowerCase().includes(keyword),
-    ).slice(0, 25);
-  };
-
-  const isConditionSelected = (currentValue: string, option: string) => {
-    return splitCommaValues(currentValue).some(
-      (item) => item.toLowerCase() === option.toLowerCase(),
+  const hasCondition = (value: string, condition: string) =>
+    splitCommaValues(value).some(
+      (item) => item.toLowerCase() === condition.toLowerCase(),
     );
-  };
 
-  const toggleConditionOption = (
-    currentValue: string,
-    option: string,
-    setter: (value: string) => void,
+  const withoutCondition = (value: string, condition: string) =>
+    splitCommaValues(value)
+      .filter((item) => item.toLowerCase() !== condition.toLowerCase())
+      .join(", ");
+
+  const toggleCondition = (
+    list: "accepted" | "rejected",
+    condition: string,
   ) => {
-    const values = splitCommaValues(currentValue);
-    const currentTypingValue = getCurrentTypingValue(currentValue);
+    const current = list === "accepted" ? conditionsAccepted : conditionsRejected;
+    const setCurrent =
+      list === "accepted" ? setConditionsAccepted : setConditionsRejected;
 
-    const alreadySelected = values.some(
-      (item) => item.toLowerCase() === option.toLowerCase(),
+    setCurrent(
+      hasCondition(current, condition)
+        ? withoutCondition(current, condition)
+        : [...splitCommaValues(current), condition].join(", "),
     );
+  };
 
-    if (alreadySelected) {
-      const updatedValues = values.filter(
-        (item) => item.toLowerCase() !== option.toLowerCase(),
-      );
+  // Changing the item drops checked conditions the new item doesn't have
+  const changeItemName = (name: string) => {
+    setItemName(name);
 
-      setter(updatedValues.join(", "));
-      return;
-    }
+    const option = findItemOption(name);
+    const allowed = option ? getItemConditions(option) : [];
+    const keepAllowed = (value: string) =>
+      splitCommaValues(value)
+        .filter((item) =>
+          allowed.some((condition) => condition.toLowerCase() === item.toLowerCase()),
+        )
+        .join(", ");
 
-    const cleanedValues = values.filter((item) => {
-      const sameAsTyped =
-        currentTypingValue &&
-        item.toLowerCase() === currentTypingValue.toLowerCase();
-
-      const sameAsOption = item.toLowerCase() === option.toLowerCase();
-
-      return !sameAsTyped && !sameAsOption;
-    });
-
-    setter([...cleanedValues, option].join(", "));
+    setConditionsAccepted((value) => keepAllowed(value));
+    setConditionsRejected((value) => keepAllowed(value));
   };
 
   const renderStars = (rating: number) => {
@@ -861,8 +807,6 @@ export default function FacilityProfile() {
     setConditionsAccepted("");
     setConditionsRejected("");
     setShowDropdown(false);
-    setShowAcceptedConditionsDropdown(false);
-    setShowRejectedConditionsDropdown(false);
     setPostModalVisible(true);
   };
 
@@ -916,8 +860,6 @@ export default function FacilityProfile() {
       setConditionsAccepted("");
       setConditionsRejected("");
       setShowDropdown(false);
-      setShowAcceptedConditionsDropdown(false);
-      setShowRejectedConditionsDropdown(false);
 
       fetchPostings();
     } catch (error: any) {
@@ -971,91 +913,59 @@ export default function FacilityProfile() {
     setConditionsAccepted("");
     setConditionsRejected("");
     setShowDropdown(false);
-    setShowAcceptedConditionsDropdown(false);
-    setShowRejectedConditionsDropdown(false);
   };
 
-  const renderConditionInput = (
+  // A condition can't be both accepted and rejected, so one checked in the
+  // other list isn't offered here.
+  const renderConditionCheckboxes = (
     label: string,
+    list: "accepted" | "rejected",
     value: string,
-    setter: (value: string) => void,
-    visible: boolean,
-    setVisible: (value: boolean) => void,
-    placeholder: string,
   ) => {
-    const filteredConditions = getFilteredConditions(value);
+    const otherValue = list === "accepted" ? conditionsRejected : conditionsAccepted;
+    const availableConditions = itemConditions.filter(
+      (condition) => !hasCondition(otherValue, condition),
+    );
 
     return (
-      <View>
-        <Text style={styles.modalLabel}>{label}</Text>
+    <View>
+      <Text style={styles.modalLabel}>{label}</Text>
 
-        <TextInput
-          placeholder={placeholder}
-          value={value}
-          onFocus={() => {
-            if (getCurrentTypingValue(value).length > 0) {
-              setVisible(true);
-            }
-          }}
-          onChangeText={(text) => {
-            setter(text);
-
-            if (getCurrentTypingValue(text).length > 0) {
-              setVisible(true);
-            } else {
-              setVisible(false);
-            }
-          }}
-          style={styles.input}
-          multiline
-        />
-
-        {visible && filteredConditions.length > 0 && (
-          <View style={styles.dropdownBox}>
-            <View style={styles.dropdownHeader}>
-              <Text style={styles.dropdownHeaderText}>Suggestions</Text>
-
-              <TouchableOpacity onPress={() => setVisible(false)}>
-                <Text style={styles.dropdownCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              nestedScrollEnabled={true}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={true}
-            >
-              {filteredConditions.map((option) => {
-                const selected = isConditionSelected(value, option);
-
-                return (
-                  <TouchableOpacity
-                    key={option}
-                    style={[
-                      styles.dropdownItem,
-                      selected && styles.selectedDropdownItem,
-                    ]}
-                    onPress={() => {
-                      toggleConditionOption(value, option, setter);
-                      setVisible(true);
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.dropdownText,
-                        selected && styles.selectedDropdownText,
-                      ]}
-                    >
-                      {selected ? "✓ " : ""}
-                      {option}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
+      <View style={styles.conditionList}>
+        {availableConditions.length === 0 && (
+          <Text style={styles.conditionHint}>
+            All conditions are already selected in the other list.
+          </Text>
         )}
+
+        {availableConditions.map((condition) => {
+          const checked = hasCondition(value, condition);
+
+          return (
+            <TouchableOpacity
+              key={`${list}-${condition}`}
+              style={styles.conditionRow}
+              activeOpacity={0.7}
+              onPress={() => toggleCondition(list, condition)}
+            >
+              <Ionicons
+                name={checked ? "checkbox" : "square-outline"}
+                size={22}
+                color={checked ? "#1b5e20" : "#888"}
+              />
+              <Text
+                style={[
+                  styles.conditionOptionText,
+                  checked && styles.conditionOptionTextChecked,
+                ]}
+              >
+                {condition}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
+    </View>
     );
   };
 
@@ -1372,7 +1282,7 @@ export default function FacilityProfile() {
                   value={itemName}
                   onFocus={() => setShowDropdown(true)}
                   onChangeText={(text) => {
-                    setItemName(text);
+                    changeItemName(text);
                     setShowDropdown(true);
                   }}
                   style={styles.input}
@@ -1390,7 +1300,7 @@ export default function FacilityProfile() {
                           key={option}
                           style={styles.dropdownItem}
                           onPress={() => {
-                            setItemName(option);
+                            changeItemName(option);
                             setShowDropdown(false);
                             Keyboard.dismiss();
                           }}
@@ -1413,22 +1323,28 @@ export default function FacilityProfile() {
                   textAlignVertical="top"
                 />
 
-                {renderConditionInput(
-                  "Conditions Accepted",
-                  conditionsAccepted,
-                  setConditionsAccepted,
-                  showAcceptedConditionsDropdown,
-                  setShowAcceptedConditionsDropdown,
-                  "Type condition to search, example: screen cracked",
-                )}
+                {selectedItemOption ? (
+                  <>
+                    {renderConditionCheckboxes(
+                      "Conditions Accepted",
+                      "accepted",
+                      conditionsAccepted,
+                    )}
 
-                {renderConditionInput(
-                  "Conditions Rejected",
-                  conditionsRejected,
-                  setConditionsRejected,
-                  showRejectedConditionsDropdown,
-                  setShowRejectedConditionsDropdown,
-                  "Type condition to search, example: hazardous substances",
+                    {renderConditionCheckboxes(
+                      "Conditions Rejected",
+                      "rejected",
+                      conditionsRejected,
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.modalLabel}>Conditions</Text>
+                    <Text style={styles.conditionHint}>
+                      Select an item needed from the list to choose the
+                      conditions you accept or reject.
+                    </Text>
+                  </>
                 )}
 
                 <View style={styles.modalButtons}>
@@ -1886,6 +1802,35 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 14,
     color: "#000",
+  },
+
+  conditionList: {
+    marginBottom: 6,
+  },
+
+  conditionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 7,
+    gap: 10,
+  },
+
+  conditionOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#444",
+  },
+
+  conditionOptionTextChecked: {
+    color: "#1b5e20",
+    fontWeight: "600",
+  },
+
+  conditionHint: {
+    fontSize: 13,
+    color: "#777",
+    marginBottom: 12,
+    lineHeight: 18,
   },
 
   dropdownBox: {
