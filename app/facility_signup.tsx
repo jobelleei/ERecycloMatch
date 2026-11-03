@@ -11,6 +11,8 @@ import {
   Image,
   ImageBackground,
   Keyboard,
+  Linking,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -21,8 +23,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import MapView, { Marker } from "../components/OsmMapView";
 import Toast from "react-native-toast-message";
+import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
 import styles from "./styles/facility_signup";
 
@@ -57,6 +60,10 @@ export default function FacilitySignup() {
 
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+
+  // Stops the form from scrolling while a finger is on the map,
+  // so dragging moves the map instead of the page
+  const [isTouchingMap, setIsTouchingMap] = useState(false);
 
   const [mapSearchText, setMapSearchText] = useState("");
   const [isSearchingMap, setIsSearchingMap] = useState(false);
@@ -564,9 +571,26 @@ export default function FacilitySignup() {
   );
 
   const openCamera = async () => {
+    // Close the keyboard so it doesn't cover the permission prompt or camera
+    Keyboard.dismiss();
+
+    // Shows Android's camera permission prompt the first time
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
+      if (!permission.canAskAgain) {
+        // The prompt can't be shown again, so point the user to Settings
+        Alert.alert(
+          "Camera access needed",
+          "Allow camera access in Settings to take your photo.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+
       Toast.show({
         type: "error",
         text1: "Camera permission is required",
@@ -588,42 +612,6 @@ export default function FacilitySignup() {
         height: asset.height,
       });
     }
-  };
-
-  const pickFromGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Toast.show({
-        type: "error",
-        text1: "Photo library permission is required",
-      });
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: false,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-
-      setImage({
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-      });
-    }
-  };
-
-  const chooseImageSource = () => {
-    Alert.alert(image ? "Change Photo" : "Add Photo", "Choose a source", [
-      { text: "Take Photo", onPress: openCamera },
-      { text: "Upload Image", onPress: pickFromGallery },
-      { text: "Cancel", style: "cancel" },
-    ]);
   };
 
   const getImageExtension = (uri: string) => {
@@ -813,6 +801,7 @@ export default function FacilitySignup() {
       Toast.show({
         type: "error",
         text1: "Passwords do not match",
+        text2: "Re-enter the same password in Confirm Password.",
       });
       return;
     }
@@ -886,6 +875,7 @@ export default function FacilitySignup() {
         email: cleanEmail,
         password: password,
         options: {
+          emailRedirectTo: EMAIL_VERIFIED_URL,
           data: {
             name: name.trim(),
             role: "facility",
@@ -910,7 +900,6 @@ export default function FacilitySignup() {
             name: name.trim(),
             email: cleanEmail,
             username: null,
-            password: password,
             role: "facility",
             address: finalLocation,
             location: finalLocation,
@@ -939,22 +928,21 @@ export default function FacilitySignup() {
         return;
       }
 
-      if (nameMatches) {
-        Toast.show({
-          type: "success",
-          text1: "Account approved",
-          text2: "Your certification was verified. You can now sign in.",
-        });
-      } else {
-        Toast.show({
-          type: "success",
-          text1: "Submitted for approval",
-          text2:
-            "Your certification could not be automatically verified. Please wait for admin approval.",
-        });
-      }
+      Toast.show({
+        type: "success",
+        text1: "Thank you for signing up!",
+        text2: "We sent a verification link to your email.",
+      });
 
-      router.push("/signin");
+      // The approval result is shown after the email is confirmed
+      router.replace({
+        pathname: "/verify_email",
+        params: {
+          email: cleanEmail,
+          role: "facility",
+          approved: nameMatches ? "1" : "0",
+        },
+      } as any);
     } catch (error: any) {
       console.log("SUPABASE FACILITY SIGNUP ERROR:", error);
 
@@ -992,6 +980,10 @@ export default function FacilitySignup() {
         />
       </Pressable>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <ScrollView
         contentContainerStyle={[
           styles.scrollContent,
@@ -1002,6 +994,7 @@ export default function FacilitySignup() {
         ]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        scrollEnabled={!isTouchingMap}
       >
         <Image
           source={require("../assets/icons/icon.png")}
@@ -1227,13 +1220,17 @@ export default function FacilitySignup() {
               overflow: "hidden",
               backgroundColor: "#ddd",
             }}
+            onTouchStart={() => setIsTouchingMap(true)}
+            onTouchEnd={() => setIsTouchingMap(false)}
+            onTouchCancel={() => setIsTouchingMap(false)}
           >
             <MapView
               ref={mapRef}
               style={{ flex: 1 }}
+              // Starts on Bacolod City until a pin is set
               initialRegion={{
-                latitude: latitude || 10.3157,
-                longitude: longitude || 123.8854,
+                latitude: latitude || 10.6765,
+                longitude: longitude || 122.9509,
                 latitudeDelta: 0.02,
                 longitudeDelta: 0.02,
               }}
@@ -1356,6 +1353,8 @@ export default function FacilitySignup() {
           <TextInput
             placeholder="Create a password"
             secureTextEntry={secure1}
+            autoCapitalize="none"
+            autoCorrect={false}
             value={password}
             onChangeText={setPassword}
             style={[styles.input, { flex: 1 }]}
@@ -1385,6 +1384,8 @@ export default function FacilitySignup() {
           <TextInput
             placeholder="Confirm your password"
             secureTextEntry={secure2}
+            autoCapitalize="none"
+            autoCorrect={false}
             value={confirmPass}
             onChangeText={setConfirmPass}
             style={[styles.input, { flex: 1 }]}
@@ -1400,8 +1401,18 @@ export default function FacilitySignup() {
           </Pressable>
         </View>
 
-        {confirmPass.length > 0 && confirmRules.some((r) => !r.met) && (
-          <RulesBox rules={confirmRules.filter((r) => !r.met)} />
+        {/* Same grey rules box as the password field */}
+        {confirmPass.length > 0 && (
+          <RulesBox
+            rules={[
+              {
+                label: confirmRules[0].met
+                  ? "Passwords match"
+                  : "Passwords do not match",
+                met: confirmRules[0].met,
+              },
+            ]}
+          />
         )}
 
         <Text style={styles.label}>
@@ -1468,7 +1479,7 @@ export default function FacilitySignup() {
         </View>
 
         <Pressable
-          onPress={chooseImageSource}
+          onPress={openCamera}
           style={[
             styles.uploadBox,
             image && {
@@ -1481,7 +1492,7 @@ export default function FacilitySignup() {
           ) : (
             <View style={{ alignItems: "center", gap: 6 }}>
               <Text style={{ fontSize: 13, color: "#555" }}>
-                Tap to take or upload a photo
+                Tap to take photo
               </Text>
             </View>
           )}
@@ -1539,6 +1550,7 @@ export default function FacilitySignup() {
         </Text>
       </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Terms and Conditions Modal */}
       <Modal

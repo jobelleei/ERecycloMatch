@@ -59,18 +59,33 @@ export const markTourCompleted = async (
   }
 };
 
+// Uses measure() page coordinates: on Android edge-to-edge, measureInWindow
+// leaves out the status bar, so highlights drew too high in the full-screen modal.
 const measureTarget = (ref?: RefObject<any>): Promise<Rect | null> =>
   new Promise((resolve) => {
     const node = ref?.current;
 
-    if (!node?.measureInWindow) {
+    if (!node?.measure) {
       resolve(null);
       return;
     }
 
-    node.measureInWindow((x: number, y: number, width: number, height: number) => {
-      resolve(width > 0 && height > 0 ? { x, y, width, height } : null);
-    });
+    node.measure(
+      (
+        _x: number,
+        _y: number,
+        width: number,
+        height: number,
+        pageX: number,
+        pageY: number,
+      ) => {
+        resolve(
+          width > 0 && height > 0
+            ? { x: pageX, y: pageY, width, height }
+            : null,
+        );
+      },
+    );
   });
 
 export default function OnboardingTour({ visible, steps, onFinish }: Props) {

@@ -18,7 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import MapView, { Marker, Polyline } from "react-native-maps";
+import MapView, { Marker, Polyline } from "../../components/OsmMapView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
 import OnboardingTour, {
@@ -102,6 +102,38 @@ const DEFAULT_DROP_OFF_BINS: MapPin[] = [
     location: "MX83+XVQ, Hilado Galo Sts, Bacolod, 6100 Negros Occidental",
     latitude: 10.6651901,
     longitude: 122.9491131,
+    type: "bins",
+  },
+  {
+    id: "default-bin-6",
+    name: "Material Recovery Facility - Gaisano Grand Mall Bacolod",
+    address:
+      "MW6Q+5R, Gaisano Grand Mall Bacolod, Bacolod, 6100 Negros Occidental",
+    location:
+      "MW6Q+5R, Gaisano Grand Mall Bacolod, Bacolod, 6100 Negros Occidental",
+    latitude: 10.6604375,
+    longitude: 122.9395625,
+    type: "bins",
+  },
+  {
+    id: "default-bin-7",
+    name: "Provincial Material Recovery Facility",
+    address: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
+    location: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
+    // Approximate: a point on N Capitol Rd, not the facility's exact spot
+    latitude: 10.6777286,
+    longitude: 122.9499318,
+    type: "bins",
+  },
+  {
+    id: "default-bin-8",
+    name: "MAVILL Recycling Center",
+    address:
+      "PX32+237 Beside the Coast Guard, Banago, Bacolod, Negros Occidental",
+    location:
+      "PX32+237 Beside the Coast Guard, Banago, Bacolod, Negros Occidental",
+    latitude: 10.7025375,
+    longitude: 122.9501719,
     type: "bins",
   },
 ];

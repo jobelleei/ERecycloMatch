@@ -151,11 +151,11 @@ export default function ResetPassword() {
         return;
       }
 
-      // 2. Update profiles table so signin.tsx credential check succeeds
+      // 2. Clear the old plain-text copy; signin.tsx now checks Supabase Auth
       if (targetEmail) {
         const { data: updatedRows, error: dbError } = await supabase
           .from("profiles")
-          .update({ password: cleanPassword })
+          .update({ password: null })
           .eq("email", targetEmail)
           .select();
 

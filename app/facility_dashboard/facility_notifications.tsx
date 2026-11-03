@@ -22,6 +22,11 @@ import OnboardingTour, {
   TourStep,
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
+import {
+  applyNotificationState,
+  rememberDismissed,
+  rememberRead,
+} from "../../utils/notificationState";
 
 type NotificationItem = {
   id: string;
@@ -607,7 +612,10 @@ export default function FacilityNotifications() {
         new Map(combined.map((notification) => [notification.id, notification])).values(),
       );
 
-      setNotifications(uniqueNotifications);
+      // Hide deleted ones and keep read ones read across refreshes
+      setNotifications(
+        await applyNotificationState(currentFacilityId, uniqueNotifications),
+      );
     } catch (err) {
       console.log("FETCH FACILITY UPDATES ERROR:", err);
     } finally {
@@ -617,6 +625,7 @@ export default function FacilityNotifications() {
   };
 
   const markAsRead = async (item: NotificationItem) => {
+    if (facilityId) rememberRead(facilityId, [item]);
     setNotifications((prev) =>
       prev.map((n) =>
         n.id === item.id ? { ...n, read: true, unreadCount: 0 } : n,
@@ -654,6 +663,7 @@ export default function FacilityNotifications() {
   };
 
   const markAllAsRead = async () => {
+    if (facilityId) rememberRead(facilityId, notifications);
     setOpenSwipeId(null);
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read: true, unreadCount: 0 })),
@@ -686,6 +696,7 @@ export default function FacilityNotifications() {
   };
 
   const deleteNotification = (item: NotificationItem) => {
+    if (facilityId) rememberDismissed(facilityId, [item]);
     setOpenSwipeId(null);
     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
   };

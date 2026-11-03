@@ -18,7 +18,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-MODEL_PATH = "runs/detect/train-14/weights/best.pt"
+MODEL_PATH = os.environ.get("MODEL_PATH", "runs/detect/train-14/weights/best.pt")
 
 print("Loading YOLO model...")
 model = YOLO(MODEL_PATH)
