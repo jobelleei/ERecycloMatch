@@ -15,7 +15,9 @@ import {
 } from "react-native";
 import Toast from "react-native-toast-message";
 import signinStyles from "./styles/signin";
+import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
+import { savePushTokenForProfile } from "../services/notifications";
 
 export default function Signin() {
   const router = useRouter();
@@ -51,7 +53,6 @@ export default function Signin() {
           name,
           username,
           email,
-          password,
           role,
           address,
           location,
@@ -67,7 +68,6 @@ export default function Signin() {
         .eq("email", cleanEmail)
         .maybeSingle();
 
-      console.log("SUPABASE SIGNIN PROFILE:", profile);
       console.log("SUPABASE SIGNIN ERROR:", error);
 
       if (error) {
@@ -88,7 +88,6 @@ export default function Signin() {
         return;
       }
 
-      const databasePassword = String(profile.password || "").trim();
       const databaseStatus = String(profile.status || "")
         .trim()
         .toLowerCase();
@@ -99,13 +98,56 @@ export default function Signin() {
       console.log("NORMALIZED STATUS:", databaseStatus);
       console.log("NORMALIZED ROLE:", databaseRole);
 
-      if (databasePassword !== cleanPassword) {
-        Toast.show({
-          type: "error",
-          text1: "Login Failed",
-          text2: "Incorrect password.",
+      /* CHECK PASSWORD WITH SUPABASE AUTH */
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password: cleanPassword,
+      });
+
+      if (authError?.code === "email_not_confirmed") {
+        // Send a fresh link; the old one may have expired
+        await supabase.auth.resend({
+          type: "signup",
+          email: cleanEmail,
+          options: { emailRedirectTo: EMAIL_VERIFIED_URL },
         });
+
+        Toast.show({
+          type: "info",
+          text1: "Verify your email",
+          text2: "We sent a new verification link to your email.",
+        });
+
+        router.replace({
+          pathname: "/verify_email",
+          params: {
+            email: cleanEmail,
+            role: databaseRole,
+            approved: databaseStatus === "approved" ? "1" : "0",
+          },
+        } as any);
         return;
+      }
+
+      if (authError) {
+        // Accounts created before Supabase Auth was used only have the
+        // password in profiles. Remove this once they are all migrated.
+        const { data: legacy } = await supabase
+          .from("profiles")
+          .select("password")
+          .eq("id", profile.id)
+          .maybeSingle();
+
+        const legacyPassword = String(legacy?.password || "").trim();
+
+        if (!legacyPassword || legacyPassword !== cleanPassword) {
+          Toast.show({
+            type: "error",
+            text1: "Login Failed",
+            text2: "Incorrect password.",
+          });
+          return;
+        }
       }
 
       if (databaseStatus === "pending") {
@@ -165,6 +207,9 @@ export default function Signin() {
       console.log("SAVED USER DATA:", userData);
 
       await AsyncStorage.setItem("user", JSON.stringify(userData));
+
+      // Not awaited: the notification permission prompt must not hold up sign-in
+      savePushTokenForProfile(profile.id);
 
       Toast.show({
         type: "success",

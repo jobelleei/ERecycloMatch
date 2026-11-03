@@ -23,6 +23,12 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
+import { NEARBY_NOTIFICATION_RADIUS_KM } from "../../config";
+import {
+  applyNotificationState,
+  rememberDismissed,
+  rememberRead,
+} from "../../utils/notificationState";
 
 type NotificationItem = {
   id: string;
@@ -531,7 +537,7 @@ export default function UserNotifications() {
                 fLng,
               );
 
-              if (dist <= 5) {
+              if (dist <= NEARBY_NOTIFICATION_RADIUS_KM) {
                 combined.push({
                   id: `nearby-fac-${fac.id}`,
                   type: "facility_nearby",
@@ -552,7 +558,8 @@ export default function UserNotifications() {
         console.log("Location checking skipped:", locErr);
       }
 
-      setNotifications(combined);
+      // Hide deleted ones and keep read ones read across refreshes
+      setNotifications(await applyNotificationState(currentUserId, combined));
     } catch (err) {
       console.log("FETCH ALL UPDATES ERROR:", err);
     } finally {
@@ -562,6 +569,7 @@ export default function UserNotifications() {
   };
 
   const markAsRead = async (item: NotificationItem) => {
+    if (userId) rememberRead(userId, [item]);
     setNotifications((prev) =>
       prev.map((n) =>
         n.id === item.id ? { ...n, read: true, unreadCount: 0 } : n,
@@ -585,6 +593,7 @@ export default function UserNotifications() {
   };
 
   const markAllAsRead = async () => {
+    if (userId) rememberRead(userId, notifications);
     setNotifications((prev) =>
       prev.map((n) => ({ ...n, read: true, unreadCount: 0 })),
     );
@@ -603,6 +612,7 @@ export default function UserNotifications() {
   };
 
   const deleteNotification = (item: NotificationItem) => {
+    if (userId) rememberDismissed(userId, [item]);
     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
   };
 

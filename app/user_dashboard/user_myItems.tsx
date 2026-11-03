@@ -28,11 +28,13 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
+import { NEARBY_NOTIFICATION_RADIUS_KM } from "../../config";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
-const NEARBY_RADIUS_KM = 5;
+// Same radius as the notification screens (config.ts)
+const NEARBY_RADIUS_KM = NEARBY_NOTIFICATION_RADIUS_KM;
 
 const calculateDistanceKm = (
   latitude1: number,

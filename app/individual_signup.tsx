@@ -9,6 +9,8 @@ import {
   Alert,
   Image,
   ImageBackground,
+  Keyboard,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -22,6 +24,7 @@ import {
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
 import styles from "./styles/individual_signup";
 
@@ -327,9 +330,26 @@ export default function IndividualSignup() {
   );
 
   const openCamera = async () => {
+    // Close the keyboard so it doesn't cover the permission prompt or camera
+    Keyboard.dismiss();
+
+    // Shows Android's camera permission prompt the first time
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
+      if (!permission.canAskAgain) {
+        // The prompt can't be shown again, so point the user to Settings
+        Alert.alert(
+          "Camera access needed",
+          "Allow camera access in Settings to take your photo.",
+          [
+            { text: "Cancel", style: "cancel" },
+            { text: "Open Settings", onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      }
+
       Toast.show({
         type: "error",
         text1: "Camera permission is required",
@@ -351,42 +371,6 @@ export default function IndividualSignup() {
         height: asset.height,
       });
     }
-  };
-
-  const pickFromGallery = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Toast.show({
-        type: "error",
-        text1: "Photo library permission is required",
-      });
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsEditing: false,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const asset = result.assets[0];
-
-      setImage({
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-      });
-    }
-  };
-
-  const chooseImageSource = () => {
-    Alert.alert(image ? "Change Photo" : "Add Photo", "Choose a source", [
-      { text: "Take Photo", onPress: openCamera },
-      { text: "Upload Image", onPress: pickFromGallery },
-      { text: "Cancel", style: "cancel" },
-    ]);
   };
 
   const getImageExtension = (uri: string) => {
@@ -570,6 +554,7 @@ export default function IndividualSignup() {
       Toast.show({
         type: "error",
         text1: "Passwords do not match",
+        text2: "Re-enter the same password in Confirm Password.",
       });
       return;
     }
@@ -656,6 +641,7 @@ export default function IndividualSignup() {
         email: cleanEmail,
         password: password,
         options: {
+          emailRedirectTo: EMAIL_VERIFIED_URL,
           data: {
             name: name.trim(),
             username: cleanUsername,
@@ -682,7 +668,6 @@ export default function IndividualSignup() {
             name: name.trim(),
             email: cleanEmail,
             username: cleanUsername,
-            password: password,
             role: "user",
             address: finalAddress,
             location: finalAddress,
@@ -712,12 +697,14 @@ export default function IndividualSignup() {
 
       Toast.show({
         type: "success",
-        text1: "Registration submitted",
-        text2: "Your account is pending admin approval.",
+        text1: "Thank you for signing up!",
+        text2: "We sent a verification link to your email.",
       });
-      
 
-      router.push("/signin");
+      router.replace({
+        pathname: "/verify_email",
+        params: { email: cleanEmail, role: "user", approved: "0" },
+      } as any);
     } catch (error: any) {
       console.log("SUPABASE SIGNUP ERROR:", error);
 
@@ -953,7 +940,7 @@ export default function IndividualSignup() {
 
           <Text style={styles.label}>ID Verification</Text>
           <Pressable
-            onPress={chooseImageSource}
+            onPress={openCamera}
             style={[
               styles.uploadBox,
               image && {
@@ -964,7 +951,7 @@ export default function IndividualSignup() {
             {image ? (
               <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
             ) : (
-              <Text>Tap to take or upload a photo</Text>
+              <Text>Tap to take photo</Text>
             )}
           </Pressable>
 
@@ -977,6 +964,8 @@ export default function IndividualSignup() {
 
             <TextInput
               secureTextEntry={secure1}
+              autoCapitalize="none"
+              autoCorrect={false}
               value={password}
               onChangeText={setPassword}
               placeholder="Create a password"
@@ -1006,6 +995,8 @@ export default function IndividualSignup() {
 
             <TextInput
               secureTextEntry={secure2}
+              autoCapitalize="none"
+              autoCorrect={false}
               value={confirmpass}
               onChangeText={setConfirmPass}
               placeholder="Confirm your password"
@@ -1022,8 +1013,18 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
-          {confirmpass.length > 0 && confirmRules.some((r) => !r.met) && (
-            <RulesBox rules={confirmRules.filter((r) => !r.met)} />
+          {/* Same grey rules box as the password field */}
+          {confirmpass.length > 0 && (
+            <RulesBox
+              rules={[
+                {
+                  label: confirmRules[0].met
+                    ? "Passwords match"
+                    : "Passwords do not match",
+                  met: confirmRules[0].met,
+                },
+              ]}
+            />
           )}
 
           {/* Terms & Conditions Checkbox */}

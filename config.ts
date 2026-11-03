@@ -1,17 +1,15 @@
-export const API_URL = "https://bright-pigs-write.loca.lt/Admin_Side"; //admin side tunnel, localtunnel (lt) link
 
-export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev"; //fastAPI tunnel, nrgok link
+export const API_URL = "https://emcee-fence-squatted.ngrok-free.dev/admin_syde";
+
+// YOLO scanner on AWS EC2 (Sydney)
+export const YOLO_URL = "https://52-63-27-183.sslip.io"; // Elastic IP: stays the same after Stop/Start
+
+// Backup: laptop server via ngrok (run start-server.bat first)
+// export const YOLO_URL = "https://emcee-fence-squatted.ngrok-free.dev/yolo";
 
 export const NEARBY_NOTIFICATION_RADIUS_KM = 5;
 
+//url for the email verification page, which is a static page hosted on Netlify. This is used in the Supabase auth flow to redirect users after they verify their email.
+export const EMAIL_VERIFIED_URL = "https://erecyclomatch-verified.netlify.app";
 
 
-
-
-//export const API_URL = "https://emcee-fence-squatted.ngrok-free.dev/Admin_Side";
-
-//export const API_URL = "http://192.168.254.144/Admin_Side";
-
-//export const YOLO_URL = "http://192.168.254.144:8080";
-
-//export const YOLO_URL = "http://Jobelles-MacBook-Air.local:8080";

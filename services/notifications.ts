@@ -1,3 +1,4 @@
+import { isRunningInExpoGo } from "expo";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import { Platform } from "react-native";
@@ -8,7 +9,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
      * Android Expo Go does not support remote push notifications.
      * Do not even import expo-notifications in this case.
      */
-    const isExpoGo = Constants.appOwnership === "expo";
+    const isExpoGo = isRunningInExpoGo();
 
     if (Platform.OS === "android" && isExpoGo) {
       console.log(
@@ -35,8 +36,9 @@ export async function registerForPushNotifications(): Promise<string | null> {
       await Notifications.setNotificationChannelAsync("default", {
         name: "Default Notifications",
         importance: Notifications.AndroidImportance.MAX,
+        // No `sound` here: Android uses the system default, and "default"
+        // would be looked up as a custom sound file bundled with the app.
         vibrationPattern: [0, 250, 250, 250],
-        sound: "default",
       });
     }
 
@@ -88,5 +90,65 @@ export async function registerForPushNotifications(): Promise<string | null> {
     console.error("Notification registration error:", error);
 
     return null;
+  }
+}
+
+/*
+ * Saves this phone's push token on the signed-in profile, so the database
+ * (supabase/push_notifications.sql) knows where to send that profile's pushes.
+ * The same token is removed from any other profile first, so a phone that
+ * switched accounts only gets pushes for the account it is signed in to.
+ * Never throws; push problems must not block sign-in.
+ */
+export async function savePushTokenForProfile(
+  profileId: string | number,
+): Promise<void> {
+  try {
+    const id = String(profileId || "").trim();
+    if (!id) return;
+
+    const token = await registerForPushNotifications();
+    if (!token) return;
+
+    const { supabase } = await import("../utils/supabase");
+
+    await supabase
+      .from("profiles")
+      .update({ expo_push_token: null })
+      .eq("expo_push_token", token)
+      .neq("id", id);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ expo_push_token: token })
+      .eq("id", id);
+
+    if (error) {
+      console.log("SAVE PUSH TOKEN ERROR:", error.message);
+    }
+  } catch (error) {
+    console.log("SAVE PUSH TOKEN ERROR:", error);
+  }
+}
+
+/*
+ * Removes the push token from a profile on logout, so a logged-out phone
+ * stops getting that account's pushes. Never throws.
+ */
+export async function clearPushTokenForProfile(
+  profileId: string | number,
+): Promise<void> {
+  try {
+    const id = String(profileId || "").trim();
+    if (!id) return;
+
+    const { supabase } = await import("../utils/supabase");
+
+    await supabase
+      .from("profiles")
+      .update({ expo_push_token: null })
+      .eq("id", id);
+  } catch (error) {
+    console.log("CLEAR PUSH TOKEN ERROR:", error);
   }
 }

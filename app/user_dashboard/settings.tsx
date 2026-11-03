@@ -24,6 +24,7 @@ import OnboardingTour, {
   TourStep,
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
+import { clearPushTokenForProfile } from "../../services/notifications";
 
 export default function Settings() {
   const router = useRouter();
@@ -551,6 +552,21 @@ export default function Settings() {
   };
 
   const logout = async () => {
+    // Stop this phone getting pushes for the account being logged out
+    try {
+      const stored = await AsyncStorage.getItem("user");
+      const storedId = stored ? JSON.parse(stored)?.id : null;
+      if (storedId) await clearPushTokenForProfile(storedId);
+    } catch (error) {
+      console.log("CLEAR PUSH TOKEN ERROR:", error);
+    }
+
+    // End the Supabase Auth session too, so the next account starts clean
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.log("SIGN OUT ERROR:", error);
+    }
     await AsyncStorage.removeItem("user");
     router.replace("/signin" as any);
   };

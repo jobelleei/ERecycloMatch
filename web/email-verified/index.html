@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ERecycloMatch</title>
+  <link rel="icon" href="logo.png">
+  <style>
+    :root {
+      --bg: #DDEFD3;
+      --card: #FFFFFF;
+      --green: #1B5E20;
+      --text: #444444;
+      --muted: #777777;
+      --error: #B3261E;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border-radius: 20px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+    .logo { width: 96px; height: 96px; object-fit: contain; }
+    .brand {
+      margin: 8px 0 24px;
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--green);
+    }
+    .icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 16px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      color: #fff;
+      background: var(--green);
+    }
+    .error .icon { background: var(--error); }
+    h1 { margin: 0 0 8px; font-size: 22px; color: var(--green); }
+    .error h1 { color: var(--error); }
+    p { margin: 0; font-size: 15px; line-height: 1.5; }
+    .note { margin-top: 20px; font-size: 13px; color: var(--muted); }
+    #failed { display: none; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img class="logo" src="logo.png" alt="">
+    <div class="brand">ERECYCLOMATCH</div>
+
+    <section id="verified">
+      <div class="icon">&#10003;</div>
+      <h1>You're now verified!</h1>
+      <p>Your email has been confirmed. You can now proceed to log in to the ERecycloMatch app.</p>
+      <p class="note">You may close this page.</p>
+    </section>
+
+    <section id="failed" class="error">
+      <div class="icon">!</div>
+      <h1>Verification link expired</h1>
+      <p id="failed-detail">This link is invalid or has already been used.</p>
+      <p class="note">Open the ERecycloMatch app and sign in to receive a new verification link. If you already verified, you can log in normally.</p>
+    </section>
+  </main>
+
+  <script>
+    // Supabase redirects here with #error=... when the link is expired or already used
+    var params = new URLSearchParams(window.location.hash.slice(1) || window.location.search.slice(1));
+    if (params.get("error") || params.get("error_code")) {
+      document.getElementById("verified").style.display = "none";
+      document.getElementById("failed").style.display = "block";
+      var detail = params.get("error_description");
+      if (detail) document.getElementById("failed-detail").textContent = detail.replace(/\+/g, " ") + ".";
+    }
+    // Don't leave the session tokens from the redirect visible in the address bar
+    if (window.location.hash) history.replaceState(null, "", window.location.pathname);
+  </script>
+</body>
+</html>
