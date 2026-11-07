@@ -1,5 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import UserBottomNav from "../../components/UserBottomNav";
+import OfferItemPicker, {
+  type OfferedItem,
+} from "../../components/OfferItemPicker";
 import {
   useFocusEffect,
   useLocalSearchParams,
@@ -19,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
+import { isActivePosting } from "../../utils/transactionItem";
 
 export default function FacilityViewProfile() {
   const router = useRouter();
@@ -454,7 +458,8 @@ export default function FacilityViewProfile() {
         return;
       }
 
-      setPostings(data || []);
+      // Only active postings: finished or deleted ones are hidden
+      setPostings((data || []).filter(isActivePosting));
     } catch (error) {
       console.log("FETCH FACILITY POSTINGS ERROR:", error);
       setPostings([]);
@@ -589,7 +594,24 @@ export default function FacilityViewProfile() {
     }
   };
 
-  const handleMatchWithFacility = async (post: any) => {
+  // Posting the user is answering; opens the "Which item are you offering?" picker
+  const [offerPost, setOfferPost] = useState<any>(null);
+  const [offerUserId, setOfferUserId] = useState("");
+
+  const openOfferPicker = async (post: any) => {
+    const user = await getStoredUser();
+
+    if (!user?.id) {
+      Alert.alert("User Error", "Please log in again.");
+      router.replace("/signin" as any);
+      return;
+    }
+
+    setOfferUserId(String(user.id));
+    setOfferPost(post);
+  };
+
+  const handleMatchWithFacility = async (post: any, offer: OfferedItem) => {
     try {
       const user = await getStoredUser();
 
@@ -642,6 +664,8 @@ export default function FacilityViewProfile() {
             facility_profile_image: currentFacilityImage,
             item_id: postingId,
             item_name: itemNeeded || "",
+            // Photo of the item the user is offering (shown in the chat card)
+            item_photo: offer.photoPath,
             request_sender_role: "user",
             request_receiver_role: "facility",
             last_message:
@@ -671,6 +695,8 @@ export default function FacilityViewProfile() {
               facility_profile_image: currentFacilityImage,
               item_id: postingId,
               item_name: itemNeeded || "",
+              // Photo of the item the user is offering (shown in the chat card)
+              item_photo: offer.photoPath,
               status: "match_pending",
               is_read: false,
               request_sender_role: "user",
@@ -704,6 +730,7 @@ export default function FacilityViewProfile() {
 
           item_id: postingId,
           item_name: itemNeeded || "",
+          item_image: offer.photoPath,
 
           posting_id: postingId,
           facility_posting_id: postingId,
@@ -763,7 +790,7 @@ export default function FacilityViewProfile() {
           style={[styles.matchButton, isOpening && styles.disabledButton]}
           activeOpacity={0.85}
           disabled={isOpening}
-          onPress={() => handleMatchWithFacility(item)}
+          onPress={() => openOfferPicker(item)}
         >
           <Text style={styles.matchText}>
             {isOpening
@@ -881,7 +908,7 @@ export default function FacilityViewProfile() {
                   source={
                     facility.profileImage
                       ? { uri: facility.profileImage }
-                      : require("../../assets/icons/avatar.png")
+                      : require("../../assets/icons/icon.png")
                   }
                   style={styles.avatar}
                 />
@@ -991,6 +1018,18 @@ export default function FacilityViewProfile() {
               : "No feedbacks yet."}
           </Text>
         }
+      />
+
+      <OfferItemPicker
+        visible={Boolean(offerPost)}
+        userId={offerUserId}
+        itemNeeded={offerPost ? getPostingItemNeeded(offerPost) : ""}
+        onCancel={() => setOfferPost(null)}
+        onSelect={(offer) => {
+          const post = offerPost;
+          setOfferPost(null);
+          if (post) handleMatchWithFacility(post, offer);
+        }}
       />
 
       {currentUser && (

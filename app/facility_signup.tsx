@@ -4,6 +4,7 @@ import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
+import { geocodeAddress, reverseGeocode } from "../utils/geocoding";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -214,7 +215,7 @@ export default function FacilitySignup() {
 
       console.log("MOVING MAP TO:", searchAddress);
 
-      const results = await Location.geocodeAsync(searchAddress);
+      const results = await geocodeAddress(searchAddress);
 
       console.log("MOVE MAP GEOCODE RESULT:", results);
 
@@ -257,7 +258,7 @@ export default function FacilitySignup() {
     selectedBarangay = barangay,
   ) => {
     try {
-      const results = await Location.reverseGeocodeAsync({
+      const results = await reverseGeocode({
         latitude: lat,
         longitude: lng,
       });
@@ -331,7 +332,7 @@ export default function FacilitySignup() {
 
       console.log("SEARCHING FACILITY MAP LOCATION:", searchParts);
 
-      const results = await Location.geocodeAsync(searchParts);
+      const results = await geocodeAddress(searchParts);
 
       console.log("FACILITY MAP SEARCH RESULT:", results);
 
@@ -1226,6 +1227,8 @@ export default function FacilitySignup() {
           >
             <MapView
               ref={mapRef}
+              // Opens in satellite view so the facility building is easy to find
+              mapType="hybrid"
               style={{ flex: 1 }}
               // Starts on Bacolod City until a pin is set
               initialRegion={{
@@ -1760,7 +1763,31 @@ export default function FacilitySignup() {
                 practices.
               </Text>
 
-              <Text style={localStyles.sectionHeading}>10. Governing Law</Text>
+              <Text style={localStyles.sectionHeading}>
+                10. Reports and Admin Review
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                Users and Facilities may report accounts, listings, messages,
+                or feedback that they believe violate these Terms. A reported
+                account or content may be placed under admin review, during
+                which the ERecycloMatch administrative team investigates the
+                account, content, or activity that triggered the report.
+                {"\n"}• Temporary restrictions: While a review is ongoing,
+                reported content may be temporarily hidden, and certain account
+                features (such as posting, matching, or messaging) may be
+                temporarily limited.
+                {"\n"}• Evaluation: Administrators review the report against
+                these Terms and the Platform's guidelines to determine whether
+                a violation occurred.
+                {"\n"}• Resolution: Depending on the outcome, the administrator
+                may dismiss the report, issue a warning, remove the reported
+                content, or temporarily suspend or permanently ban the account
+                under Section 9.
+                {"\n"}• False reports: Knowingly submitting false or malicious
+                reports is itself a violation of these Terms.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>11. Governing Law</Text>
               <Text style={localStyles.sectionContent}>
                 These Terms are governed by and construed in accordance with the
                 laws of the Republic of the Philippines. Any disputes arising
@@ -1769,7 +1796,7 @@ export default function FacilitySignup() {
               </Text>
 
               <Text style={localStyles.sectionHeading}>
-                11. Contact Information
+                12. Contact Information
               </Text>
               <Text style={[localStyles.sectionContent, { marginBottom: 20 }]}>
                 For questions, regulatory compliance concerns, or technical

@@ -1,8 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, Stack } from "expo-router";
+import { router, Stack, usePathname } from "expo-router";
 import { isRunningInExpoGo } from "expo";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import Toast from "react-native-toast-message";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 
@@ -76,6 +81,16 @@ export default function RootLayout() {
                 const role = String(user.role || "").toLowerCase();
                 const base =
                   role === "facility" ? "/facility_dashboard" : "/user_dashboard";
+
+                // A message opens its chat; other pushes open Notifications
+                if (data.type === "message" && data.conversation_id) {
+                  router.push({
+                    pathname: `${base}/chat`,
+                    params: { conversationId: String(data.conversation_id) },
+                  } as any);
+                  return;
+                }
+
                 const screen =
                   data.type === "message"
                     ? "messages"
@@ -103,11 +118,53 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }} />
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        {/* Measures the keyboard correctly on every Android version (chat input) */}
+        <KeyboardProvider>
+          <AppArea />
 
-      <Toast />
-    </GestureHandlerRootView>
+          <Toast />
+        </KeyboardProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
+  );
+}
+
+/*
+ * Keeps every screen above the phone's own navigation bar (back / home /
+ * recent buttons). Android draws apps edge-to-edge, so without this the
+ * phone's buttons cover the app's bottom menu. With gesture navigation the
+ * inset is only a few pixels, so those phones look the same as before.
+ */
+// Color of the strip behind the phone's navigation bar, matched to the
+// screen above it so it blends in (green on welcome/sign-in screens,
+// white under the dashboards' white bottom menu)
+const STRIP_COLORS: Record<string, string> = {
+  "/": "#CFE8C6",
+  "/signin": "#CFE8C6",
+  "/individual_signup": "#CFE8C6",
+  "/facility_signup": "#CFE8C6",
+  "/verify_email": "#DDEFD3",
+  "/forgot_password": "#DDEFD3",
+  "/reset_password": "#DDEFD3",
+};
+
+function AppArea() {
+  const insets = useSafeAreaInsets();
+  const pathname = usePathname();
+  const stripColor = STRIP_COLORS[pathname] || "#FFFFFF";
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        paddingBottom: Platform.OS === "android" ? insets.bottom : 0,
+        backgroundColor: stripColor,
+      }}
+    >
+      <Stack screenOptions={{ headerShown: false }} />
+    </View>
   );
 }
 

@@ -476,7 +476,7 @@ export default function UserMessages() {
       "";
 
     if (!imagePath || String(imagePath).trim() === "") {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     if (String(imagePath).startsWith("http")) {
@@ -489,7 +489,7 @@ export default function UserMessages() {
 
     const imageUrl = getPublicImageUrl("profile-images", String(imagePath));
     if (!imageUrl) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     return {

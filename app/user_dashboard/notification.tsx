@@ -656,18 +656,9 @@ export default function UserNotifications() {
     setDropdownOpen(false);
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "message":
-        return "chatbubbles-outline";
-      case "item_status":
-        return "pricetags-outline";
-      case "facility_nearby":
-        return "location-outline";
-      default:
-        return "notifications-outline";
-    }
-  };
+  // Message updates get a chat icon; all other updates get a bell
+  const getNotificationIcon = (type: string) =>
+    type === "message" ? "chatbubbles-outline" : "notifications-outline";
 
   const renderItem = ({
     item,

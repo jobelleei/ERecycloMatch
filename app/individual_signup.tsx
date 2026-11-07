@@ -1278,7 +1278,31 @@ export default function IndividualSignup() {
                 practices.
               </Text>
 
-              <Text style={localStyles.sectionHeading}>10. Governing Law</Text>
+              <Text style={localStyles.sectionHeading}>
+                10. Reports and Admin Review
+              </Text>
+              <Text style={localStyles.sectionContent}>
+                Users and Facilities may report accounts, listings, messages,
+                or feedback that they believe violate these Terms. A reported
+                account or content may be placed under admin review, during
+                which the ERecycloMatch administrative team investigates the
+                account, content, or activity that triggered the report.
+                {"\n"}• Temporary restrictions: While a review is ongoing,
+                reported content may be temporarily hidden, and certain account
+                features (such as posting, matching, or messaging) may be
+                temporarily limited.
+                {"\n"}• Evaluation: Administrators review the report against
+                these Terms and the Platform's guidelines to determine whether
+                a violation occurred.
+                {"\n"}• Resolution: Depending on the outcome, the administrator
+                may dismiss the report, issue a warning, remove the reported
+                content, or temporarily suspend or permanently ban the account
+                under Section 9.
+                {"\n"}• False reports: Knowingly submitting false or malicious
+                reports is itself a violation of these Terms.
+              </Text>
+
+              <Text style={localStyles.sectionHeading}>11. Governing Law</Text>
               <Text style={localStyles.sectionContent}>
                 These Terms are governed by and construed in accordance with the
                 laws of the Republic of the Philippines. Any disputes arising
@@ -1287,7 +1311,7 @@ export default function IndividualSignup() {
               </Text>
 
               <Text style={localStyles.sectionHeading}>
-                11. Contact Information
+                12. Contact Information
               </Text>
               <Text style={[localStyles.sectionContent, { marginBottom: 20 }]}>
                 For questions, regulatory compliance concerns, or technical

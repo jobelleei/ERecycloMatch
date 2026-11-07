@@ -757,7 +757,7 @@ export default function ScanResult() {
 
   const getFacilityImageSource = (profileImage: string) => {
     if (!profileImage || String(profileImage).trim() === "") {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     const cleanImage = String(profileImage).trim();
@@ -786,7 +786,7 @@ export default function ScanResult() {
       }
     }
 
-    return require("../../assets/icons/avatar.png");
+    return require("../../assets/icons/icon.png");
   };
 
   const isPostActive = (post: any) => {

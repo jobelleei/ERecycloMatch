@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
+import { geocodeAddress } from "../../utils/geocoding";
+import { getRoadRoute as fetchRoadRoute } from "../../utils/routing";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -173,6 +175,10 @@ export default function FacilityMapScreen() {
   const [navigationTarget, setNavigationTarget] = useState<MapPin | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [remainingDistance, setRemainingDistance] = useState("");
+  // Road route shown after "Go to this Facility"
+  const [routeCoordinates, setRouteCoordinates] = useState<
+    { latitude: number; longitude: number }[]
+  >([]);
 
   const [search, setSearch] = useState("");
   const [loadingPins, setLoadingPins] = useState(false);
@@ -858,7 +864,7 @@ export default function FacilityMapScreen() {
       });
 
       for (const address of possibleAddresses) {
-        const results = await Location.geocodeAsync(address);
+        const results = await geocodeAddress(address);
 
         if (results && results.length > 0) {
           return {
@@ -1459,6 +1465,7 @@ export default function FacilityMapScreen() {
       setIsNavigating(false);
       setNavigationTarget(null);
       setRemainingDistance("");
+      setRouteCoordinates([]);
     } catch (error) {
       console.log("STOP NAVIGATION ERROR:", error);
     }
@@ -1508,6 +1515,14 @@ export default function FacilityMapScreen() {
       });
 
       setRemainingDistance(initialDistance.toFixed(2));
+
+      // Road route from the current location to the facility
+      const route = await fetchRoadRoute(currentCoords, {
+        latitude: pin.latitude,
+        longitude: pin.longitude,
+      });
+      setRouteCoordinates(route.coordinates);
+      setRemainingDistance(route.distanceKm.toFixed(2));
 
       mapRef.current?.fitToCoordinates(
         [
@@ -1650,6 +1665,9 @@ export default function FacilityMapScreen() {
           >
           <TextInput
             placeholder="Search facilities or drop off bins..."
+            placeholderTextColor="rgba(255, 255, 255, 0.8)"
+            selectionColor="#FFFFFF"
+            cursorColor="#FFFFFF"
             style={styles.searchInput}
             value={search}
             onChangeText={handleSearchTextChange}
@@ -1778,16 +1796,20 @@ export default function FacilityMapScreen() {
 
           {isNavigating && userLocation && navigationTarget && (
             <Polyline
-              coordinates={[
-                {
-                  latitude: userLocation.latitude,
-                  longitude: userLocation.longitude,
-                },
-                {
-                  latitude: navigationTarget.latitude,
-                  longitude: navigationTarget.longitude,
-                },
-              ]}
+              coordinates={
+                routeCoordinates.length > 1
+                  ? routeCoordinates
+                  : [
+                      {
+                        latitude: userLocation.latitude,
+                        longitude: userLocation.longitude,
+                      },
+                      {
+                        latitude: navigationTarget.latitude,
+                        longitude: navigationTarget.longitude,
+                      },
+                    ]
+              }
               strokeWidth={5}
               strokeColor="#1b5e20"
             />
@@ -1848,7 +1870,8 @@ export default function FacilityMapScreen() {
         {selectedPin && (
           <View style={styles.detailsBox}>
             <ScrollView
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator
+              persistentScrollbar
               style={styles.detailsScroll}
             >
               <Text style={styles.detailsTitle}>{selectedPin.name}</Text>
@@ -1901,41 +1924,43 @@ export default function FacilityMapScreen() {
                 </Text>
               )}
 
-              <View style={styles.detailsButtonRow}>
-                {selectedPin.type === "facilities" && (
-                  <TouchableOpacity
-                    style={styles.profileButton}
-                    onPress={() => viewFacilityProfile(selectedPin)}
-                  >
-                    <Text style={styles.profileButtonText}>
-                      {isOwnFacilityPin(selectedPin)
-                        ? "View My Profile"
-                        : "View Profile"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {!isOwnFacilityPin(selectedPin) && (
-                  <TouchableOpacity
-                    style={styles.goButton}
-                    onPress={() => startNavigation(selectedPin)}
-                  >
-                    <Text style={styles.goButtonText}>
-                      {selectedPin.type === "facilities"
-                        ? "Go to this Facility"
-                        : "Go to this Bin"}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <TouchableOpacity
-                style={styles.closeDetailsButton}
-                onPress={() => setSelectedPin(null)}
-              >
-                <Text style={styles.closeDetailsText}>Close</Text>
-              </TouchableOpacity>
             </ScrollView>
+
+            {/* Always visible below the details, which scroll if long */}
+            <View style={styles.detailsButtonRow}>
+              {selectedPin.type === "facilities" && (
+                <TouchableOpacity
+                  style={styles.profileButton}
+                  onPress={() => viewFacilityProfile(selectedPin)}
+                >
+                  <Text style={styles.profileButtonText}>
+                    {isOwnFacilityPin(selectedPin)
+                      ? "View My Profile"
+                      : "View Profile"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {!isOwnFacilityPin(selectedPin) && (
+                <TouchableOpacity
+                  style={styles.goButton}
+                  onPress={() => startNavigation(selectedPin)}
+                >
+                  <Text style={styles.goButtonText}>
+                    {selectedPin.type === "facilities"
+                      ? "Go to this Facility"
+                      : "Go to this Bin"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeDetailsButton}
+              onPress={() => setSelectedPin(null)}
+            >
+              <Text style={styles.closeDetailsText}>Close</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -2035,11 +2060,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  // Dark green bar with white text so it stands out over the map
   searchInput: {
     flex: 1,
-    backgroundColor: "#dff0d8",
+    backgroundColor: "#1B5E20",
+    color: "#FFFFFF",
+    fontWeight: "600",
     padding: 12,
+    paddingHorizontal: 16,
     borderRadius: 25,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 
   clearSearchButton: {
@@ -2289,7 +2323,7 @@ const styles = StyleSheet.create({
   },
 
   detailsScroll: {
-    maxHeight: 330,
+    maxHeight: 240,
   },
 
   detailsTitle: {

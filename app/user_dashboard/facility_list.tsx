@@ -153,7 +153,7 @@ export default function FacilityList() {
 
   const getProfileImage = (facility: any) => {
     const img = facility.profile_image;
-    if (!img) return require("../../assets/icons/avatar.png");
+    if (!img) return require("../../assets/icons/icon.png");
     if (String(img).startsWith("http")) {
       return { uri: `${img}?v=${facility.updated_at || ""}` };
     }
@@ -161,7 +161,7 @@ export default function FacilityList() {
     const { data } = supabase.storage.from("profile-images").getPublicUrl(img);
     return data?.publicUrl
       ? { uri: data.publicUrl }
-      : require("../../assets/icons/avatar.png");
+      : require("../../assets/icons/icon.png");
   };
 
   return (

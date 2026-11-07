@@ -638,7 +638,7 @@ export default function UserDashboard() {
     const profileImage = facility.profile_image || "";
 
     if (!profileImage || String(profileImage).trim() === "") {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     if (String(profileImage).startsWith("http")) {
@@ -655,7 +655,7 @@ export default function UserDashboard() {
       };
     }
 
-    return require("../../assets/icons/avatar.png");
+    return require("../../assets/icons/icon.png");
   };
 
   const getFacilityLocation = (facility: any) => {

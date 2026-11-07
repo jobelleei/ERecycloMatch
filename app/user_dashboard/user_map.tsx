@@ -27,6 +27,8 @@ import MapView, { Marker, Polyline } from "../../components/OsmMapView";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import * as Location from "expo-location";
+import { geocodeAddress } from "../../utils/geocoding";
+import { getRoadRoute as fetchRoadRoute } from "../../utils/routing";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../utils/supabase";
 
@@ -156,7 +158,6 @@ export default function UserMapScreen() {
 
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
-  const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjI3ZjcxZTNkNDM1YzQxN2U4ZjNkNjgyNTA3YmJiZDk5IiwiaCI6Im11cm11cjY0In0=";
 
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
@@ -930,7 +931,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       });
 
       for (const address of possibleAddresses) {
-        const results = await Location.geocodeAsync(address);
+        const results = await geocodeAddress(address);
 
         if (results && results.length > 0) {
           return {
@@ -995,56 +996,12 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   return R * c;
 };
 
-const getRoadRoute = async (
-  origin: Coord,
-  destination: Coord
-) => {
-  try {
-    const response = await fetch(
-      "https://api.openrouteservice.org/v2/directions/driving-car/geojson",
-      {
-        method: "POST",
-        headers: {
-          Authorization: ORS_API_KEY,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          coordinates: [
-            [origin.longitude, origin.latitude],
-            [destination.longitude, destination.latitude],
-          ],
-        }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!data.features?.length) {
-      console.log("No route returned");
-      return;
-    }
-
-    const coords =
-      data.features[0].geometry.coordinates.map(
-        (coord: number[]) => ({
-          latitude: coord[1],
-          longitude: coord[0],
-        })
-      );
-
-    setRouteCoordinates(coords);
-
-    const summary =
-      data.features[0].properties.summary;
-
-    setRemainingDistance(
-      (summary.distance / 1000).toFixed(2)
-    );
-
-  } catch (error) {
-    console.log(error);
-  }
-};
+// Road route (OpenRouteService, then OSRM, then a straight line)
+  const getRoadRoute = async (origin: Coord, destination: Coord) => {
+    const route = await fetchRoadRoute(origin, destination);
+    setRouteCoordinates(route.coordinates);
+    setRemainingDistance(route.distanceKm.toFixed(2));
+  };
 
   const updateNearestList = (pinList: MapPin[], keywordValue = search) => {
     const filteredPins = filterPinsBySearch(pinList, keywordValue);
@@ -1866,6 +1823,9 @@ const getRoadRoute = async (
           >
           <TextInput
             placeholder="Search facilities or drop off bins..."
+            placeholderTextColor="rgba(255, 255, 255, 0.8)"
+            selectionColor="#FFFFFF"
+            cursorColor="#FFFFFF"
             style={styles.searchInput}
             value={search}
             onChangeText={handleSearchTextChange}
@@ -2114,7 +2074,8 @@ const getRoadRoute = async (
         {selectedPin && (
           <View style={styles.detailsBox}>
             <ScrollView
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator
+              persistentScrollbar
               style={styles.detailsScroll}
             >
               <Text style={styles.detailsTitle}>{selectedPin.name}</Text>
@@ -2167,35 +2128,37 @@ const getRoadRoute = async (
                 </Text>
               )}
 
-              <View style={styles.detailsButtonRow}>
-                {selectedPin.type === "facilities" && (
-                  <TouchableOpacity
-                    style={styles.profileButton}
-                    onPress={() => viewFacilityProfile(selectedPin)}
-                  >
-                    <Text style={styles.profileButtonText}>View Profile</Text>
-                  </TouchableOpacity>
-                )}
+            </ScrollView>
 
+            {/* Always visible below the details, which scroll if long */}
+            <View style={styles.detailsButtonRow}>
+              {selectedPin.type === "facilities" && (
                 <TouchableOpacity
-                  style={styles.goButton}
-                  onPress={() => startNavigation(selectedPin)}
+                  style={styles.profileButton}
+                  onPress={() => viewFacilityProfile(selectedPin)}
                 >
-                  <Text style={styles.goButtonText}>
-                    {selectedPin.type === "facilities"
-                      ? "Go to this Facility"
-                      : "Go to this Bin"}
-                  </Text>
+                  <Text style={styles.profileButtonText}>View Profile</Text>
                 </TouchableOpacity>
-              </View>
+              )}
 
               <TouchableOpacity
-                style={styles.closeDetailsButton}
-                onPress={() => setSelectedPin(null)}
+                style={styles.goButton}
+                onPress={() => startNavigation(selectedPin)}
               >
-                <Text style={styles.closeDetailsText}>Close</Text>
+                <Text style={styles.goButtonText}>
+                  {selectedPin.type === "facilities"
+                    ? "Go to this Facility"
+                    : "Go to this Bin"}
+                </Text>
               </TouchableOpacity>
-            </ScrollView>
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeDetailsButton}
+              onPress={() => setSelectedPin(null)}
+            >
+              <Text style={styles.closeDetailsText}>Close</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -2305,11 +2268,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
+  // Dark green bar with white text so it stands out over the map
   searchInput: {
     flex: 1,
-    backgroundColor: "#dff0d8",
+    backgroundColor: "#1B5E20",
+    color: "#FFFFFF",
+    fontWeight: "600",
     padding: 12,
+    paddingHorizontal: 16,
     borderRadius: 25,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 
   clearSearchButton: {
@@ -2608,7 +2580,7 @@ const styles = StyleSheet.create({
   },
 
   detailsScroll: {
-    maxHeight: 330,
+    maxHeight: 240,
   },
 
   detailsTitle: {

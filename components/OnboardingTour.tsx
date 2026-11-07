@@ -37,8 +37,22 @@ const SCROLL_SETTLE_MS = 350;
 export const getTourStorageKey = (tourName: string, accountId: string) =>
   `onboarding_done_${tourName}_${accountId}`;
 
+// Set by "Don't show again": no screen opens its tour by itself anymore.
+// The ? help button on each screen can still open the tour.
+const TOURS_OFF_KEY = "onboarding_tours_off";
+
+export const turnOffAllTours = async () => {
+  try {
+    await AsyncStorage.setItem(TOURS_OFF_KEY, "true");
+  } catch (error) {
+    console.log("SAVE TOURS OFF ERROR:", error);
+  }
+};
+
 export const hasCompletedTour = async (tourName: string, accountId: string) => {
   try {
+    if ((await AsyncStorage.getItem(TOURS_OFF_KEY)) === "true") return true;
+
     return (
       (await AsyncStorage.getItem(getTourStorageKey(tourName, accountId))) ===
       "true"
@@ -257,6 +271,18 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Stops the tours from opening by themselves on every screen */}
+            <TouchableOpacity
+              style={styles.dontShowButton}
+              hitSlop={8}
+              onPress={async () => {
+                await turnOffAllTours();
+                onFinish();
+              }}
+            >
+              <Text style={styles.dontShowText}>{"Don't show again"}</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -326,6 +352,17 @@ const styles = StyleSheet.create({
     color: "#777",
     fontSize: 13,
     fontWeight: "600",
+  },
+  dontShowButton: {
+    alignSelf: "center",
+    marginTop: 14,
+    paddingVertical: 2,
+  },
+  dontShowText: {
+    color: "#888",
+    fontSize: 12,
+    fontWeight: "600",
+    textDecorationLine: "underline",
   },
   navButtons: {
     flexDirection: "row",
