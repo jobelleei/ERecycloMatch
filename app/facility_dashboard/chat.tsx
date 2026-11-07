@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -16,8 +17,30 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ScrollView,
+  Dimensions,
+  Linking,
 } from "react-native";
+import { KeyboardAvoidingView as ChatKeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import EditMessageModal from "../../components/EditMessageModal";
+import ThreadDivider from "../../components/ThreadDivider";
+import {
+  getThreadDividerLabel,
+  loadThread,
+  type ThreadTransaction,
+} from "../../utils/chatThread";
+import { useChatRealtime } from "../../utils/chatRealtime";
+import {
+  finishPostingForConversation,
+  getTransactionItemId,
+} from "../../utils/transactionItem";
+import SwipeTimeRow from "../../components/SwipeTimeRow";
+import {
+  isEditableMessage,
+  saveEditedMessage,
+  shouldShowTime,
+} from "../../utils/chatMessages";
 import { supabase } from "../../utils/supabase";
 import { rejectCompetingRequests } from "../../utils/rejectCompetingRequests";
 import {
@@ -31,6 +54,14 @@ export default function FacilityChat() {
 
   const flatListRef = useRef<FlatList<any>>(null);
 
+  // When the keyboard opens, keep the newest messages in view
+  useEffect(() => {
+    const subscription = Keyboard.addListener("keyboardDidShow", () => {
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    });
+    return () => subscription.remove();
+  }, []);
+
   const conversationId = String(params.conversationId || "");
   const userIdParam = String(params.user_id || "");
   const userNameParam = String(params.user_name || "User");
@@ -42,6 +73,16 @@ export default function FacilityChat() {
   const [facility, setFacility] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  // All transactions between this user and facility, shown as one thread
+  const [threadTransactions, setThreadTransactions] = useState<
+    ThreadTransaction[]
+  >([]);
+  const threadIdsRef = useRef<string[]>([]);
+  // Photo chosen with the + button, shown as a preview until sent
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  // Message being corrected (long-press your own message > Edit)
+  const [editingMessage, setEditingMessage] = useState<any>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
@@ -85,10 +126,50 @@ export default function FacilityChat() {
     const interval = setInterval(() => {
       fetchConversation();
       fetchMessages();
-    }, 5000);
+      // Backup only: live updates come from useChatRealtime below
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [conversationId]);
+
+  // Same user + same facility = one thread. If an older transaction was
+  // opened (e.g. from a notification), switch to the newest one.
+  useEffect(() => {
+    const threadUserId = conversation?.user_id;
+    const threadFacilityId = conversation?.facility_id;
+    if (!threadUserId || !threadFacilityId || !conversationId) return;
+
+    let cancelled = false;
+
+    loadThread(String(threadUserId), String(threadFacilityId)).then((list) => {
+      if (cancelled || list.length === 0) return;
+
+      const newest = list[list.length - 1];
+      if (newest.id !== String(conversationId)) {
+        router.replace({
+          pathname: "/facility_dashboard/chat" as any,
+          params: { conversationId: newest.id },
+        });
+        return;
+      }
+
+      threadIdsRef.current = list.map((t) => t.id);
+      setThreadTransactions(list);
+      fetchMessages();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.user_id, conversation?.facility_id, conversationId]);
+
+  // New and edited messages appear immediately (Supabase Realtime)
+  useChatRealtime(
+    conversationId,
+    () => fetchMessages(),
+    () => fetchConversation(),
+  );
 
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
@@ -107,7 +188,20 @@ export default function FacilityChat() {
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
-    if (activeItemId) {
+    // Chats about a facility posting store the posting's ID as item_id, which
+    // is not a row in "items". Use the name and the offered item's photo saved
+    // on the conversation instead of looking up an unrelated item.
+    const isPostingChat = String(conversation?.id || conversationId).startsWith(
+      "facility_posting_",
+    );
+
+    if (isPostingChat) {
+      setRequestItem({
+        id: activeItemId,
+        item_name: conversation?.item_name || itemNameParam,
+        item_image: conversation?.item_photo || itemImageParam || "",
+      });
+    } else if (activeItemId) {
       fetchRequestItem(activeItemId);
     } else if (itemNameParam || itemImageParam) {
       setRequestItem({
@@ -116,7 +210,16 @@ export default function FacilityChat() {
         item_image: itemImageParam,
       });
     }
-  }, [conversation?.item_id, itemIdParam, itemNameParam, itemImageParam]);
+  }, [
+    conversation?.id,
+    conversation?.item_id,
+    conversation?.item_name,
+    conversation?.item_photo,
+    conversationId,
+    itemIdParam,
+    itemNameParam,
+    itemImageParam,
+  ]);
 
   useEffect(() => {
     if (conversation?.status === "match_pending" && conversation?.id) {
@@ -307,6 +410,7 @@ export default function FacilityChat() {
       requestItem?.photo ||
       requestItem?.photo_url ||
       conversation?.item_image ||
+      conversation?.item_photo ||
       itemImageParam ||
       "";
 
@@ -504,7 +608,12 @@ export default function FacilityChat() {
       const { data, error } = await supabase
         .from("messages")
         .select("*")
-        .eq("conversation_id", String(conversationId))
+        .in(
+          "conversation_id",
+          threadIdsRef.current.length > 0
+            ? threadIdsRef.current
+            : [String(conversationId)],
+        )
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -513,15 +622,16 @@ export default function FacilityChat() {
         return;
       }
 
-      let requestCardAlreadyShown = false;
+      const requestCardShownFor = new Set<string>();
 
       const cleanedMessages = (data || []).filter((message: any) => {
         if (isOldEmptyRequestBubble(message)) return false;
         if (shouldHideNormalRequestText(message)) return false;
 
         if (isMatchRequestMessage(message)) {
-          if (requestCardAlreadyShown) return false;
-          requestCardAlreadyShown = true;
+          const key = String(message.conversation_id || conversationId);
+          if (requestCardShownFor.has(key)) return false;
+          requestCardShownFor.add(key);
           return true;
         }
 
@@ -729,7 +839,10 @@ export default function FacilityChat() {
               });
 
               if (conversation?.item_id) {
-                const itemIdNum = Number(conversation.item_id);
+                // The transaction's real item (for facility postings, the offered item)
+                  const itemIdNum = Number(
+                    (await getTransactionItemId(conversation)) ?? NaN,
+                  );
                 if (!isNaN(itemIdNum)) {
                   await supabase
                     .from("items")
@@ -781,7 +894,10 @@ export default function FacilityChat() {
             });
 
             if (conversation?.item_id) {
-              const itemIdNum = Number(conversation.item_id);
+              // The transaction's real item (for facility postings, the offered item)
+                  const itemIdNum = Number(
+                    (await getTransactionItemId(conversation)) ?? NaN,
+                  );
               if (!isNaN(itemIdNum)) {
                 await supabase
                   .from("items")
@@ -846,7 +962,10 @@ export default function FacilityChat() {
             });
 
             if (conversation?.item_id) {
-              const itemIdNum = Number(conversation.item_id);
+              // The transaction's real item (for facility postings, the offered item)
+                  const itemIdNum = Number(
+                    (await getTransactionItemId(conversation)) ?? NaN,
+                  );
               if (!isNaN(itemIdNum)) {
                 await supabase
                   .from("items")
@@ -879,7 +998,10 @@ export default function FacilityChat() {
       let itemData: any = null;
 
       if (conversation?.item_id) {
-        const itemIdNum = Number(conversation.item_id);
+        // The transaction's real item (for facility postings, the offered item)
+                  const itemIdNum = Number(
+                    (await getTransactionItemId(conversation)) ?? NaN,
+                  );
         if (!isNaN(itemIdNum)) {
           const { data, error } = await supabase
             .from("items")
@@ -980,7 +1102,10 @@ export default function FacilityChat() {
                 });
 
                 if (conversation?.item_id) {
-                  const itemIdNum = Number(conversation.item_id);
+                  // The transaction's real item (for facility postings, the offered item)
+                  const itemIdNum = Number(
+                    (await getTransactionItemId(conversation)) ?? NaN,
+                  );
                   if (!isNaN(itemIdNum)) {
                     await supabase
                       .from("items")
@@ -993,6 +1118,9 @@ export default function FacilityChat() {
                       .eq("id", itemIdNum);
                   }
                 }
+
+                // A finished facility posting leaves the facility's profile
+                await finishPostingForConversation(conversation, now);
 
                 await createRecyclingHistoryRecord(now);
 
@@ -1051,6 +1179,15 @@ export default function FacilityChat() {
         Alert.alert(
           "Report reason required",
           "Please select why you are reporting this user.",
+        );
+        return;
+      }
+
+      // "Other" says nothing by itself, so a description is required
+      if (includeReport && reportReason === "Other" && !reportDetails.trim()) {
+        Alert.alert(
+          "Description required",
+          "Please describe what happened when you choose \"Other\".",
         );
         return;
       }
@@ -1270,8 +1407,85 @@ export default function FacilityChat() {
     );
   };
 
+  // Explains a denied permission; offers Settings when Android won't ask again
+  const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
+    const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
+    const message =
+      what === "camera"
+        ? "ERecycloMatch needs camera access to take a photo."
+        : "ERecycloMatch needs photo access to choose a picture.";
+
+    if (canAskAgain) {
+      Alert.alert(title, `${message} Tap + again to allow it.`);
+      return;
+    }
+
+    Alert.alert(title, `${message} Allow it in your phone's Settings.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Open Settings", onPress: () => Linking.openSettings() },
+    ]);
+  };
+
+  const pickFromCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showPermissionBlocked("camera", permission.canAskAgain);
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return;
+    }
+
+    setSelectedImageUri(result.assets[0].uri);
+  };
+
+  const pickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showPermissionBlocked("gallery", permission.canAskAgain);
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return;
+    }
+
+    setSelectedImageUri(result.assets[0].uri);
+  };
+
+  // The + button: choose Camera or Files (Gallery)
+  const handlePickImage = () => {
+    if (!canSendMessage()) {
+      Alert.alert(
+        "Chat Locked",
+        "You can only send attachments once the match is active.",
+      );
+      return;
+    }
+
+    Keyboard.dismiss();
+
+    Alert.alert("Add a photo", "Choose where to get the photo from.", [
+      { text: "Camera", onPress: pickFromCamera },
+      { text: "Files / Gallery", onPress: pickFromGallery },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
   const sendMessageNow = async () => {
-    if (!messageText.trim()) return;
+    if (!messageText.trim() && !selectedImageUri) return;
 
     if (!facility?.id) {
       Alert.alert("Facility Error", "Please log in again.");
@@ -1294,7 +1508,9 @@ export default function FacilityChat() {
     }
 
     const text = messageText.trim();
+    const imageToUpload = selectedImageUri;
     setMessageText("");
+    setSelectedImageUri(null);
 
     try {
       setSending(true);
@@ -1302,6 +1518,39 @@ export default function FacilityChat() {
       const receiverId = String(conversation?.user_id || userIdParam || "");
       const senderIdNum = Number(facility?.id);
       const receiverIdNum = Number(receiverId);
+
+      let finalMessageContent = text;
+      let messageType = sendingOffer ? "offer" : "text";
+
+      // Same upload as the user chat: the photo's public link becomes the message
+      if (imageToUpload) {
+        const fileExt = imageToUpload.split(".").pop() || "jpg";
+        const fileName = `chat_${conversationId}_${Date.now()}.${fileExt}`;
+        const filePath = `chat_uploads/${fileName}`;
+
+        const formData = new FormData();
+        formData.append("file", {
+          uri: imageToUpload,
+          name: fileName,
+          type: `image/${fileExt}`,
+        } as any);
+
+        const { error: uploadError } = await supabase.storage
+          .from("item-images")
+          .upload(filePath, formData, {
+            contentType: `image/${fileExt}`,
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from("item-images")
+          .getPublicUrl(filePath);
+
+        finalMessageContent = publicUrlData?.publicUrl || filePath;
+        messageType = "image";
+      }
 
       const { error } = await supabase.from("messages").insert([
         {
@@ -1311,9 +1560,9 @@ export default function FacilityChat() {
           sender_role: "facility",
           sender_type: "facility",
           receiver_id: isNaN(receiverIdNum) ? null : receiverIdNum,
-          type: sendingOffer ? "offer" : "text",
-          message_type: sendingOffer ? "offer" : "text",
-          message: text,
+          type: messageType,
+          message_type: messageType,
+          message: finalMessageContent,
           created_at: new Date().toISOString(),
         },
       ]);
@@ -1324,7 +1573,12 @@ export default function FacilityChat() {
       }
 
       await updateConversation({
-        last_message: sendingOffer ? `Offer: ${text}` : text,
+        last_message:
+          messageType === "image"
+            ? "Sent a photo"
+            : sendingOffer
+              ? `Offer: ${text}`
+              : text,
       });
 
       fetchMessages();
@@ -1491,23 +1745,112 @@ export default function FacilityChat() {
     return null;
   };
 
-  const renderRequestItemCard = () => {
+  const renderRequestItemCard = (requestMsg?: any) => {
+    // Earlier transactions in the thread show their own item, not the current one
+    const pastTransaction =
+      requestMsg &&
+      String(requestMsg.conversation_id || conversationId) !==
+        String(conversationId)
+        ? threadTransactions.find(
+            (t) => t.id === String(requestMsg.conversation_id),
+          )
+        : undefined;
+
+    const pastImageUrl = pastTransaction?.imagePath
+      ? getPublicImageUrl("item-images", pastTransaction.imagePath)
+      : "";
+
+    const imageSource = pastTransaction
+      ? pastImageUrl
+        ? { uri: pastImageUrl }
+        : require("../../assets/icons/icon.png")
+      : getRequestItemImage();
+
+    const itemNameText = pastTransaction
+      ? pastTransaction.itemName || "Item"
+      : getRequestItemName();
+
     return (
       <View style={styles.requestItemCard}>
-        <Image source={getRequestItemImage()} style={styles.requestItemImage} />
+        <Image source={imageSource} style={styles.requestItemImage} />
 
         <View style={styles.requestItemInfo}>
           <Text style={styles.requestItemLabel}>Requested Item</Text>
 
           <Text style={styles.requestItemName} numberOfLines={2}>
-            {getRequestItemName()}
+            {itemNameText}
           </Text>
         </View>
       </View>
     );
   };
 
-  const renderMessage = ({ item }: any) => {
+  const openMessageOptions = (item: any) => {
+    Alert.alert("Message", "Fix a typo in this message?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Edit", onPress: () => setEditingMessage(item) },
+    ]);
+  };
+
+  const handleSaveEdit = async (newText: string) => {
+    if (!editingMessage) return;
+
+    setSavingEdit(true);
+    const editedId = String(editingMessage.id);
+    const latest = [...messages]
+      .reverse()
+      .find((m) => m?.sender_id !== null && String(m?.message || "").trim());
+
+    const result = await saveEditedMessage({
+      messageId: editingMessage.id,
+      newText,
+      conversationId: String(conversation?.id || conversationId || ""),
+      isLatestMessage: String(latest?.id) === editedId,
+    });
+
+    setSavingEdit(false);
+
+    if (!result.ok) {
+      Alert.alert("Edit failed", result.error || "Please try again.");
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        String(m.id) === editedId
+          ? { ...m, message: newText, edited_at: new Date().toISOString() }
+          : m,
+      ),
+    );
+    setEditingMessage(null);
+  };
+
+  // Adds "New request · Keyboard · Nov 4" where a transaction starts
+  const renderThreadItem = (args: any) => {
+    const { item, index } = args;
+    const content = renderMessage(args);
+    if (threadTransactions.length < 2) return content;
+
+    const previous = messages[index - 1];
+    const startsTransaction =
+      !previous ||
+      String(previous.conversation_id) !== String(item.conversation_id);
+    if (!startsTransaction) return content;
+
+    const transaction = threadTransactions.find(
+      (t) => t.id === String(item.conversation_id),
+    );
+    if (!transaction) return content;
+
+    return (
+      <View>
+        <ThreadDivider label={getThreadDividerLabel(transaction)} />
+        {content}
+      </View>
+    );
+  };
+
+  const renderMessage = ({ item, index }: any) => {
     if (isOldEmptyRequestBubble(item)) {
       return null;
     }
@@ -1533,6 +1876,15 @@ export default function FacilityChat() {
 
     const requestMessage = isMatchRequestMessage(item);
     const isExpanded = expandedMessageId === String(item.id);
+    const showTimeHere = shouldShowTime(messages, index);
+    const canEditThis = isEditableMessage(item, String(facility?.id || ""));
+    const wasEdited = Boolean(item.edited_at);
+    const lowerText = String(item?.message || "").trim().toLowerCase();
+    const isImageMessage =
+      item.type === "image" ||
+      item.message_type === "image" ||
+      (lowerText.startsWith("http") &&
+        /\.(jpg|jpeg|png|webp)(\?|$)/.test(lowerText));
     const timeOnlyText = formatMessageTimeOnly(item.created_at);
     const dateTimeText = formatMessageDateTime(item.created_at);
 
@@ -1543,9 +1895,12 @@ export default function FacilityChat() {
             {requestMessage ? "Match request sent" : item.message}
           </Text>
 
-          {requestMessage && renderRequestItemCard()}
+          {requestMessage && renderRequestItemCard(item)}
 
-          {requestMessage && isCurrentAccountRequester() && (
+          {requestMessage &&
+            String(item.conversation_id || conversationId) ===
+              String(conversationId) &&
+            isCurrentAccountRequester() && (
             <View style={styles.oneMessageNotice}>
               <Ionicons
                 name="information-circle-outline"
@@ -1583,45 +1938,71 @@ export default function FacilityChat() {
           isMine ? styles.myMessageContainer : styles.otherMessageContainer,
         ]}
       >
-        <TouchableOpacity
-          activeOpacity={0.95}
-          onPress={() =>
-            setExpandedMessageId((prev) =>
-              prev === String(item.id) ? null : String(item.id),
-            )
-          }
-        >
-          <View
-            style={[
-              styles.messageBubble,
-              isMine ? styles.myMessage : styles.otherMessage,
-            ]}
+        <SwipeTimeRow timeText={dateTimeText}>
+          <TouchableOpacity
+            activeOpacity={0.95}
+            onPress={() =>
+              setExpandedMessageId((prev) =>
+                prev === String(item.id) ? null : String(item.id),
+              )
+            }
+            onLongPress={
+              canEditThis ? () => openMessageOptions(item) : undefined
+            }
+            delayLongPress={350}
+          >
+            <View
+              style={[
+                styles.messageBubble,
+                isMine ? styles.myMessage : styles.otherMessage,
+              ]}
+            >
+              {isImageMessage ? (
+                <Image
+                  source={{ uri: String(item.message || "").trim() }}
+                  style={styles.chatImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text
+                  style={isMine ? styles.myMessageText : styles.otherMessageText}
+                >
+                  {item.message}
+                </Text>
+              )}
+            </View>
+          </TouchableOpacity>
+        </SwipeTimeRow>
+
+        {/* Time shows under the last bubble of a same-minute group (swipe a
+            bubble left to see its time); tap a bubble for the full date */}
+        {showTimeHere || isExpanded || wasEdited ? (
+          <TouchableOpacity
+            onPress={() =>
+              setExpandedMessageId((prev) =>
+                prev === String(item.id) ? null : String(item.id),
+              )
+            }
           >
             <Text
-              style={isMine ? styles.myMessageText : styles.otherMessageText}
+              style={[
+                styles.messageTime,
+                isMine ? styles.myMessageTime : styles.otherMessageTime,
+              ]}
             >
-              {item.message}
+              {[
+                showTimeHere || isExpanded
+                  ? isExpanded
+                    ? dateTimeText
+                    : timeOnlyText
+                  : "",
+                wasEdited ? "Edited" : "",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </Text>
-          </View>
-        </TouchableOpacity>
-
-        {/* Always show the time underneath by default; tapping toggles to full date/time */}
-        <TouchableOpacity
-          onPress={() =>
-            setExpandedMessageId((prev) =>
-              prev === String(item.id) ? null : String(item.id),
-            )
-          }
-        >
-          <Text
-            style={[
-              styles.messageTime,
-              isMine ? styles.myMessageTime : styles.otherMessageTime,
-            ]}
-          >
-            {isExpanded ? dateTimeText : timeOnlyText}
-          </Text>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        ) : null}
       </View>
     );
   };
@@ -1633,10 +2014,11 @@ export default function FacilityChat() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <KeyboardAvoidingView
+      {/* Pushes the message box above the keyboard on Android and iOS */}
+      <ChatKeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+        behavior="padding"
+        keyboardVerticalOffset={0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
@@ -1668,14 +2050,42 @@ export default function FacilityChat() {
               ref={flatListRef}
               data={messages}
               keyExtractor={(item, index) => String(item.id || index)}
-              renderItem={renderMessage}
+              renderItem={renderThreadItem}
               contentContainerStyle={styles.messagesList}
               ListEmptyComponent={
                 <Text style={styles.emptyText}>No messages yet.</Text>
               }
             />
 
+            {selectedImageUri && (
+              <View style={styles.imagePreviewContainer}>
+                <Image
+                  source={{ uri: selectedImageUri }}
+                  style={styles.previewThumbnail}
+                />
+                <TouchableOpacity
+                  style={styles.removePreviewButton}
+                  onPress={() => setSelectedImageUri(null)}
+                >
+                  <Ionicons name="close-circle" size={22} color="#c62828" />
+                </TouchableOpacity>
+              </View>
+            )}
+
             <View style={styles.inputRow}>
+              <TouchableOpacity
+                style={styles.attachButton}
+                onPress={handlePickImage}
+                disabled={chatLocked || sending}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name="add"
+                  size={22}
+                  color={chatLocked ? "#bbb" : "#1b5e20"}
+                />
+              </TouchableOpacity>
+
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
@@ -1688,11 +2098,17 @@ export default function FacilityChat() {
               <TouchableOpacity
                 style={[
                   styles.sendButton,
-                  (sending || !canSendMessage() || !messageText.trim()) &&
+                  (sending ||
+                    !canSendMessage() ||
+                    (!messageText.trim() && !selectedImageUri)) &&
                     styles.disabledButton,
                 ]}
                 onPress={sendMessage}
-                disabled={sending || !canSendMessage() || !messageText.trim()}
+                disabled={
+                  sending ||
+                  !canSendMessage() ||
+                  (!messageText.trim() && !selectedImageUri)
+                }
               >
                 <Ionicons name="arrow-up" size={18} color="#fff" />
               </TouchableOpacity>
@@ -1717,6 +2133,12 @@ export default function FacilityChat() {
               >
                 <TouchableWithoutFeedback>
                   <View style={styles.feedbackBox}>
+                    {/* Scrolls when "Report this user" makes the form taller than the screen */}
+                    <ScrollView
+                      showsVerticalScrollIndicator
+                      keyboardShouldPersistTaps="handled"
+                      nestedScrollEnabled
+                    >
                     <Text style={styles.feedbackTitle}>Rate User</Text>
 
                     <Text style={styles.feedbackSubtitle}>
@@ -1837,7 +2259,11 @@ export default function FacilityChat() {
                           <TextInput
                             value={reportDetails}
                             onChangeText={setReportDetails}
-                            placeholder="Describe what happened (optional)"
+                            placeholder={
+                              reportReason === "Other"
+                                ? "Describe what happened (required)"
+                                : "Describe what happened (optional)"
+                            }
                             placeholderTextColor="#888"
                             multiline
                             maxLength={500}
@@ -1876,13 +2302,22 @@ export default function FacilityChat() {
                         </Text>
                       </TouchableOpacity>
                     </View>
+                    </ScrollView>
                   </View>
                 </TouchableWithoutFeedback>
               </KeyboardAvoidingView>
             </View>
           </TouchableWithoutFeedback>
         </Modal>
-      </KeyboardAvoidingView>
+      </ChatKeyboardAvoidingView>
+
+      <EditMessageModal
+        visible={Boolean(editingMessage)}
+        initialText={String(editingMessage?.message || "")}
+        saving={savingEdit}
+        onCancel={() => setEditingMessage(null)}
+        onSave={handleSaveEdit}
+      />
     </SafeAreaView>
   );
 }
@@ -2225,6 +2660,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 18,
     padding: 20,
+    // Never taller than the screen; the ScrollView inside handles the rest
+    maxHeight: Dimensions.get("window").height * 0.85,
   },
 
   feedbackTitle: {
@@ -2425,5 +2862,41 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontSize: 11,
     color: "#888",
+  },
+
+  attachButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#f1f2f6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+
+  imagePreviewContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#f5f5f5",
+    borderTopWidth: 1,
+    borderColor: "#eee",
+  },
+
+  previewThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+  },
+
+  removePreviewButton: {
+    marginLeft: 10,
+  },
+
+  chatImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 10,
   },
 });

@@ -27,6 +27,7 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { getItemConditions } from "../../utils/itemConditions";
 import { supabase } from "../../utils/supabase";
+import { isActivePosting } from "../../utils/transactionItem";
 
 const ITEM_OPTIONS = [
   "Laptop",
@@ -726,7 +727,7 @@ export default function FacilityProfile() {
           "FETCH FACILITY MATCHED CONVERSATIONS ERROR:",
           conversationError,
         );
-        setPostings(postingData || []);
+        setPostings((postingData || []).filter(isActivePosting));
         return;
       }
 
@@ -735,6 +736,9 @@ export default function FacilityProfile() {
       );
 
       const visiblePostings = (postingData || []).filter((posting: any) => {
+        // Finished or deleted postings are no longer shown on the profile
+        if (!isActivePosting(posting)) return false;
+
         const alreadyMatched = activeMatchedConversations.some(
           (conversation: any) =>
             isPostingUsedByActiveMatch(posting, conversation),
@@ -1129,7 +1133,7 @@ export default function FacilityProfile() {
                   source={
                     facility.profileImage
                       ? { uri: facility.profileImage }
-                      : require("../../assets/icons/avatar.png")
+                      : require("../../assets/icons/icon.png")
                   }
                   style={styles.avatar}
                 />

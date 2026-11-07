@@ -498,7 +498,10 @@ export default function Profile() {
       const { data, error } = await supabase
         .from("match_feedbacks")
         .select("*")
-        .or(`rated_id.eq.${user.id},user_id.eq.${user.id}`)
+        // Feedback that facilities gave this user. (The old filter used a
+        // "user_id" column that does not exist, so the list was always empty.)
+        .eq("rated_id", Number(user.id))
+        .eq("rated_role", "user")
         .order("created_at", { ascending: false });
 
       if (error) {

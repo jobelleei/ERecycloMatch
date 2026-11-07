@@ -986,7 +986,7 @@ export default function MyListing() {
 
   const getFacilityImageSource = (profileImage: string) => {
     if (!profileImage || String(profileImage).trim() === "") {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     const cleanImage = String(profileImage).trim();
@@ -1015,7 +1015,7 @@ export default function MyListing() {
       }
     }
 
-    return require("../../assets/icons/avatar.png");
+    return require("../../assets/icons/icon.png");
   };
 
   const formatDateTime = (value: any) => {

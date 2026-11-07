@@ -18,8 +18,30 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ScrollView,
+  Dimensions,
+  Linking,
 } from "react-native";
+import { KeyboardAvoidingView as ChatKeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import EditMessageModal from "../../components/EditMessageModal";
+import ThreadDivider from "../../components/ThreadDivider";
+import {
+  getThreadDividerLabel,
+  loadThread,
+  type ThreadTransaction,
+} from "../../utils/chatThread";
+import { useChatRealtime } from "../../utils/chatRealtime";
+import {
+  finishPostingForConversation,
+  getTransactionItemId,
+} from "../../utils/transactionItem";
+import SwipeTimeRow from "../../components/SwipeTimeRow";
+import {
+  isEditableMessage,
+  saveEditedMessage,
+  shouldShowTime,
+} from "../../utils/chatMessages";
 import { supabase } from "../../utils/supabase";
 import { rejectCompetingRequests } from "../../utils/rejectCompetingRequests";
 import {
@@ -32,6 +54,14 @@ export default function UserChat() {
   const params = useLocalSearchParams();
 
   const flatListRef = useRef<FlatList<any>>(null);
+
+  // When the keyboard opens, keep the newest messages in view
+  useEffect(() => {
+    const subscription = Keyboard.addListener("keyboardDidShow", () => {
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    });
+    return () => subscription.remove();
+  }, []);
 
   const conversationId = String(params.conversationId || "");
   const facilityIdParam = String(params.facility_id || "");
@@ -46,6 +76,14 @@ export default function UserChat() {
   const [user, setUser] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
+  // All transactions between this user and facility, shown as one thread
+  const [threadTransactions, setThreadTransactions] = useState<
+    ThreadTransaction[]
+  >([]);
+  const threadIdsRef = useRef<string[]>([]);
+  // Message being corrected (long-press your own message > Edit)
+  const [editingMessage, setEditingMessage] = useState<any>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
@@ -96,10 +134,50 @@ export default function UserChat() {
       if (user?.id) {
         markMessagesAsRead();
       }
-    }, 5000);
+      // Backup only: live updates come from useChatRealtime below
+    }, 15000);
 
     return () => clearInterval(interval);
   }, [conversationId, user?.id]);
+
+  // Same user + same facility = one thread. If an older transaction was
+  // opened (e.g. from a notification), switch to the newest one.
+  useEffect(() => {
+    const threadUserId = conversation?.user_id;
+    const threadFacilityId = conversation?.facility_id;
+    if (!threadUserId || !threadFacilityId || !conversationId) return;
+
+    let cancelled = false;
+
+    loadThread(String(threadUserId), String(threadFacilityId)).then((list) => {
+      if (cancelled || list.length === 0) return;
+
+      const newest = list[list.length - 1];
+      if (newest.id !== String(conversationId)) {
+        router.replace({
+          pathname: "/user_dashboard/chat" as any,
+          params: { conversationId: newest.id },
+        });
+        return;
+      }
+
+      threadIdsRef.current = list.map((t) => t.id);
+      setThreadTransactions(list);
+      fetchMessages();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation?.user_id, conversation?.facility_id, conversationId]);
+
+  // New and edited messages appear immediately (Supabase Realtime)
+  useChatRealtime(
+    conversationId,
+    () => fetchMessages(),
+    () => fetchConversation(),
+  );
 
   useEffect(() => {
     if (!conversationId || !user?.id) {
@@ -128,7 +206,20 @@ export default function UserChat() {
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
-    if (activeItemId) {
+    // Chats about a facility posting store the posting's ID as item_id, which
+    // is not a row in "items". Use the name and the offered item's photo saved
+    // on the conversation instead of looking up an unrelated item.
+    const isPostingChat = String(conversation?.id || conversationId).startsWith(
+      "facility_posting_",
+    );
+
+    if (isPostingChat) {
+      setRequestItem({
+        id: activeItemId,
+        item_name: conversation?.item_name || itemNameParam,
+        item_image: conversation?.item_photo || itemImageParam || "",
+      });
+    } else if (activeItemId) {
       fetchRequestItem(activeItemId);
     } else if (itemNameParam || itemImageParam) {
       setRequestItem({
@@ -137,7 +228,16 @@ export default function UserChat() {
         item_image: itemImageParam,
       });
     }
-  }, [conversation?.item_id, itemIdParam, itemNameParam, itemImageParam]);
+  }, [
+    conversation?.id,
+    conversation?.item_id,
+    conversation?.item_name,
+    conversation?.item_photo,
+    conversationId,
+    itemIdParam,
+    itemNameParam,
+    itemImageParam,
+  ]);
 
   const loadUser = async () => {
     try {
@@ -269,7 +369,7 @@ export default function UserChat() {
       "";
 
     if (!imagePath) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     if (String(imagePath).startsWith("http")) {
@@ -283,7 +383,7 @@ export default function UserChat() {
     const imageUrl = getPublicImageUrl("profile-images", imagePath);
 
     if (!imageUrl) {
-      return require("../../assets/icons/avatar.png");
+      return require("../../assets/icons/icon.png");
     }
 
     return {
@@ -314,6 +414,7 @@ export default function UserChat() {
       requestItem?.photo ||
       requestItem?.photo_url ||
       conversation?.item_image ||
+      conversation?.item_photo ||
       itemImageParam ||
       "";
 
@@ -615,7 +716,12 @@ export default function UserChat() {
       const { data, error } = await supabase
         .from("messages")
         .select("*")
-        .eq("conversation_id", String(conversationId))
+        .in(
+          "conversation_id",
+          threadIdsRef.current.length > 0
+            ? threadIdsRef.current
+            : [String(conversationId)],
+        )
         .order("created_at", { ascending: true });
 
       if (error) {
@@ -623,15 +729,16 @@ export default function UserChat() {
         return;
       }
 
-      let requestCardAlreadyShown = false;
+      const requestCardShownFor = new Set<string>();
 
       const cleanedMessages = (data || []).filter((message: any) => {
         if (isOldEmptyRequestBubble(message)) return false;
         if (shouldHideNormalRequestText(message)) return false;
 
         if (isMatchRequestMessage(message)) {
-          if (requestCardAlreadyShown) return false;
-          requestCardAlreadyShown = true;
+          const key = String(message.conversation_id || conversationId);
+          if (requestCardShownFor.has(key)) return false;
+          requestCardShownFor.add(key);
           return true;
         }
 
@@ -761,7 +868,10 @@ export default function UserChat() {
                 last_message: "Match accepted",
               });
 
-              if (conversation?.item_id) {
+              // The transaction's real item (for facility postings, the offered item)
+              const transactionItemId = await getTransactionItemId(conversation);
+
+              if (transactionItemId) {
                 await supabase
                   .from("items")
                   .update({
@@ -769,7 +879,7 @@ export default function UserChat() {
                     match_status: "Matched",
                     updated_at: now,
                   })
-                  .eq("id", String(conversation.item_id));
+                  .eq("id", transactionItemId);
               }
 
               await addSystemMessage("Match accepted. You can now chat.");
@@ -805,7 +915,10 @@ export default function UserChat() {
               last_message: "Match rejected",
             });
 
-            if (conversation?.item_id) {
+            // The transaction's real item (for facility postings, the offered item)
+            const transactionItemId = await getTransactionItemId(conversation);
+
+            if (transactionItemId) {
               await supabase
                 .from("items")
                 .update({
@@ -813,7 +926,7 @@ export default function UserChat() {
                   match_status: "Listed",
                   updated_at: new Date().toISOString(),
                 })
-                .eq("id", String(conversation.item_id));
+                .eq("id", transactionItemId);
             }
 
             await addSystemMessage("Match rejected");
@@ -851,7 +964,10 @@ export default function UserChat() {
               last_message: "Match cancelled",
             });
 
-            if (conversation?.item_id) {
+            // The transaction's real item (for facility postings, the offered item)
+            const transactionItemId = await getTransactionItemId(conversation);
+
+            if (transactionItemId) {
               await supabase
                 .from("items")
                 .update({
@@ -859,7 +975,7 @@ export default function UserChat() {
                   match_status: "Listed",
                   updated_at: new Date().toISOString(),
                 })
-                .eq("id", String(conversation.item_id));
+                .eq("id", transactionItemId);
             }
 
             await addSystemMessage("Match cancelled");
@@ -875,11 +991,14 @@ export default function UserChat() {
   const createRecyclingHistoryRecord = async (finishedAt: string) => {
     try {
       let itemData: any = null;
-      if (conversation?.item_id) {
+      // The transaction's real item (for facility postings, the offered item)
+      const transactionItemId = await getTransactionItemId(conversation);
+
+      if (transactionItemId) {
         const { data } = await supabase
           .from("items")
           .select("*")
-          .eq("id", String(conversation.item_id))
+          .eq("id", transactionItemId)
           .maybeSingle();
         itemData = data;
       }
@@ -960,7 +1079,10 @@ export default function UserChat() {
                   finished_at: now,
                 });
 
-                if (conversation?.item_id) {
+                // The transaction's real item (for facility postings, the offered item)
+                const transactionItemId = await getTransactionItemId(conversation);
+
+                if (transactionItemId) {
                   await supabase
                     .from("items")
                     .update({
@@ -969,8 +1091,11 @@ export default function UserChat() {
                       finished_at: now,
                       updated_at: now,
                     })
-                    .eq("id", String(conversation.item_id));
+                    .eq("id", transactionItemId);
                 }
+
+                // A finished facility posting leaves the facility's profile
+                await finishPostingForConversation(conversation, now);
 
                 await createRecyclingHistoryRecord(now);
                 await addSystemMessage(
@@ -1017,6 +1142,15 @@ export default function UserChat() {
         Alert.alert(
           "Report reason required",
           "Please select why you are reporting this facility.",
+        );
+        return;
+      }
+
+      // "Other" says nothing by itself, so a description is required
+      if (includeReport && reportReason === "Other" && !reportDetails.trim()) {
+        Alert.alert(
+          "Description required",
+          "Please describe what happened when you choose \"Other\".",
         );
         return;
       }
@@ -1156,21 +1290,48 @@ export default function UserChat() {
     return "Chat is locked until the match is active";
   };
 
-  const handlePickImage = async () => {
-    if (!canSendMessage()) {
-      Alert.alert(
-        "Chat Locked",
-        "You can only send attachments once the match is active.",
-      );
+  // Explains a denied permission; offers Settings when Android won't ask again
+  const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
+    const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
+    const message =
+      what === "camera"
+        ? "ERecycloMatch needs camera access to take a photo."
+        : "ERecycloMatch needs photo access to choose a picture.";
+
+    if (canAskAgain) {
+      Alert.alert(title, `${message} Tap + again to allow it.`);
       return;
     }
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Permission Denied",
-        "Please grant photo gallery permission to select images.",
-      );
+    Alert.alert(title, `${message} Allow it in your phone's Settings.`, [
+      { text: "Cancel", style: "cancel" },
+      { text: "Open Settings", onPress: () => Linking.openSettings() },
+    ]);
+  };
+
+  const pickFromCamera = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showPermissionBlocked("camera", permission.canAskAgain);
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled || !result.assets || result.assets.length === 0) {
+      return;
+    }
+
+    setSelectedImageUri(result.assets[0].uri);
+  };
+
+  const pickFromGallery = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showPermissionBlocked("gallery", permission.canAskAgain);
       return;
     }
 
@@ -1185,6 +1346,25 @@ export default function UserChat() {
     }
 
     setSelectedImageUri(result.assets[0].uri);
+  };
+
+  // The + button: choose Camera or Files (Gallery)
+  const handlePickImage = () => {
+    if (!canSendMessage()) {
+      Alert.alert(
+        "Chat Locked",
+        "You can only send attachments once the match is active.",
+      );
+      return;
+    }
+
+    Keyboard.dismiss();
+
+    Alert.alert("Add a photo", "Choose where to get the photo from.", [
+      { text: "Camera", onPress: pickFromCamera },
+      { text: "Files / Gallery", onPress: pickFromGallery },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   // Warn before sending phone numbers, addresses, payment or ID details
@@ -1461,21 +1641,110 @@ export default function UserChat() {
     return null;
   };
 
-  const renderRequestItemCard = () => {
+  const renderRequestItemCard = (requestMsg?: any) => {
+    // Earlier transactions in the thread show their own item, not the current one
+    const pastTransaction =
+      requestMsg &&
+      String(requestMsg.conversation_id || conversationId) !==
+        String(conversationId)
+        ? threadTransactions.find(
+            (t) => t.id === String(requestMsg.conversation_id),
+          )
+        : undefined;
+
+    const pastImageUrl = pastTransaction?.imagePath
+      ? getPublicImageUrl("item-images", pastTransaction.imagePath)
+      : "";
+
+    const imageSource = pastTransaction
+      ? pastImageUrl
+        ? { uri: pastImageUrl }
+        : require("../../assets/icons/icon.png")
+      : getRequestItemImage();
+
+    const itemNameText = pastTransaction
+      ? pastTransaction.itemName || "Item"
+      : getRequestItemName();
+
     return (
       <View style={styles.requestItemCard}>
-        <Image source={getRequestItemImage()} style={styles.requestItemImage} />
+        <Image source={imageSource} style={styles.requestItemImage} />
         <View style={styles.requestItemInfo}>
           <Text style={styles.requestItemLabel}>Requested Item</Text>
           <Text style={styles.requestItemName} numberOfLines={2}>
-            {getRequestItemName()}
+            {itemNameText}
           </Text>
         </View>
       </View>
     );
   };
 
-  const renderMessage = ({ item }: any) => {
+  const openMessageOptions = (item: any) => {
+    Alert.alert("Message", "Fix a typo in this message?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Edit", onPress: () => setEditingMessage(item) },
+    ]);
+  };
+
+  const handleSaveEdit = async (newText: string) => {
+    if (!editingMessage) return;
+
+    setSavingEdit(true);
+    const editedId = String(editingMessage.id);
+    const latest = [...messages]
+      .reverse()
+      .find((m) => m?.sender_id !== null && String(m?.message || "").trim());
+
+    const result = await saveEditedMessage({
+      messageId: editingMessage.id,
+      newText,
+      conversationId: String(conversation?.id || conversationId || ""),
+      isLatestMessage: String(latest?.id) === editedId,
+    });
+
+    setSavingEdit(false);
+
+    if (!result.ok) {
+      Alert.alert("Edit failed", result.error || "Please try again.");
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        String(m.id) === editedId
+          ? { ...m, message: newText, edited_at: new Date().toISOString() }
+          : m,
+      ),
+    );
+    setEditingMessage(null);
+  };
+
+  // Adds "New request · Keyboard · Nov 4" where a transaction starts
+  const renderThreadItem = (args: any) => {
+    const { item, index } = args;
+    const content = renderMessage(args);
+    if (threadTransactions.length < 2) return content;
+
+    const previous = messages[index - 1];
+    const startsTransaction =
+      !previous ||
+      String(previous.conversation_id) !== String(item.conversation_id);
+    if (!startsTransaction) return content;
+
+    const transaction = threadTransactions.find(
+      (t) => t.id === String(item.conversation_id),
+    );
+    if (!transaction) return content;
+
+    return (
+      <View>
+        <ThreadDivider label={getThreadDividerLabel(transaction)} />
+        {content}
+      </View>
+    );
+  };
+
+  const renderMessage = ({ item, index }: any) => {
     const messageTextValue = String(item?.message || "").trim();
     const messageLower = messageTextValue.toLowerCase();
     const requestMessage = isMatchRequestMessage(item);
@@ -1505,6 +1774,9 @@ export default function UserChat() {
 
     const messageKey = String(item.id || item.created_at);
     const showFullDate = visibleTimestamps[messageKey];
+    const showTimeHere = shouldShowTime(messages, index);
+    const canEditThis = isEditableMessage(item, String(user?.id || ""));
+    const wasEdited = Boolean(item.edited_at);
 
     const toggleTimestamp = () => {
       setVisibleTimestamps((prev) => ({
@@ -1539,9 +1811,12 @@ export default function UserChat() {
                   : item.message}
           </Text>
 
-          {requestMessage && renderRequestItemCard()}
+          {requestMessage && renderRequestItemCard(item)}
 
-          {requestMessage && isCurrentAccountRequester() && (
+          {requestMessage &&
+            String(item.conversation_id || conversationId) ===
+              String(conversationId) &&
+            isCurrentAccountRequester() && (
             <View style={styles.oneMessageNotice}>
               <Ionicons
                 name="information-circle-outline"
@@ -1572,7 +1847,15 @@ export default function UserChat() {
           isMine ? styles.myMessageContainer : styles.otherMessageContainer,
         ]}
       >
-        <TouchableOpacity activeOpacity={0.9} onPress={toggleTimestamp}>
+        <SwipeTimeRow timeText={fullDateTimeText}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={toggleTimestamp}
+          onLongPress={
+            canEditThis ? () => openMessageOptions(item) : undefined
+          }
+          delayLongPress={350}
+        >
           <View
             style={[
               styles.messageBubble,
@@ -1594,16 +1877,27 @@ export default function UserChat() {
             )}
           </View>
         </TouchableOpacity>
+        </SwipeTimeRow>
 
-        {/* Static time shows by default; when clicked, full date and time is shown */}
-        {shortTimeText ? (
+        {/* Time shows under the last bubble of a same-minute group (swipe a
+            bubble left to see its time); tap a bubble for the full date */}
+        {(shortTimeText && (showTimeHere || showFullDate)) || wasEdited ? (
           <Text
             style={[
               styles.messageTime,
               isMine ? styles.myMessageTime : styles.otherMessageTime,
             ]}
           >
-            {showFullDate ? fullDateTimeText : shortTimeText}
+            {[
+              shortTimeText && (showTimeHere || showFullDate)
+                ? showFullDate
+                  ? fullDateTimeText
+                  : shortTimeText
+                : "",
+              wasEdited ? "Edited" : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </Text>
         ) : null}
       </View>
@@ -1623,9 +1917,10 @@ export default function UserChat() {
   );
 
   return (
-    <KeyboardAvoidingView
+    // Pushes the message box above the keyboard on Android and iOS
+    <ChatKeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior="padding"
       keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
@@ -1662,7 +1957,7 @@ export default function UserChat() {
             ref={flatListRef}
             data={messages}
             keyExtractor={(item, index) => String(item.id || index)}
-            renderItem={renderMessage}
+            renderItem={renderThreadItem}
             contentContainerStyle={styles.messagesList}
             onContentSizeChange={() =>
               flatListRef.current?.scrollToEnd({ animated: true })
@@ -1767,6 +2062,12 @@ export default function UserChat() {
                 >
                   <TouchableWithoutFeedback>
                     <View style={styles.feedbackBox}>
+                      {/* Scrolls when "Report this user" makes the form taller than the screen */}
+                      <ScrollView
+                        showsVerticalScrollIndicator
+                        keyboardShouldPersistTaps="handled"
+                        nestedScrollEnabled
+                      >
                       <Text style={styles.feedbackTitle}>Rate Facility</Text>
 
                       <Text style={styles.feedbackSubtitle}>
@@ -1887,7 +2188,11 @@ export default function UserChat() {
                             <TextInput
                               value={reportDetails}
                               onChangeText={setReportDetails}
-                              placeholder="Describe what happened (optional)"
+                              placeholder={
+                              reportReason === "Other"
+                                ? "Describe what happened (required)"
+                                : "Describe what happened (optional)"
+                            }
                               placeholderTextColor="#888"
                               multiline
                               maxLength={500}
@@ -1926,15 +2231,24 @@ export default function UserChat() {
                           </Text>
                         </TouchableOpacity>
                       </View>
+                      </ScrollView>
                     </View>
                   </TouchableWithoutFeedback>
                 </KeyboardAvoidingView>
               </View>
             </TouchableWithoutFeedback>
           </Modal>
+
+          <EditMessageModal
+            visible={Boolean(editingMessage)}
+            initialText={String(editingMessage?.message || "")}
+            saving={savingEdit}
+            onCancel={() => setEditingMessage(null)}
+            onSave={handleSaveEdit}
+          />
         </SafeAreaView>
       </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+    </ChatKeyboardAvoidingView>
   );
 }
 
@@ -2276,6 +2590,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 18,
     padding: 20,
+    // Never taller than the screen; the ScrollView inside handles the rest
+    maxHeight: Dimensions.get("window").height * 0.85,
   },
 
   feedbackTitle: {

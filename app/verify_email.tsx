@@ -36,7 +36,8 @@ export default function VerifyEmail() {
     ? "Once verified, your account is ready and you can sign in."
     : isFacility
       ? "Once verified, please wait for admin approval of your certification before signing in."
-      : "Once verified, please wait for admin approval of your account before signing in.";
+      : // User accounts are approved automatically when the email is verified
+        "Once verified, your account is approved automatically and you can sign in.";
 
   const handleResend = async () => {
     if (cooldown > 0 || resending) return;

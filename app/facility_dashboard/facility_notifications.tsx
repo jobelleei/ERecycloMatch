@@ -586,7 +586,8 @@ export default function FacilityNotifications() {
           type:
             notificationType === "nearby_listing"
               ? "item_update"
-              : notificationType === "message"
+              : notificationType === "message" ||
+                  notificationType === "new_message"
                 ? "message"
                 : "system",
           title,
@@ -738,16 +739,9 @@ export default function FacilityNotifications() {
     setDropdownOpen(false);
   };
 
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case "message":
-        return "chatbubbles-outline";
-      case "item_update":
-        return "cube-outline";
-      default:
-        return "notifications-outline";
-    }
-  };
+  // Message updates get a chat icon; all other updates get a bell
+  const getNotificationIcon = (type: string) =>
+    type === "message" ? "chatbubbles-outline" : "notifications-outline";
 
   const renderItem = ({
     item,

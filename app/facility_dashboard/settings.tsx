@@ -1361,7 +1361,7 @@ openingDaysTo:
             source={
               facility.profileImage
                 ? { uri: facility.profileImage }
-                : require("../../assets/icons/avatar.png")
+                : require("../../assets/icons/icon.png")
             }
             style={styles.avatar}
           />
@@ -1496,7 +1496,7 @@ openingDaysTo:
                     source={
                       editProfileImage
                         ? { uri: editProfileImage }
-                        : require("../../assets/icons/avatar.png")
+                        : require("../../assets/icons/icon.png")
                     }
                     style={styles.modalAvatar}
                   />
