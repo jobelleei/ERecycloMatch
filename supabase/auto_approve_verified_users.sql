@@ -12,7 +12,7 @@ begin
         approval_source = 'system',
         approved_at = now()
     where lower(email) = lower(new.email)
-      and lower(coalesce(role, '')) = 'user'
+      and lower(coalesce(role, '')) in ('user', 'facility')
       and lower(coalesce(status, '')) = 'pending';
   end if;
 
@@ -38,6 +38,6 @@ set status = 'approved',
 from auth.users u
 where lower(u.email) = lower(p.email)
   and u.email_confirmed_at is not null
-  and lower(coalesce(p.role, '')) = 'user'
+  and lower(coalesce(p.role, '')) in ('user', 'facility')
   and lower(coalesce(p.status, '')) = 'pending'
-returning p.id, p.name, p.status;
+returning p.id, p.name, p.role, p.status;

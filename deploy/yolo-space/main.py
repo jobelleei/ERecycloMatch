@@ -4,6 +4,7 @@ from ultralytics import YOLO
 import numpy as np
 import os
 import shutil
+import threading
 import uuid
 import time
 import traceback
@@ -33,6 +34,11 @@ model.predict(
 )
 print("YOLO model warmed up.")
 
+# One model per process, and predict() is not safe to call from two threads
+# at once. Each process scans one photo at a time; run more processes
+# (--workers) to scan more photos at the same time.
+predict_lock = threading.Lock()
+
 
 @app.get("/")
 def home():
@@ -43,8 +49,10 @@ def home():
     }
 
 
+# A plain "def" runs in a worker thread, so a scan in progress does not stop
+# the server from accepting other phones' uploads.
 @app.post("/detect")
-async def detect(file: UploadFile = File(...)):
+def detect(file: UploadFile = File(...)):
     start_time = time.time()
 
     temp_dir = "temp_uploads"
@@ -69,14 +77,15 @@ async def detect(file: UploadFile = File(...)):
 
         predict_start = time.time()
 
-        results = model.predict(
-            source=file_path,
-            imgsz=416,
-            conf=0.25,
-            device="cpu",
-            verbose=False,
-            max_det=1,
-        )
+        with predict_lock:
+            results = model.predict(
+                source=file_path,
+                imgsz=416,
+                conf=0.25,
+                device="cpu",
+                verbose=False,
+                max_det=1,
+            )
 
         predict_time = round(time.time() - predict_start, 2)
 
@@ -129,5 +138,5 @@ async def detect(file: UploadFile = File(...)):
 
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    return await detect(file)
+def predict(file: UploadFile = File(...)):
+    return detect(file)
