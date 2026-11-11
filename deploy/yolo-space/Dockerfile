@@ -14,7 +14,10 @@ ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     YOLO_CONFIG_DIR=/tmp/Ultralytics \
     MODEL_PATH=best.pt \
-    PORT=7860
+    PORT=7860 \
+    WORKERS=2 \
+    OMP_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1
 
 WORKDIR /home/user/app
 
@@ -27,4 +30,6 @@ COPY --chown=user main.py best.pt ./
 
 EXPOSE 7860
 # Cloud Run sets $PORT (8080); Hugging Face uses the 7860 default above
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
+# WORKERS = photos scanned at the same time (one per CPU). OMP/MKL = 1 keeps
+# the workers from competing for the same CPUs.
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT} --workers ${WORKERS}"]

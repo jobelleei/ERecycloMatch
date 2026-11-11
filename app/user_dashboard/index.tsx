@@ -1,3 +1,4 @@
+import NetInfo from "@react-native-community/netinfo";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -32,6 +33,10 @@ export default function UserDashboard() {
   const [recentItems, setRecentItems] = useState<any[]>([]);
   const [partneredFacilities, setPartneredFacilities] = useState<any[]>([]);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
+  // true when loading failed (usually no internet), so the empty card says
+  // "couldn't load" instead of "nothing here"
+  const [facilitiesLoadFailed, setFacilitiesLoadFailed] = useState(false);
+  const [itemsLoadFailed, setItemsLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
@@ -193,6 +198,26 @@ export default function UserDashboard() {
   useEffect(() => {
     loadUser();
     fetchApprovedFacilities();
+  }, []);
+
+  // Internet came back (weak signal): load again without the user tapping refresh
+  useEffect(() => {
+    let wasOffline = false;
+
+    const unsubscribe = NetInfo.addEventListener((state) => {
+      const offline =
+        state.isConnected === false || state.isInternetReachable === false;
+
+      if (offline) {
+        wasOffline = true;
+      } else if (wasOffline && state.isInternetReachable === true) {
+        wasOffline = false;
+        loadUser();
+        fetchApprovedFacilities();
+      }
+    });
+
+    return unsubscribe;
   }, []);
 
   useFocusEffect(
@@ -458,6 +483,7 @@ export default function UserDashboard() {
         if (fallback.error) {
           console.log("DASHBOARD RECENT ITEMS FALLBACK ERROR:", fallback.error);
           setRecentItems([]);
+          setItemsLoadFailed(true);
           return;
         }
 
@@ -466,14 +492,17 @@ export default function UserDashboard() {
         );
 
         setRecentItems(sortByLatestSubmitted(visibleFallbackItems).slice(0, 3));
+        setItemsLoadFailed(false);
         return;
       }
 
       const visibleItems = (data || []).filter(isVisibleDashboardItem);
       setRecentItems(sortByLatestSubmitted(visibleItems).slice(0, 3));
+      setItemsLoadFailed(false);
     } catch (error) {
       console.log("FETCH RECENT ITEMS ERROR:", error);
       setRecentItems([]);
+      setItemsLoadFailed(true);
     }
   };
 
@@ -502,13 +531,16 @@ export default function UserDashboard() {
       if (error) {
         console.log("DASHBOARD APPROVED FACILITIES ERROR:", error);
         setPartneredFacilities([]);
+        setFacilitiesLoadFailed(true);
         return;
       }
 
       setPartneredFacilities(data || []);
+      setFacilitiesLoadFailed(false);
     } catch (error) {
       console.log("FETCH APPROVED FACILITIES ERROR:", error);
       setPartneredFacilities([]);
+      setFacilitiesLoadFailed(true);
     } finally {
       setLoadingFacilities(false);
     }
@@ -896,7 +928,11 @@ export default function UserDashboard() {
             })
           ) : (
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyText}>No recent items yet.</Text>
+              <Text style={styles.emptyText}>
+                {itemsLoadFailed
+                  ? "Couldn't load your items. Check your internet connection."
+                  : "No recent items yet."}
+              </Text>
             </View>
           )}
 
@@ -986,7 +1022,9 @@ export default function UserDashboard() {
           ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyText}>
-                No approved partnered facilities yet.
+                {facilitiesLoadFailed
+                  ? "Couldn't load facilities. Check your internet connection, then tap refresh."
+                  : "No approved partnered facilities yet."}
               </Text>
             </View>
           )}

@@ -19,7 +19,6 @@ export default function VerifyEmail() {
   }>();
 
   const email = typeof params.email === "string" ? params.email : "";
-  const isFacility = params.role === "facility";
   const isApproved = params.approved === "1";
 
   const [resending, setResending] = useState(false);
@@ -32,12 +31,11 @@ export default function VerifyEmail() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
+  // User and facility accounts are approved automatically when the email is
+  // verified (database trigger in supabase/auto_approve_verified_users.sql)
   const nextStepMessage = isApproved
     ? "Once verified, your account is ready and you can sign in."
-    : isFacility
-      ? "Once verified, please wait for admin approval of your certification before signing in."
-      : // User accounts are approved automatically when the email is verified
-        "Once verified, your account is approved automatically and you can sign in.";
+    : "Once verified, your account is approved automatically and you can sign in.";
 
   const handleResend = async () => {
     if (cooldown > 0 || resending) return;
