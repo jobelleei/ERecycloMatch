@@ -1,6 +1,3 @@
-// Holds the last scanned photo so it isn't altered by route param encoding.
-// The base64 copy is used for display, since Expo Go's cache paths contain
-// encoded characters that can break loading from the file URI.
 let lastScanPhotoUri = "";
 let lastScanPhotoBase64 = "";
 

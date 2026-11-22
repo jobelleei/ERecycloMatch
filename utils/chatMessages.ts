@@ -1,9 +1,5 @@
 import { supabase } from "./supabase";
 
-/*
- * Shared chat helpers: editing a sent message, and deciding which bubbles
- * show their time (only the last bubble of a same-minute group does).
- */
 
 const isSystemMessage = (m: any) =>
   !m ||
@@ -12,7 +8,6 @@ const isSystemMessage = (m: any) =>
   m.sender_id === null ||
   String(m.message_type || "").toLowerCase() === "match_request";
 
-// Only the sender's own plain text messages can be edited
 export const isEditableMessage = (m: any, myId: string | number) => {
   if (isSystemMessage(m)) return false;
   if (String(m.sender_id) !== String(myId)) return false;
@@ -36,11 +31,6 @@ const sameMinute = (a?: string, b?: string) => {
   );
 };
 
-/*
- * True when this message should show its time under the bubble: it is the
- * last message, or the next one is from someone else, a system message, or
- * sent in a different minute. Otherwise the time is hidden (swipe to see it).
- */
 export const shouldShowTime = (messages: any[], index: number) => {
   const current = messages[index];
   const next = messages[index + 1];
@@ -50,11 +40,6 @@ export const shouldShowTime = (messages: any[], index: number) => {
   return !sameMinute(current.created_at, next.created_at);
 };
 
-/*
- * Saves a corrected message. Also records when it was edited (edited_at) if
- * the database has that column, and updates the conversation preview when
- * the edited message is the latest one.
- */
 export async function saveEditedMessage(params: {
   messageId: string | number;
   newText: string;
@@ -69,7 +54,6 @@ export async function saveEditedMessage(params: {
     .update({ message: newText, edited_at: editedAt })
     .eq("id", messageId);
 
-  // Database without the edited_at column: save the text only
   if (error && String((error as any).code) === "42703") {
     ({ error } = await supabase
       .from("messages")

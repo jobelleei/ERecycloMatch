@@ -1,18 +1,11 @@
-// Detects personal or payment details in a chat message so the app can warn
-// the sender before the message goes out.
 
 const PHONE_PATTERNS = [
-  // PH mobile: 09171234567, 0917 123 4567, +63 917-123-4567, 639171234567
   /(\+?63|0)\s*-?\s*9\d{2}[\s.-]?\d{3}[\s.-]?\d{4}\b/,
-  // PH landline with area code: (034) 123-4567, 034-123-4567
   /\(?0\d{1,3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/,
 ];
 
-// Number-like runs (digits with spaces, dots or dashes between them)
 const NUMBER_RUN_PATTERN = /\+?\d[\d\s.-]*\d/g;
 
-// Other phone numbers, e.g. international ones: any run with 10-15 digits.
-// Counting digits keeps dates (2026-10-24) and prices (1500.00) from matching.
 const hasLongDigitRun = (text: string) =>
   (text.match(NUMBER_RUN_PATTERN) || []).some((run) => {
     const digitCount = run.replace(/\D/g, "").length;
@@ -21,7 +14,6 @@ const hasLongDigitRun = (text: string) =>
 
 const EMAIL_PATTERN = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
 
-// 13-19 digits, optionally grouped with spaces or dashes
 const CARD_CANDIDATE_PATTERN = /\b(?:\d[ -]?){12,18}\d\b/g;
 
 const PAYMENT_KEYWORDS =
@@ -33,7 +25,6 @@ const ID_KEYWORDS =
 const ADDRESS_KEYWORDS =
   /\b(street|st\.|avenue|ave\.|road|rd\.|brgy\.?|barangay|purok|sitio|subdivision|subd\.?|village|(blk\.?|block|lot|phase|zone|unit)\s*\d+|house\s*(no\.?|number))/i;
 
-// Luhn checksum, used to tell real card numbers apart from other long numbers
 const passesLuhn = (digits: string) => {
   let sum = 0;
   let double = false;
@@ -62,8 +53,6 @@ const hasCardNumber = (text: string) => {
   });
 };
 
-// Returns a readable label for each kind of sensitive detail found, e.g.
-// ["a phone number", "payment details"]. Empty when nothing was found.
 export const detectSensitiveInfo = (message: string): string[] => {
   const text = String(message || "");
   const found: string[] = [];
@@ -76,7 +65,6 @@ export const detectSensitiveInfo = (message: string): string[] => {
     found.push("a card number");
   }
 
-  // Skip the phone check when the only long number is the card number
   const textWithoutCards = cardFound
     ? text.replace(CARD_CANDIDATE_PATTERN, " ")
     : text;
@@ -100,8 +88,6 @@ export const detectSensitiveInfo = (message: string): string[] => {
     found.push("ID details");
   }
 
-  // Address words alone are common ("pick it up at the village"), so only
-  // flag them together with a number such as a house or lot number.
   if (ADDRESS_KEYWORDS.test(text) && /\d/.test(text)) {
     found.push("a home address");
   }

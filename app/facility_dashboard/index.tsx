@@ -51,7 +51,6 @@ export default function FacilityDashboard() {
   const [loadingListedItems, setLoadingListedItems] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const searchRef = useRef<ComponentRef<typeof View>>(null);
@@ -94,7 +93,6 @@ export default function FacilityDashboard() {
     const channelId = `facility-dash-notifs-${facilityId}-${Date.now()}`;
     const channel = supabase.channel(channelId);
 
-    // Refresh the badge when a message addressed to this facility changes.
     channel
       .on(
         "postgres_changes",
@@ -271,8 +269,6 @@ export default function FacilityDashboard() {
           ],
         );
 
-      // New facilities get the onboarding tour instead, which points at the
-      // reminder card, so the alert doesn't pop up on top of it.
       const profileId = String(profile?.id || "");
 
       if (!profileId) {
@@ -294,8 +290,6 @@ export default function FacilityDashboard() {
 
       const numericFacilityId = Number(facilityId);
 
-      // Count unread chat messages separately because chat messages are stored
-      // in the messages table, not in notifications.
       const { data: unreadMessages, error: messagesError } = await supabase
         .from("messages")
         .select("conversation_id")
@@ -306,7 +300,6 @@ export default function FacilityDashboard() {
         console.log("FETCH UNREAD FACILITY MESSAGES ERROR:", messagesError);
       }
 
-      // One badge per conversation, matching the notification screen.
       const unreadConversationIds = new Set(
         (unreadMessages || [])
           .map((message: any) => message.conversation_id)
@@ -314,7 +307,6 @@ export default function FacilityDashboard() {
           .map((id: any) => String(id)),
       );
 
-      // Also count unread non-message notifications such as nearby listings.
       const { data: unreadNotifications, error: notificationsError } =
         await supabase
           .from("notifications")
@@ -513,8 +505,6 @@ export default function FacilityDashboard() {
       .trim()
       .toLowerCase();
 
-    // Only items with a "Listed" status are shown in
-    // the "Listed Items by Users" section.
     return status === "listed";
   };
 
@@ -525,7 +515,6 @@ export default function FacilityDashboard() {
 
       const cleanKeyword = `%${keyword}%`;
 
-      // 1. Search Users
       const { data: usersData, error: usersError } = await supabase
         .from("profiles")
         .select(
@@ -542,7 +531,6 @@ export default function FacilityDashboard() {
       if (usersError) setSearchedUsers([]);
       else setSearchedUsers(usersData || []);
 
-      // 2. Search Items
       const { data: itemsData, error: itemsError } = await supabase
         .from("items")
         .select("*")
@@ -816,7 +804,6 @@ export default function FacilityDashboard() {
       edges={["top"]}
     >
       <View style={{ flex: 1 }}>
-        {/* Top Header & Search Bar */}
         <View style={styles.topFixedSection}>
           <View style={styles.header}>
             <Text style={styles.welcome} numberOfLines={1}>
@@ -860,7 +847,6 @@ export default function FacilityDashboard() {
             </View>
           </View>
 
-          {/* Search Box */}
           <View ref={searchRef} collapsable={false} style={styles.searchBox}>
             <TextInput
               placeholder="Search for users, usernames, or listed items"
@@ -890,14 +876,12 @@ export default function FacilityDashboard() {
           </View>
         </View>
 
-        {/* Backdrop overlay */}
         {showSearchResults && searchText.trim().length > 0 && (
           <TouchableWithoutFeedback onPress={() => setShowSearchResults(false)}>
             <View style={styles.searchBackdrop} />
           </TouchableWithoutFeedback>
         )}
 
-        {/* Floating Dropdown Results */}
         {showSearchResults && searchText.trim().length > 0 && (
           <View style={styles.floatingSearchResultsBox}>
             {isSearching ? (
@@ -911,7 +895,6 @@ export default function FacilityDashboard() {
                 keyboardShouldPersistTaps="handled"
                 style={styles.searchResultScroll}
               >
-                {/* Users List */}
                 {searchedUsers.length > 0 && (
                   <View>
                     <Text style={styles.resultSectionTitle}>
@@ -956,7 +939,6 @@ export default function FacilityDashboard() {
                   </View>
                 )}
 
-                {/* Items List */}
                 {searchedItems.length > 0 && (
                   <View
                     style={{
@@ -1031,7 +1013,6 @@ export default function FacilityDashboard() {
           </View>
         )}
 
-        {/* Main Content Area */}
         <ScrollView
           ref={scrollRef}
           style={styles.container}
@@ -1143,7 +1124,6 @@ export default function FacilityDashboard() {
                   />
 
                   <View style={styles.postContent}>
-                    {/* Item Card Header without status */}
                     <View style={styles.postHeader}>
                       <Text style={styles.postTitle}>
                         {item.item_name || item.item_type || "Unnamed Item"}

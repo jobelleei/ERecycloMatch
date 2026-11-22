@@ -7,7 +7,6 @@ import Toast from "react-native-toast-message";
 import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
 
-// Supabase only allows a new confirmation email about once a minute
 const RESEND_COOLDOWN_SECONDS = 60;
 
 export default function VerifyEmail() {
@@ -31,8 +30,6 @@ export default function VerifyEmail() {
     return () => clearTimeout(timer);
   }, [cooldown]);
 
-  // User and facility accounts are approved automatically when the email is
-  // verified (database trigger in supabase/auto_approve_verified_users.sql)
   const nextStepMessage = isApproved
     ? "Once verified, your account is ready and you can sign in."
     : "Once verified, your account is approved automatically and you can sign in.";

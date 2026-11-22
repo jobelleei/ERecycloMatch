@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
+import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
 export default function UserViewProfile() {
   const router = useRouter();
@@ -974,10 +975,13 @@ export default function UserViewProfile() {
         return;
       }
 
-      setOpeningChatItemId(String(item.id));
-
       const cleanUserId = String(user.id);
       const cleanFacilityId = String(facility.id);
+
+      if (await alertIfTransactionBlocked(cleanFacilityId, cleanUserId)) return;
+
+      setOpeningChatItemId(String(item.id));
+
       const cleanItemId = String(item.id);
       const conversationId = `${cleanUserId}_${cleanFacilityId}_${cleanItemId}`;
 

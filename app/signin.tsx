@@ -98,14 +98,12 @@ export default function Signin() {
       console.log("NORMALIZED STATUS:", databaseStatus);
       console.log("NORMALIZED ROLE:", databaseRole);
 
-      /* CHECK PASSWORD WITH SUPABASE AUTH */
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: cleanPassword,
       });
 
       if (authError?.code === "email_not_confirmed") {
-        // Send a fresh link; the old one may have expired
         await supabase.auth.resend({
           type: "signup",
           email: cleanEmail,
@@ -130,8 +128,6 @@ export default function Signin() {
       }
 
       if (authError) {
-        // Accounts created before Supabase Auth was used only have the
-        // password in profiles. Remove this once they are all migrated.
         const { data: legacy } = await supabase
           .from("profiles")
           .select("password")
@@ -208,7 +204,6 @@ export default function Signin() {
 
       await AsyncStorage.setItem("user", JSON.stringify(userData));
 
-      // Not awaited: the notification permission prompt must not hold up sign-in
       savePushTokenForProfile(profile.id);
 
       Toast.show({

@@ -43,10 +43,8 @@ exception when others then
 end;
 $$;
 
--- Only the triggers below may call push_send, not the app
 revoke all on function public.push_send(text, text, text, jsonb) from public, anon, authenticated;
 
--- Chat messages
 create or replace function public.push_on_message()
 returns trigger
 language plpgsql
@@ -84,15 +82,12 @@ begin
   v_title := 'ERecycloMatch';
 
   if coalesce(new.message_type, '') = 'match_request' then
-    -- A match request, not a chat message
     v_body := coalesce(nullif(nullif(new.sender_name, ''), 'System'), 'Someone')
       || ' sent a match request'
       || coalesce(' for ' || nullif(new.item_name, ''), '');
   elsif new.sender_id is null then
-    -- System notice (e.g. "Match request sent")
     v_body := coalesce(nullif(new.message, ''), 'You have a new update');
   else
-    -- Chat message: show who messaged, never the message itself (privacy)
     v_body := coalesce(nullif(nullif(new.sender_name, ''), 'System'), 'Someone')
       || ' messaged you';
   end if;
@@ -116,7 +111,6 @@ create trigger push_on_message
   after insert on public.messages
   for each row execute function public.push_on_message();
 
--- Notifications (nearby listing, match accepted/declined, ...)
 create or replace function public.push_on_notification()
 returns trigger
 language plpgsql
@@ -124,7 +118,6 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Chat notifications duplicate a `messages` row, which already sent a push
   if coalesce(new.type, '') in ('new_message', 'message') then
     return new;
   end if;

@@ -55,7 +55,6 @@ export default function UserChat() {
 
   const flatListRef = useRef<FlatList<any>>(null);
 
-  // When the keyboard opens, keep the newest messages in view
   useEffect(() => {
     const subscription = Keyboard.addListener("keyboardDidShow", () => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
@@ -76,12 +75,10 @@ export default function UserChat() {
   const [user, setUser] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
-  // All transactions between this user and facility, shown as one thread
   const [threadTransactions, setThreadTransactions] = useState<
     ThreadTransaction[]
   >([]);
   const threadIdsRef = useRef<string[]>([]);
-  // Message being corrected (long-press your own message > Edit)
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [messageText, setMessageText] = useState("");
@@ -89,7 +86,6 @@ export default function UserChat() {
   const [sending, setSending] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
-  // Track which message IDs currently have their date & time visible upon click
   const [visibleTimestamps, setVisibleTimestamps] = useState<{
     [key: string]: boolean;
   }>({});
@@ -134,14 +130,11 @@ export default function UserChat() {
       if (user?.id) {
         markMessagesAsRead();
       }
-      // Backup only: live updates come from useChatRealtime below
     }, 15000);
 
     return () => clearInterval(interval);
   }, [conversationId, user?.id]);
 
-  // Same user + same facility = one thread. If an older transaction was
-  // opened (e.g. from a notification), switch to the newest one.
   useEffect(() => {
     const threadUserId = conversation?.user_id;
     const threadFacilityId = conversation?.facility_id;
@@ -172,7 +165,6 @@ export default function UserChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.user_id, conversation?.facility_id, conversationId]);
 
-  // New and edited messages appear immediately (Supabase Realtime)
   useChatRealtime(
     conversationId,
     () => fetchMessages(),
@@ -206,9 +198,6 @@ export default function UserChat() {
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
-    // Chats about a facility posting store the posting's ID as item_id, which
-    // is not a row in "items". Use the name and the offered item's photo saved
-    // on the conversation instead of looking up an unrelated item.
     const isPostingChat = String(conversation?.id || conversationId).startsWith(
       "facility_posting_",
     );
@@ -506,7 +495,6 @@ export default function UserChat() {
     });
   };
 
-  // Format full date and time for when a message bubble is clicked
   const formatMessageDateTime = (value: string) => {
     if (!value) return "";
 
@@ -868,7 +856,6 @@ export default function UserChat() {
                 last_message: "Match accepted",
               });
 
-              // The transaction's real item (for facility postings, the offered item)
               const transactionItemId = await getTransactionItemId(conversation);
 
               if (transactionItemId) {
@@ -915,7 +902,6 @@ export default function UserChat() {
               last_message: "Match rejected",
             });
 
-            // The transaction's real item (for facility postings, the offered item)
             const transactionItemId = await getTransactionItemId(conversation);
 
             if (transactionItemId) {
@@ -964,7 +950,6 @@ export default function UserChat() {
               last_message: "Match cancelled",
             });
 
-            // The transaction's real item (for facility postings, the offered item)
             const transactionItemId = await getTransactionItemId(conversation);
 
             if (transactionItemId) {
@@ -991,7 +976,6 @@ export default function UserChat() {
   const createRecyclingHistoryRecord = async (finishedAt: string) => {
     try {
       let itemData: any = null;
-      // The transaction's real item (for facility postings, the offered item)
       const transactionItemId = await getTransactionItemId(conversation);
 
       if (transactionItemId) {
@@ -1079,7 +1063,6 @@ export default function UserChat() {
                   finished_at: now,
                 });
 
-                // The transaction's real item (for facility postings, the offered item)
                 const transactionItemId = await getTransactionItemId(conversation);
 
                 if (transactionItemId) {
@@ -1094,7 +1077,6 @@ export default function UserChat() {
                     .eq("id", transactionItemId);
                 }
 
-                // A finished facility posting leaves the facility's profile
                 await finishPostingForConversation(conversation, now);
 
                 await createRecyclingHistoryRecord(now);
@@ -1146,7 +1128,6 @@ export default function UserChat() {
         return;
       }
 
-      // "Other" says nothing by itself, so a description is required
       if (includeReport && reportReason === "Other" && !reportDetails.trim()) {
         Alert.alert(
           "Description required",
@@ -1192,6 +1173,33 @@ export default function UserChat() {
         return;
       }
 
+      let reportSent = false;
+
+      if (includeReport && reportReason) {
+        const { error: reportError } = await supabase.from("reports").insert([
+          {
+            reporter_id: Number(user.id),
+            reporter_role: "user",
+            reported_profile_id: ratedId,
+            report_type: "transaction",
+            reason: reportReason,
+            details: reportDetails.trim() || null,
+            status: "pending",
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+        if (reportError) {
+          console.log("USER REPORT INSERT ERROR:", reportError);
+          Alert.alert(
+            "Report not sent",
+            "Your rating was saved, but the report could not be sent. Please try again later.",
+          );
+        } else {
+          reportSent = true;
+        }
+      }
+
       await updateConversation({
         user_feedback_given: true,
         last_message: "User submitted feedback.",
@@ -1207,7 +1215,12 @@ export default function UserChat() {
       setReportDetails("");
       fetchConversation();
 
-      Alert.alert("Thank You", "Your feedback has been submitted.");
+      Alert.alert(
+        "Thank You",
+        reportSent
+          ? "Your feedback and report have been submitted. The facility's account is suspended until an admin reviews the report."
+          : "Your feedback has been submitted.",
+      );
     } catch (error: any) {
       Alert.alert("Feedback Failed", error?.message || "Unable to submit.");
     } finally {
@@ -1290,7 +1303,6 @@ export default function UserChat() {
     return "Chat is locked until the match is active";
   };
 
-  // Explains a denied permission; offers Settings when Android won't ask again
   const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
     const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
     const message =
@@ -1348,7 +1360,6 @@ export default function UserChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
-  // The + button: choose Camera or Files (Gallery)
   const handlePickImage = () => {
     if (!canSendMessage()) {
       Alert.alert(
@@ -1367,7 +1378,6 @@ export default function UserChat() {
     ]);
   };
 
-  // Warn before sending phone numbers, addresses, payment or ID details
   const sendMessage = () => {
     const sensitiveInfo = detectSensitiveInfo(messageText);
 
@@ -1642,7 +1652,6 @@ export default function UserChat() {
   };
 
   const renderRequestItemCard = (requestMsg?: any) => {
-    // Earlier transactions in the thread show their own item, not the current one
     const pastTransaction =
       requestMsg &&
       String(requestMsg.conversation_id || conversationId) !==
@@ -1719,7 +1728,6 @@ export default function UserChat() {
     setEditingMessage(null);
   };
 
-  // Adds "New request · Keyboard · Nov 4" where a transaction starts
   const renderThreadItem = (args: any) => {
     const { item, index } = args;
     const content = renderMessage(args);
@@ -1879,8 +1887,6 @@ export default function UserChat() {
         </TouchableOpacity>
         </SwipeTimeRow>
 
-        {/* Time shows under the last bubble of a same-minute group (swipe a
-            bubble left to see its time); tap a bubble for the full date */}
         {(shortTimeText && (showTimeHere || showFullDate)) || wasEdited ? (
           <Text
             style={[
@@ -1917,7 +1923,6 @@ export default function UserChat() {
   );
 
   return (
-    // Pushes the message box above the keyboard on Android and iOS
     <ChatKeyboardAvoidingView
       style={{ flex: 1 }}
       behavior="padding"
@@ -1981,7 +1986,6 @@ export default function UserChat() {
             }
           />
 
-          {/* Staged Image Preview Box */}
           {selectedImageUri && (
             <View style={styles.imagePreviewContainer}>
               <Image
@@ -2044,7 +2048,6 @@ export default function UserChat() {
             </TouchableOpacity>
           </View>
 
-          {/* Feedback Modal */}
           <Modal
             visible={feedbackModalVisible}
             transparent
@@ -2062,7 +2065,6 @@ export default function UserChat() {
                 >
                   <TouchableWithoutFeedback>
                     <View style={styles.feedbackBox}>
-                      {/* Scrolls when "Report this user" makes the form taller than the screen */}
                       <ScrollView
                         showsVerticalScrollIndicator
                         keyboardShouldPersistTaps="handled"
@@ -2138,7 +2140,9 @@ export default function UserChat() {
 
                             <Text style={styles.reportToggleDescription}>
                               Select this only if a serious issue occurred
-                              during the transaction.
+                              during the transaction. The facility's account
+                              will be suspended until an admin reviews the
+                              report.
                             </Text>
                           </View>
                         </TouchableOpacity>
@@ -2590,7 +2594,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 18,
     padding: 20,
-    // Never taller than the screen; the ScrollView inside handles the rest
     maxHeight: Dimensions.get("window").height * 0.85,
   },
 

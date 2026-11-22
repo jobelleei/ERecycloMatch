@@ -109,7 +109,6 @@ export default StyleSheet.create({
 
   input: {
     flex: 1,
-    // Typed text (including password dots) is always black, whatever the phone's theme
     color: "#000000",
   },
 
@@ -122,7 +121,7 @@ export default StyleSheet.create({
   justifyContent: "center",
   alignItems: "center",
   marginBottom: 15,
-  overflow: "hidden", // 🔥 important
+  overflow: "hidden",
 },
 
 uploadedImage: {

@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
+import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
@@ -86,7 +87,6 @@ export default function MyListing() {
 
   const [userId, setUserId] = useState("");
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const statsRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -680,7 +680,6 @@ export default function MyListing() {
     return role.includes("facility");
   };
 
-  //filtering keywords to help determine condition type and potential matches
   const BROKEN_KEYWORDS = [
     "broken",
     "damaged",
@@ -731,7 +730,6 @@ export default function MyListing() {
     const postDescription = getPostDescriptionText(post);
     const postIssues = getPostIssuesText(post);
 
-    //detect condition type for item and facility based on description and issues to prevent matching working items with broken facilities and vice versa
     const itemCondition = detectConditionType(
       `${itemDescription} ${itemIssues}`,
     );
@@ -740,7 +738,6 @@ export default function MyListing() {
       `${postDescription} ${postIssues}`,
     );
 
-    // Get accepted/rejected conditions
     const acceptedConditions = String(
       post.conditions_accepted || "",
     ).toLowerCase();
@@ -749,13 +746,10 @@ export default function MyListing() {
       post.conditions_rejected || "",
     ).toLowerCase();
 
-    // Detect if user item looks broken
     const itemLooksBroken = itemCondition === "broken";
 
-    // Detect if user item looks working
     const itemLooksWorking = itemCondition === "working";
 
-    // Facility accepts BROKEN only, Hide working items
     if (acceptedConditions.includes("broken") && itemLooksWorking) {
       console.log("MATCH FILTERED: facility accepts broken only");
 
@@ -769,7 +763,6 @@ export default function MyListing() {
       };
     }
 
-    // Facility rejects broken items
     if (rejectedConditions.includes("broken") && itemLooksBroken) {
       console.log("MATCH FILTERED: broken item rejected by facility");
 
@@ -783,7 +776,6 @@ export default function MyListing() {
       };
     }
 
-    //  filtering
     if (itemCondition === "working" && facilityCondition === "broken") {
       console.log("MATCH FILTERED: working item cannot match broken facility");
 
@@ -1263,6 +1255,9 @@ export default function MyListing() {
 
       const cleanUserId = String(userId);
       const cleanFacilityId = String(facility.id);
+
+      if (await alertIfTransactionBlocked(cleanUserId, cleanFacilityId)) return;
+
       const cleanItemId = String(selectedMatchedItem.id);
 
       const conversationId = `${cleanUserId}_${cleanFacilityId}_${cleanItemId}`;

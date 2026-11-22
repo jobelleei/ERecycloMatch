@@ -330,15 +330,12 @@ export default function IndividualSignup() {
   );
 
   const openCamera = async () => {
-    // Close the keyboard so it doesn't cover the permission prompt or camera
     Keyboard.dismiss();
 
-    // Shows Android's camera permission prompt the first time
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
       if (!permission.canAskAgain) {
-        // The prompt can't be shown again, so point the user to Settings
         Alert.alert(
           "Camera access needed",
           "Allow camera access in Settings to take your photo.",
@@ -573,7 +570,6 @@ export default function IndividualSignup() {
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = username.trim().toLowerCase();
 
-      // Check if email already exists
       const { data: existingEmail, error: emailCheckError } = await supabase
         .from("profiles")
         .select("id")
@@ -602,7 +598,6 @@ export default function IndividualSignup() {
         return;
       }
 
-      // Check if username already exists
       const { data: existingUsername, error: usernameCheckError } =
         await supabase
           .from("profiles")
@@ -636,7 +631,6 @@ export default function IndividualSignup() {
 
       console.log("ID IMAGE URL:", idImageUrl);
 
-      /* CREATE AUTH USER */
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -660,7 +654,6 @@ export default function IndividualSignup() {
         return;
       }
 
-      /* SAVE TO PROFILES */
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
@@ -1013,7 +1006,6 @@ export default function IndividualSignup() {
             </Pressable>
           </View>
 
-          {/* Same grey rules box as the password field */}
           {confirmpass.length > 0 && (
             <RulesBox
               rules={[
@@ -1027,7 +1019,6 @@ export default function IndividualSignup() {
             />
           )}
 
-          {/* Terms & Conditions Checkbox */}
           <View style={localStyles.termsCheckboxContainer}>
             <TouchableOpacity
               style={[
@@ -1070,7 +1061,6 @@ export default function IndividualSignup() {
           </Pressable>
       </KeyboardAwareScrollView>
 
-      {/* Terms and Conditions Modal */}
       <Modal
         visible={showTermsModal}
         animationType="slide"
@@ -1343,7 +1333,6 @@ export default function IndividualSignup() {
         </View>
       </Modal>
 
-      {/* Dropdown Modal */}
       <Modal
         visible={dropdownVisible}
         transparent

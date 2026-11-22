@@ -1,22 +1,10 @@
 import { supabase } from "./supabase";
 
-/*
- * One chat thread per user + facility pair.
- *
- * Every transaction (Laptop, then Keyboard, ...) still has its own
- * conversation row, so reports, recycling history, feedback and notifications
- * keep working per transaction. The chat screen loads all of a pair's
- * conversations and shows their messages as one thread, with a divider where
- * each new request starts. A different facility is a different pair, so it
- * gets its own thread.
- */
 
 export type ThreadTransaction = {
   id: string;
-  // 0 = the first request between this user and facility
   index: number;
   itemName: string;
-  // Storage path or URL of the item photo ("" when there is none)
   imagePath: string;
   createdAt: string;
 };
@@ -26,7 +14,6 @@ const MONTHS = [
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
-// "Request · Laptop · Nov 3" for the first, "New request · Keyboard · Nov 4" after
 export const getThreadDividerLabel = (t: ThreadTransaction) => {
   const d = new Date(t.createdAt);
   const date = isNaN(d.getTime()) ? "" : `${MONTHS[d.getMonth()]} ${d.getDate()}`;
@@ -35,7 +22,6 @@ export const getThreadDividerLabel = (t: ThreadTransaction) => {
     .join(" · ");
 };
 
-// All transactions between this user and facility, oldest first
 export async function loadThread(
   userId: string,
   facilityId: string,
@@ -52,8 +38,6 @@ export async function loadThread(
     return [];
   }
 
-  // Item photos for transactions that came from a user's listed item.
-  // (Facility-posting transactions store their photo in item_photo.)
   const itemIds = data
     .filter((c: any) => !String(c.id).startsWith("facility_posting_"))
     .map((c: any) => Number(c.item_id))

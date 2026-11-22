@@ -19,6 +19,7 @@ import OnboardingTour, {
   TourStep,
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
+import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
 export default function ItemDetails() {
   const router = useRouter();
@@ -29,7 +30,6 @@ export default function ItemDetails() {
   const [loading, setLoading] = useState(true);
   const [submittingInterest, setSubmittingInterest] = useState(false);
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const titleRef = useRef<ComponentRef<typeof View>>(null);
@@ -131,7 +131,6 @@ export default function ItemDetails() {
     try {
       setLoading(true);
 
-      // 1. Resolve logged-in facility profile
       const stored = await AsyncStorage.getItem("user");
       let currentFacility = null;
       if (stored) {
@@ -140,7 +139,6 @@ export default function ItemDetails() {
         setFacility(currentFacility);
       }
 
-      // 2. Safely parse numeric item_id to avoid bigint = text mismatch
       const numericItemId = Number(item_id);
       if (isNaN(numericItemId) || numericItemId <= 0) {
         setItem(null);
@@ -224,6 +222,8 @@ export default function ItemDetails() {
         return;
       }
 
+      if (await alertIfTransactionBlocked(facilityId, userId)) return;
+
       const facilityName =
         facility?.name ||
         facility?.facility_name ||
@@ -235,7 +235,6 @@ export default function ItemDetails() {
       const itemName = String(item?.item_name || item?.item_type || "Item");
       const now = new Date().toISOString();
 
-      // Same conversation id format used across the app: user_facility_item
       const conversationId = `${userId}_${facilityId}_${itemId}`;
 
       const { data: existingConversation, error: findError } = await supabase
@@ -248,8 +247,6 @@ export default function ItemDetails() {
         console.log("FIND INTEREST CONVERSATION ERROR:", findError);
       }
 
-      // New conversations: DB triggers notify the user and mark the item
-      // "Pending Match". Re-sent requests (update) don't trigger the notify.
       let requestSent = false;
       let needsNotification = false;
 
@@ -332,7 +329,6 @@ export default function ItemDetails() {
       }
 
       if (requestSent) {
-        // Request card shown in both users' chat
         const { error: messageError } = await supabase.from("messages").insert([
           {
             conversation_id: conversationId,
@@ -427,7 +423,6 @@ export default function ItemDetails() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={26} color="#222" />
@@ -442,7 +437,6 @@ export default function ItemDetails() {
           </TouchableOpacity>
         </View>
 
-        {/* Item Image */}
         <Image
           source={
             itemImage
@@ -452,7 +446,6 @@ export default function ItemDetails() {
           style={styles.image}
         />
 
-        {/* Content */}
         <View style={styles.content}>
           <View ref={titleRef} collapsable={false}>
             <Text style={styles.title}>
@@ -464,7 +457,6 @@ export default function ItemDetails() {
             </Text>
           </View>
 
-          {/* Description */}
           <View style={styles.section}>
             <Text style={styles.label}>Description</Text>
             <Text style={styles.value}>
@@ -472,7 +464,6 @@ export default function ItemDetails() {
             </Text>
           </View>
 
-          {/* Issues / Condition */}
           <View ref={issuesRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Issues / Condition</Text>
             <Text style={styles.value}>
@@ -480,7 +471,6 @@ export default function ItemDetails() {
             </Text>
           </View>
 
-          {/* Location */}
           <View ref={locationRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Location</Text>
             <Text style={styles.value}>
@@ -488,7 +478,6 @@ export default function ItemDetails() {
             </Text>
           </View>
 
-          {/* Action Buttons */}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
               ref={interestedRef}

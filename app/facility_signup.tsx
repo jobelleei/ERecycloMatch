@@ -62,8 +62,6 @@ export default function FacilitySignup() {
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
 
-  // Stops the form from scrolling while a finger is on the map,
-  // so dragging moves the map instead of the page
   const [isTouchingMap, setIsTouchingMap] = useState(false);
 
   const [mapSearchText, setMapSearchText] = useState("");
@@ -572,15 +570,12 @@ export default function FacilitySignup() {
   );
 
   const openCamera = async () => {
-    // Close the keyboard so it doesn't cover the permission prompt or camera
     Keyboard.dismiss();
 
-    // Shows Android's camera permission prompt the first time
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
       if (!permission.canAskAgain) {
-        // The prompt can't be shown again, so point the user to Settings
         Alert.alert(
           "Camera access needed",
           "Allow camera access in Settings to take your photo.",
@@ -935,7 +930,6 @@ export default function FacilitySignup() {
         text2: "We sent a verification link to your email.",
       });
 
-      // The approval result is shown after the email is confirmed
       router.replace({
         pathname: "/verify_email",
         params: {
@@ -1227,10 +1221,8 @@ export default function FacilitySignup() {
           >
             <MapView
               ref={mapRef}
-              // Opens in satellite view so the facility building is easy to find
               mapType="hybrid"
               style={{ flex: 1 }}
-              // Starts on Bacolod City until a pin is set
               initialRegion={{
                 latitude: latitude || 10.6765,
                 longitude: longitude || 122.9509,
@@ -1404,7 +1396,6 @@ export default function FacilitySignup() {
           </Pressable>
         </View>
 
-        {/* Same grey rules box as the password field */}
         {confirmPass.length > 0 && (
           <RulesBox
             rules={[
@@ -1505,7 +1496,6 @@ export default function FacilitySignup() {
           This helps us verify your facility is legitimate and compliant
         </Text>
 
-        {/* Terms & Conditions Checkbox */}
         <View style={localStyles.termsCheckboxContainer}>
           <TouchableOpacity
             style={[
@@ -1555,7 +1545,6 @@ export default function FacilitySignup() {
       </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Terms and Conditions Modal */}
       <Modal
         visible={showTermsModal}
         animationType="slide"
@@ -1828,7 +1817,6 @@ export default function FacilitySignup() {
         </View>
       </Modal>
 
-      {/* Dropdown Modal */}
       <Modal
         visible={dropdownVisible}
         transparent

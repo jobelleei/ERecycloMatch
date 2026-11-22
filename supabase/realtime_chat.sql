@@ -15,7 +15,6 @@ begin
   end if;
 end $$;
 
--- Check: should include messages and conversations
 select tablename
 from pg_publication_tables
 where pubname = 'supabase_realtime' and schemaname = 'public'

@@ -42,7 +42,6 @@ type NotificationItem = {
   timestamp: number;
 };
 
-// Haversine distance formula in kilometers
 function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -91,7 +90,6 @@ function SwipeableNotificationRow({
     [translateX],
   );
 
-  // If another notification opens, this row closes automatically.
   useEffect(() => {
     if (!isOpen && currentX.current !== 0) {
       animateTo(0);
@@ -206,7 +204,6 @@ export default function UserNotifications() {
   const screenTouchStart = useRef({ x: 0, y: 0 });
   const screenTouchMoved = useRef(false);
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const markAllRef = useRef<any>(null);
   const allTabRef = useRef<any>(null);
@@ -423,7 +420,6 @@ export default function UserNotifications() {
     try {
       const combined: NotificationItem[] = [];
 
-      // 1. Fetch Conversations
       const { data: conversations } = await supabase
         .from("conversations")
         .select("*")
@@ -472,7 +468,6 @@ export default function UserNotifications() {
         });
       }
 
-      // 2. Fetch User Listed Items
       const { data: items } = await supabase
         .from("items")
         .select("*")
@@ -511,7 +506,6 @@ export default function UserNotifications() {
         });
       });
 
-      // 3. Nearby facilities within 5km
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
         if (status === "granted") {
@@ -558,7 +552,6 @@ export default function UserNotifications() {
         console.log("Location checking skipped:", locErr);
       }
 
-      // Hide deleted ones and keep read ones read across refreshes
       setNotifications(await applyNotificationState(currentUserId, combined));
     } catch (err) {
       console.log("FETCH ALL UPDATES ERROR:", err);
@@ -656,7 +649,6 @@ export default function UserNotifications() {
     setDropdownOpen(false);
   };
 
-  // Message updates get a chat icon; all other updates get a bell
   const getNotificationIcon = (type: string) =>
     type === "message" ? "chatbubbles-outline" : "notifications-outline";
 
@@ -758,7 +750,6 @@ export default function UserNotifications() {
         }
       }}
       onTouchEnd={() => {
-        // A tap closes the open Delete action. A swipe does not.
         if (!screenTouchMoved.current && openSwipeId) {
           setOpenSwipeId(null);
         }
@@ -795,7 +786,6 @@ export default function UserNotifications() {
         </View>
       </View>
 
-      {/* Tabs and Dropdown Toggle Bar */}
       <View style={styles.tabsRow}>
         <View style={styles.tabsLeft}>
           <TouchableOpacity
@@ -843,7 +833,6 @@ export default function UserNotifications() {
           </TouchableOpacity>
         </View>
 
-        {/* Light green options-outline filter button[cite: 8] */}
         <TouchableOpacity
           ref={sortButtonRef}
           style={styles.filterButton}
@@ -854,14 +843,12 @@ export default function UserNotifications() {
         </TouchableOpacity>
       </View>
 
-      {/* Outside tap overlay to dismiss dropdown */}
       {dropdownOpen && (
         <TouchableWithoutFeedback onPress={() => { setDropdownOpen(false); setOpenSwipeId(null); }}>
           <View style={styles.dropdownBackdrop} />
         </TouchableWithoutFeedback>
       )}
 
-      {/* Dropdown Menu directly beneath the button */}
       {dropdownOpen && (
         <View style={styles.dropdownMenu}>
           <TouchableOpacity

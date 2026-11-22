@@ -4,18 +4,6 @@ import { StyleProp, StyleSheet, View, ViewStyle } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import { MAPTILER_KEY } from "../config";
 
-/*
- * Map that needs no Google API key or billing.
- *
- * It draws OpenStreetMap streets with Leaflet inside a WebView (Esri streets
- * as a backup),
- * and takes the same props the screens already used with react-native-maps:
- * <MapView ref initialRegion showsUserLocation onPress style>, with <Marker>
- * and <Polyline> children, and mapRef.current.animateToRegion(region, ms).
- *
- * Marker colour comes from pinColor, or from the backgroundColor of the
- * marker's custom child view (the facility/bin dots), so pins keep their colours.
- */
 
 export type LatLng = { latitude: number; longitude: number };
 export type Region = LatLng & { latitudeDelta: number; longitudeDelta: number };
@@ -38,7 +26,6 @@ export type PolylineProps = {
   strokeWidth?: number;
 };
 
-// Markers and lines are drawn by the map itself; these only carry props
 export function Marker(_props: MarkerProps) {
   return null;
 }
@@ -51,7 +38,6 @@ type MapViewProps = {
   style?: StyleProp<ViewStyle>;
   initialRegion?: Region;
   showsUserLocation?: boolean;
-  // Accepted so existing screens compile; the web map has no such options
   showsMyLocationButton?: boolean;
   mapType?: string;
   onPress?: (event: MapPressEvent) => void | Promise<void>;
@@ -65,13 +51,11 @@ const DEFAULT_REGION: Region = {
   longitudeDelta: 0.02,
 };
 
-// Google-style latitudeDelta to a Leaflet zoom level
 const deltaToZoom = (delta?: number) => {
   const d = delta && delta > 0 ? delta : 0.02;
   return Math.max(3, Math.min(19, Math.round(Math.log2(360 / d))));
 };
 
-// Innermost backgroundColor of a marker's custom child view
 const colorFromChildren = (children: React.ReactNode): string | undefined => {
   let found: string | undefined;
 
@@ -96,7 +80,6 @@ type Collected = {
   lines: PolylineProps[];
 };
 
-// Finds <Marker> and <Polyline> anywhere among the children (arrays, fragments, conditionals)
 const collectChildren = (children: React.ReactNode): Collected => {
   const result: Collected = { markers: [], lines: [] };
 
@@ -117,10 +100,8 @@ const collectChildren = (children: React.ReactNode): Collected => {
   return result;
 };
 
-// Street map: Esri, then OpenStreetMap as backup
 const tileProviders = () => {
   const list: { url: string; attribution: string }[] = [];
-  // Esri first: it labels official barangays and streets only
   list.push(
     {
       url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
@@ -134,11 +115,6 @@ const tileProviders = () => {
   return list;
 };
 
-/*
- * MapTiler answers a bad or over-limit key with an "invalid key" picture
- * instead of a failed load, so the map cannot detect it by itself. Check the
- * key once per app run and only use MapTiler when it really works.
- */
 let mapTilerCheck: Promise<boolean> | null = null;
 
 const checkMapTiler = (): Promise<boolean> => {
@@ -162,7 +138,6 @@ const checkMapTiler = (): Promise<boolean> => {
         clearTimeout(timer);
       }
     })();
-    // A failed check (e.g. no internet yet) is retried next time a map opens
     mapTilerCheck.then((ok) => {
       if (!ok) mapTilerCheck = null;
     });
@@ -202,8 +177,6 @@ const buildHtml = (
     var map = L.map("map", { zoomControl: false, attributionControl: true })
       .setView([${region.latitude}, ${region.longitude}], ${deltaToZoom(region.latitudeDelta)});
 
-    // Tile providers in order. If one keeps failing (bad key, limit, outage),
-    // the next one takes over, so the map never stays blank.
     var providers = ${JSON.stringify(tileProviders())};
     var current = null;
     var satelliteOn = ${startSatellite};
@@ -224,9 +197,6 @@ const buildHtml = (
     useProvider(0);
     map.attributionControl.setPrefix(false);
 
-    // Satellite view with road and place names: shows real buildings, which
-    // makes pinning an exact location easier. MapTiler's imagery is newer and
-    // sharper for Bacolod than Esri's (2018); Esri is the backup.
     var esriImageryUrl =
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
     var useMapTilerSatellite = ${useMapTiler};
@@ -253,7 +223,6 @@ const buildHtml = (
         if (satErrors !== 4) return;
 
         if (useMapTilerSatellite) {
-          // MapTiler failing (limit, outage): switch to Esri imagery
           useMapTilerSatellite = false;
           satErrors = 0;
           satelliteLayer.removeLayer(satImagery);
@@ -391,7 +360,6 @@ export default class MapView extends React.Component<
         html: buildHtml(
           this.props.initialRegion || DEFAULT_REGION,
           useMapTiler,
-          // mapType "satellite" or "hybrid" opens in satellite view (as in react-native-maps)
           this.props.mapType === "satellite" || this.props.mapType === "hybrid",
         ),
       });
@@ -408,10 +376,8 @@ export default class MapView extends React.Component<
     this.locationWatch = null;
   }
 
-  // Same signature as react-native-maps
   animateToRegion(region: Region, duration = 500) {
     if (!this.ready) {
-      // Map still loading: move there as soon as it is ready
       this.pendingRegion = region;
       return;
     }
@@ -422,7 +388,6 @@ export default class MapView extends React.Component<
     );
   }
 
-  // Same signature as react-native-maps: zoom so all points are visible
   fitToCoordinates(
     coordinates: LatLng[],
     options?: {
@@ -483,7 +448,6 @@ export default class MapView extends React.Component<
 
     const collected = collectChildren(this.props.children);
     const lines = collected.lines;
-    // Filter first, so a tapped pin's index matches this.markers
     const markers = collected.markers.filter(
       (m) =>
         Number.isFinite(m.coordinate?.latitude) &&
@@ -564,7 +528,6 @@ export default class MapView extends React.Component<
             }}
             style={styles.webview}
             originWhitelist={["*"]}
-            // baseUrl gives tile requests a real Referer, as OpenStreetMap asks
             source={{
               html: this.state.html,
               baseUrl: "https://erecyclomatch-verified.netlify.app/",
@@ -575,7 +538,6 @@ export default class MapView extends React.Component<
             nestedScrollEnabled
             setSupportMultipleWindows={false}
             overScrollMode="never"
-            // Page reloads (e.g. memory pressure) must re-send markers
             onLoadStart={() => {
               this.ready = false;
             }}

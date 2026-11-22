@@ -178,7 +178,6 @@ export default function FacilityNotifications() {
   const screenTouchStart = useRef({ x: 0, y: 0 });
   const screenTouchMoved = useRef(false);
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const markAllRef = useRef<any>(null);
   const allTabRef = useRef<any>(null);
@@ -398,7 +397,6 @@ export default function FacilityNotifications() {
       const combined: NotificationItem[] = [];
       const numericFacilityId = Number(currentFacilityId);
 
-      // 1. Fetch conversations belonging to THIS facility only.
       const { data: conversations, error: conversationsError } = await supabase
         .from("conversations")
         .select("*")
@@ -463,7 +461,6 @@ export default function FacilityNotifications() {
             senderRole === "facility" ||
             senderRole === "recycling facility";
 
-          // Do not notify the facility about its own latest message.
           if (isSentByFacility) return;
 
           const userName = c.user_name || "Community User";
@@ -496,9 +493,6 @@ export default function FacilityNotifications() {
         });
       }
 
-      // 2. IMPORTANT: Fetch ONLY notifications addressed to THIS facility.
-      //    Do not fetch all recent items from the items table. That would make
-      //    every facility see listings belonging to other facilities.
       const notificationProfileId = Number.isFinite(numericFacilityId)
         ? numericFacilityId
         : currentFacilityId;
@@ -515,8 +509,6 @@ export default function FacilityNotifications() {
         console.log("FETCH FACILITY NOTIFICATIONS ERROR:", notificationsError);
       }
 
-      // Collect user/item IDs from targeted nearby-listing notifications so we
-      // can display the actual user who posted each item.
       const nearbyNotifications = (targetedNotifications || []).filter(
         (notification: any) =>
           String(notification.type || "").toLowerCase() === "nearby_listing",
@@ -569,8 +561,6 @@ export default function FacilityNotifications() {
         let title = notification.title || "Notification";
         let description = notification.message || "";
 
-        // Build the facility-side nearby listing notification from the
-        // notification's targeted user/item data.
         if (notificationType === "nearby_listing") {
           title = `New Listing from ${userName}`;
           description = hasDistance
@@ -607,13 +597,10 @@ export default function FacilityNotifications() {
         });
       });
 
-      // Prevent duplicate notifications when the same notification is
-      // returned by multiple sources.
       const uniqueNotifications = Array.from(
         new Map(combined.map((notification) => [notification.id, notification])).values(),
       );
 
-      // Hide deleted ones and keep read ones read across refreshes
       setNotifications(
         await applyNotificationState(currentFacilityId, uniqueNotifications),
       );
@@ -633,7 +620,6 @@ export default function FacilityNotifications() {
       ),
     );
 
-    // Mark the actual notification row as read.
     if (item.data?.notification_id) {
       const { error } = await supabase
         .from("notifications")
@@ -739,7 +725,6 @@ export default function FacilityNotifications() {
     setDropdownOpen(false);
   };
 
-  // Message updates get a chat icon; all other updates get a bell
   const getNotificationIcon = (type: string) =>
     type === "message" ? "chatbubbles-outline" : "notifications-outline";
 
@@ -924,7 +909,6 @@ export default function FacilityNotifications() {
           </TouchableOpacity>
         </View>
 
-        {/* Filter Slider Option Button */}
         <TouchableOpacity
           ref={sortButtonRef}
           style={styles.filterButton}

@@ -18,17 +18,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { supabase } from "../utils/supabase";
 
-/*
- * Shown when a user answers a facility posting ("Looking for: Keyboard").
- * The user picks one of their scanned items, or takes a photo, so the
- * request carries a real picture of the item they are offering. The chat's
- * "Requested Item" card then shows that photo on both sides.
- */
 
 export type OfferedItem = {
   itemId: string | null;
   itemName: string;
-  // Storage path in the "item-images" bucket, e.g. "items/12-1793719373448.jpg"
   photoPath: string;
 };
 
@@ -49,7 +42,6 @@ type UserItem = {
 
 const BUCKET = "item-images";
 
-// Items that can still be offered (not rejected, finished or deleted)
 const UNAVAILABLE = ["rejected", "finished", "deleted", "matched"];
 
 const publicUrl = (path: string) => {
@@ -68,7 +60,6 @@ export default function OfferItemPicker({
   const [items, setItems] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
-  // Keeps the Cancel button above the phone's navigation bar
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -133,7 +124,6 @@ export default function OfferItemPicker({
 
       setUploading(true);
 
-      // Same upload method as the scan result screen
       const base64 = await FileSystem.readAsStringAsync(result.assets[0].uri, {
         encoding: FileSystem.EncodingType.Base64,
       });

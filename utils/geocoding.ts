@@ -1,17 +1,5 @@
 import * as Location from "expo-location";
 
-/*
- * Address search and pin-to-address that work on every Android phone.
- *
- * The phone's built-in geocoder (Location.geocodeAsync) depends on the phone
- * brand and Google services; on some phones it throws or finds nothing. When
- * that happens, these helpers ask free online services instead:
- * - Search: Photon (komoot), then Nominatim (OpenStreetMap)
- * - Pin to address: Nominatim
- * Both are free and need no API key.
- *
- * They return the same shapes as expo-location, so screens can swap them in.
- */
 
 type Coordinates = { latitude: number; longitude: number };
 
@@ -27,7 +15,6 @@ export type GeocodedAddress = {
   country: string | null;
 };
 
-// Results are biased toward Bacolod / Negros Occidental
 const BIAS = { latitude: 10.6765, longitude: 122.9509 };
 
 const HEADERS = {
@@ -75,12 +62,10 @@ const searchNominatim = async (query: string): Promise<Coordinates[]> => {
 const isValid = (c: Coordinates) =>
   Number.isFinite(c.latitude) && Number.isFinite(c.longitude);
 
-// Drop-in replacement for Location.geocodeAsync
 export async function geocodeAddress(query: string): Promise<Coordinates[]> {
   const text = String(query || "").trim();
   if (!text) return [];
 
-  // 1. The phone's own geocoder
   try {
     const results = await Location.geocodeAsync(text);
     const valid = (results || []).filter(isValid);
@@ -89,8 +74,6 @@ export async function geocodeAddress(query: string): Promise<Coordinates[]> {
     console.log("PHONE GEOCODER FAILED, USING ONLINE SEARCH:", error);
   }
 
-  // 2. Online services: the full text first, then just the first part
-  //    (e.g. "SM City Bacolod" from "SM City Bacolod, Barangay 1, Bacolod, ...")
   const firstPart = text.split(",")[0].trim();
   const attempts = firstPart && firstPart !== text ? [text, firstPart] : [text];
 
@@ -134,11 +117,9 @@ const reverseNominatim = async ({
   ];
 };
 
-// Drop-in replacement for Location.reverseGeocodeAsync
 export async function reverseGeocode(
   coords: Coordinates,
 ): Promise<GeocodedAddress[]> {
-  // 1. The phone's own geocoder
   try {
     const results = await Location.reverseGeocodeAsync(coords);
     if (results && results.length > 0) {
@@ -148,7 +129,6 @@ export async function reverseGeocode(
     console.log("PHONE REVERSE GEOCODER FAILED, USING ONLINE LOOKUP:", error);
   }
 
-  // 2. Nominatim
   try {
     return await reverseNominatim(coords);
   } catch (error) {

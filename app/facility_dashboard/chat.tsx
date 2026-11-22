@@ -54,7 +54,6 @@ export default function FacilityChat() {
 
   const flatListRef = useRef<FlatList<any>>(null);
 
-  // When the keyboard opens, keep the newest messages in view
   useEffect(() => {
     const subscription = Keyboard.addListener("keyboardDidShow", () => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
@@ -73,14 +72,11 @@ export default function FacilityChat() {
   const [facility, setFacility] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
-  // All transactions between this user and facility, shown as one thread
   const [threadTransactions, setThreadTransactions] = useState<
     ThreadTransaction[]
   >([]);
   const threadIdsRef = useRef<string[]>([]);
-  // Photo chosen with the + button, shown as a preview until sent
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  // Message being corrected (long-press your own message > Edit)
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [messageText, setMessageText] = useState("");
@@ -126,14 +122,11 @@ export default function FacilityChat() {
     const interval = setInterval(() => {
       fetchConversation();
       fetchMessages();
-      // Backup only: live updates come from useChatRealtime below
     }, 15000);
 
     return () => clearInterval(interval);
   }, [conversationId]);
 
-  // Same user + same facility = one thread. If an older transaction was
-  // opened (e.g. from a notification), switch to the newest one.
   useEffect(() => {
     const threadUserId = conversation?.user_id;
     const threadFacilityId = conversation?.facility_id;
@@ -164,7 +157,6 @@ export default function FacilityChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.user_id, conversation?.facility_id, conversationId]);
 
-  // New and edited messages appear immediately (Supabase Realtime)
   useChatRealtime(
     conversationId,
     () => fetchMessages(),
@@ -188,9 +180,6 @@ export default function FacilityChat() {
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
-    // Chats about a facility posting store the posting's ID as item_id, which
-    // is not a row in "items". Use the name and the offered item's photo saved
-    // on the conversation instead of looking up an unrelated item.
     const isPostingChat = String(conversation?.id || conversationId).startsWith(
       "facility_posting_",
     );
@@ -839,7 +828,6 @@ export default function FacilityChat() {
               });
 
               if (conversation?.item_id) {
-                // The transaction's real item (for facility postings, the offered item)
                   const itemIdNum = Number(
                     (await getTransactionItemId(conversation)) ?? NaN,
                   );
@@ -894,7 +882,6 @@ export default function FacilityChat() {
             });
 
             if (conversation?.item_id) {
-              // The transaction's real item (for facility postings, the offered item)
                   const itemIdNum = Number(
                     (await getTransactionItemId(conversation)) ?? NaN,
                   );
@@ -962,7 +949,6 @@ export default function FacilityChat() {
             });
 
             if (conversation?.item_id) {
-              // The transaction's real item (for facility postings, the offered item)
                   const itemIdNum = Number(
                     (await getTransactionItemId(conversation)) ?? NaN,
                   );
@@ -998,7 +984,6 @@ export default function FacilityChat() {
       let itemData: any = null;
 
       if (conversation?.item_id) {
-        // The transaction's real item (for facility postings, the offered item)
                   const itemIdNum = Number(
                     (await getTransactionItemId(conversation)) ?? NaN,
                   );
@@ -1102,7 +1087,6 @@ export default function FacilityChat() {
                 });
 
                 if (conversation?.item_id) {
-                  // The transaction's real item (for facility postings, the offered item)
                   const itemIdNum = Number(
                     (await getTransactionItemId(conversation)) ?? NaN,
                   );
@@ -1119,7 +1103,6 @@ export default function FacilityChat() {
                   }
                 }
 
-                // A finished facility posting leaves the facility's profile
                 await finishPostingForConversation(conversation, now);
 
                 await createRecyclingHistoryRecord(now);
@@ -1183,7 +1166,6 @@ export default function FacilityChat() {
         return;
       }
 
-      // "Other" says nothing by itself, so a description is required
       if (includeReport && reportReason === "Other" && !reportDetails.trim()) {
         Alert.alert(
           "Description required",
@@ -1225,6 +1207,33 @@ export default function FacilityChat() {
         return;
       }
 
+      let reportSent = false;
+
+      if (includeReport && reportReason) {
+        const { error: reportError } = await supabase.from("reports").insert([
+          {
+            reporter_id: isNaN(raterIdNum) ? null : raterIdNum,
+            reporter_role: "facility",
+            reported_profile_id: ratedId,
+            report_type: "transaction",
+            reason: reportReason,
+            details: reportDetails.trim() || null,
+            status: "pending",
+            created_at: new Date().toISOString(),
+          },
+        ]);
+
+        if (reportError) {
+          console.log("FACILITY REPORT INSERT ERROR:", reportError);
+          Alert.alert(
+            "Report not sent",
+            "Your rating was saved, but the report could not be sent. Please try again later.",
+          );
+        } else {
+          reportSent = true;
+        }
+      }
+
       await updateConversation({
         facility_feedback_given: true,
         last_message: "Facility submitted feedback.",
@@ -1241,7 +1250,12 @@ export default function FacilityChat() {
 
       fetchConversation();
 
-      Alert.alert("Thank You", "Your feedback has been submitted.");
+      Alert.alert(
+        "Thank You",
+        reportSent
+          ? "Your feedback and report have been submitted. The user's account is suspended until an admin reviews the report."
+          : "Your feedback has been submitted.",
+      );
     } catch (error: any) {
       console.log("SUBMIT FACILITY FEEDBACK ERROR:", error);
       Alert.alert(
@@ -1381,7 +1395,6 @@ export default function FacilityChat() {
     return "Chat is locked until the match is active";
   };
 
-  // Warn before sending phone numbers, addresses, payment or ID details
   const sendMessage = () => {
     const sensitiveInfo = detectSensitiveInfo(messageText);
 
@@ -1407,7 +1420,6 @@ export default function FacilityChat() {
     );
   };
 
-  // Explains a denied permission; offers Settings when Android won't ask again
   const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
     const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
     const message =
@@ -1465,7 +1477,6 @@ export default function FacilityChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
-  // The + button: choose Camera or Files (Gallery)
   const handlePickImage = () => {
     if (!canSendMessage()) {
       Alert.alert(
@@ -1522,7 +1533,6 @@ export default function FacilityChat() {
       let finalMessageContent = text;
       let messageType = sendingOffer ? "offer" : "text";
 
-      // Same upload as the user chat: the photo's public link becomes the message
       if (imageToUpload) {
         const fileExt = imageToUpload.split(".").pop() || "jpg";
         const fileName = `chat_${conversationId}_${Date.now()}.${fileExt}`;
@@ -1746,7 +1756,6 @@ export default function FacilityChat() {
   };
 
   const renderRequestItemCard = (requestMsg?: any) => {
-    // Earlier transactions in the thread show their own item, not the current one
     const pastTransaction =
       requestMsg &&
       String(requestMsg.conversation_id || conversationId) !==
@@ -1825,7 +1834,6 @@ export default function FacilityChat() {
     setEditingMessage(null);
   };
 
-  // Adds "New request · Keyboard · Nov 4" where a transaction starts
   const renderThreadItem = (args: any) => {
     const { item, index } = args;
     const content = renderMessage(args);
@@ -1915,7 +1923,6 @@ export default function FacilityChat() {
             </View>
           )}
 
-          {/* Always show time underneath by default, tap to show full date/time */}
           <TouchableOpacity
             onPress={() =>
               setExpandedMessageId((prev) =>
@@ -1974,8 +1981,6 @@ export default function FacilityChat() {
           </TouchableOpacity>
         </SwipeTimeRow>
 
-        {/* Time shows under the last bubble of a same-minute group (swipe a
-            bubble left to see its time); tap a bubble for the full date */}
         {showTimeHere || isExpanded || wasEdited ? (
           <TouchableOpacity
             onPress={() =>
@@ -2014,7 +2019,6 @@ export default function FacilityChat() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Pushes the message box above the keyboard on Android and iOS */}
       <ChatKeyboardAvoidingView
         style={{ flex: 1 }}
         behavior="padding"
@@ -2133,7 +2137,6 @@ export default function FacilityChat() {
               >
                 <TouchableWithoutFeedback>
                   <View style={styles.feedbackBox}>
-                    {/* Scrolls when "Report this user" makes the form taller than the screen */}
                     <ScrollView
                       showsVerticalScrollIndicator
                       keyboardShouldPersistTaps="handled"
@@ -2210,7 +2213,8 @@ export default function FacilityChat() {
 
                           <Text style={styles.reportToggleDescription}>
                             Select this only if a serious issue occurred during
-                            the transaction.
+                            the transaction. The user's account will be
+                            suspended until an admin reviews the report.
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -2660,7 +2664,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 18,
     padding: 20,
-    // Never taller than the screen; the ScrollView inside handles the rest
     maxHeight: Dimensions.get("window").height * 0.85,
   },
 

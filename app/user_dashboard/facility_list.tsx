@@ -29,7 +29,6 @@ export default function FacilityList() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const [tourUserId, setTourUserId] = useState("");
   const searchRef = useRef<ComponentRef<typeof View>>(null);
@@ -166,7 +165,6 @@ export default function FacilityList() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -184,7 +182,6 @@ export default function FacilityList() {
         </TouchableOpacity>
       </View>
 
-      {/* Filter / Search Bar */}
       <View style={styles.searchWrapper}>
         <View ref={searchRef} collapsable={false} style={styles.searchBox}>
           <TextInput
@@ -204,7 +201,6 @@ export default function FacilityList() {
         </View>
       </View>
 
-      {/* Facilities Vertical Card List */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#1B5E20" />

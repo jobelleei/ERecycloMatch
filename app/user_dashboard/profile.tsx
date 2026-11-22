@@ -24,7 +24,6 @@ export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const ratingRef = useRef<ComponentRef<typeof View>>(null);
   const myItemsRef = useRef<any>(null);
@@ -498,8 +497,6 @@ export default function Profile() {
       const { data, error } = await supabase
         .from("match_feedbacks")
         .select("*")
-        // Feedback that facilities gave this user. (The old filter used a
-        // "user_id" column that does not exist, so the list was always empty.)
         .eq("rated_id", Number(user.id))
         .eq("rated_role", "user")
         .order("created_at", { ascending: false });

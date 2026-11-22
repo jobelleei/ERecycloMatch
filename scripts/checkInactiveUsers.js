@@ -137,7 +137,7 @@ if (updateError) {
   console.error(updateError);
 }
 
-  } // End reminder if
+  }
 
   if (inactiveDays > 30 && profile.status === "approved") {
   const deleteTitle = "Account Deleted";
@@ -145,7 +145,6 @@ if (updateError) {
   const deleteMessage =
     "Your ERecycloMatch account has been automatically deleted because it has been inactive for more than 30 days.";
 
-  // Update profile
   const { error: deleteError } = await supabase
     .from("profiles")
     .update({
@@ -161,7 +160,6 @@ if (updateError) {
 
   console.log(`${profile.name} has been deleted.`);
 
-  // Save notification
   await supabase.from("notifications").insert({
     profile_id: profile.id,
     title: deleteTitle,
@@ -169,14 +167,12 @@ if (updateError) {
     type: "account_deleted",
   });
 
-  // Push notification
   await sendPushNotification(
     profile.expo_push_token,
     deleteTitle,
     deleteMessage
   );
 
-  // Email
   await sendEmail(
     profile.email,
     deleteTitle,
@@ -190,8 +186,8 @@ if (updateError) {
   );
 }
 
-} // End for loop
+}
 
-} // End function
+}
 
 checkInactiveUsers();

@@ -35,7 +35,6 @@ function SwipeableConversation({
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const openValue = -92;
-  // Where the row rests (0 = closed, openValue = open) so swipes start from there
   const restingX = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -55,7 +54,6 @@ function SwipeableConversation({
   const settleRow = (dx: number, vx: number) => {
     const finalX = restingX.current + dx;
 
-    // A quick flick decides direction; otherwise snap to the nearest side
     if (vx > 0.3) return closeRow();
     if (vx < -0.3) return openRow();
 
@@ -71,7 +69,6 @@ function SwipeableConversation({
         );
       },
 
-      // Keep the gesture so the list doesn't steal it mid-swipe
       onPanResponderTerminationRequest: () => false,
 
       onPanResponderMove: (_, gestureState) => {
@@ -139,7 +136,6 @@ export default function UserMessages() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const firstConversationRef = useRef<ComponentRef<typeof View>>(null);
   const firstStatusRef = useRef<ComponentRef<typeof View>>(null);
@@ -211,7 +207,6 @@ export default function UserMessages() {
       if (user?.id) {
         fetchConversations(user.id);
 
-        // Instantly mark conversations as read to clear the red dot on visit
         supabase
           .from("conversations")
           .update({ is_read: true })
@@ -579,8 +574,6 @@ export default function UserMessages() {
     return styles.defaultStatus;
   };
 
-  // Dot color mirrors whatever getStatusStyle picked, so the dot and
-  // label are always in sync without duplicating the status logic.
   const getStatusDotStyle = (conversation: any) => {
     const textStyle = getStatusStyle(conversation) as { color?: string };
     return { backgroundColor: textStyle.color || "#555" };

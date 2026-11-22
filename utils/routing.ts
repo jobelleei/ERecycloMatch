@@ -1,17 +1,8 @@
-/*
- * Road route between two points, for the map's "Go to this Facility" button.
- *
- * Tries, in order:
- * 1. OpenRouteService (the project's API key)
- * 2. OSRM public server (free, no key)
- * 3. A straight line, so the map always shows something
- */
 
 export type Coord = { latitude: number; longitude: number };
 
 export type RouteResult = {
   coordinates: Coord[];
-  // Road distance in km (straight-line distance for the last fallback)
   distanceKm: number;
   source: "openrouteservice" | "osrm" | "straight";
 };

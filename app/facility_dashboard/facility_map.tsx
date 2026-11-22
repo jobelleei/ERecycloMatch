@@ -122,7 +122,6 @@ const DEFAULT_DROP_OFF_BINS: MapPin[] = [
     name: "Provincial Material Recovery Facility",
     address: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
     location: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
-    // Approximate: a point on N Capitol Rd, not the facility's exact spot
     latitude: 10.6777286,
     longitude: 122.9499318,
     type: "bins",
@@ -175,7 +174,6 @@ export default function FacilityMapScreen() {
   const [navigationTarget, setNavigationTarget] = useState<MapPin | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
   const [remainingDistance, setRemainingDistance] = useState("");
-  // Road route shown after "Go to this Facility"
   const [routeCoordinates, setRouteCoordinates] = useState<
     { latitude: number; longitude: number }[]
   >([]);
@@ -185,7 +183,6 @@ export default function FacilityMapScreen() {
 
   const translateY = useRef(new Animated.Value(300)).current;
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
@@ -1516,7 +1513,6 @@ export default function FacilityMapScreen() {
 
       setRemainingDistance(initialDistance.toFixed(2));
 
-      // Road route from the current location to the facility
       const route = await fetchRoadRoute(currentCoords, {
         latitude: pin.latitude,
         longitude: pin.longitude,
@@ -1926,7 +1922,6 @@ export default function FacilityMapScreen() {
 
             </ScrollView>
 
-            {/* Always visible below the details, which scroll if long */}
             <View style={styles.detailsButtonRow}>
               {selectedPin.type === "facilities" && (
                 <TouchableOpacity
@@ -2060,7 +2055,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Dark green bar with white text so it stands out over the map
   searchInput: {
     flex: 1,
     backgroundColor: "#1B5E20",

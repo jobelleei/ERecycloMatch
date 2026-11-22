@@ -32,7 +32,6 @@ export const styles = StyleSheet.create({
     borderRadius: 22,
   },
 
-  // SEARCH BOX
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -51,7 +50,6 @@ export const styles = StyleSheet.create({
     color: '#000',
   },
 
-  // BANNER
   banner: {
     borderRadius: 10,
     overflow: 'hidden',
@@ -92,7 +90,6 @@ export const styles = StyleSheet.create({
     marginTop: 8,
   },
 
-  // SECTION
   section: {
     marginBottom: 24,
   },
@@ -110,7 +107,6 @@ export const styles = StyleSheet.create({
     color: '#111',
   },
 
-  // VIEW ALL
   viewAllContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -129,7 +125,6 @@ export const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
 
-  // 🔥 NEW: NAV ICON (THIS FIXES YOUR PROBLEM)
   navImage: {
     width: 24,
     height: 24,
@@ -137,7 +132,6 @@ export const styles = StyleSheet.create({
     marginBottom: 2,
   },
 
-  // FACILITY CARDS
   facilityCard: {
     width: 200,
     marginRight: 12,
@@ -198,7 +192,6 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ITEM CARDS
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',

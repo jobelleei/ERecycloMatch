@@ -33,8 +33,6 @@ export default function UserDashboard() {
   const [recentItems, setRecentItems] = useState<any[]>([]);
   const [partneredFacilities, setPartneredFacilities] = useState<any[]>([]);
   const [loadingFacilities, setLoadingFacilities] = useState(false);
-  // true when loading failed (usually no internet), so the empty card says
-  // "couldn't load" instead of "nothing here"
   const [facilitiesLoadFailed, setFacilitiesLoadFailed] = useState(false);
   const [itemsLoadFailed, setItemsLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -47,7 +45,6 @@ export default function UserDashboard() {
 
   const router = useRouter();
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const searchRef = useRef<ComponentRef<typeof View>>(null);
@@ -200,7 +197,6 @@ export default function UserDashboard() {
     fetchApprovedFacilities();
   }, []);
 
-  // Internet came back (weak signal): load again without the user tapping refresh
   useEffect(() => {
     let wasOffline = false;
 
@@ -736,7 +732,6 @@ export default function UserDashboard() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={styles.welcome} numberOfLines={1}>
               Welcome Back{userName ? `, ${userName}` : ""}!
@@ -779,7 +774,6 @@ export default function UserDashboard() {
             </View>
           </View>
 
-          {/* Search Bar */}
           <View style={styles.searchArea}>
             <View ref={searchRef} collapsable={false} style={styles.searchBox}>
               <TextInput
@@ -1000,7 +994,6 @@ export default function UserDashboard() {
                 </TouchableOpacity>
               ))}
 
-              {/* View More as the last slide */}
               <TouchableOpacity
                 style={styles.viewMoreFacilityCard}
                 onPress={() =>

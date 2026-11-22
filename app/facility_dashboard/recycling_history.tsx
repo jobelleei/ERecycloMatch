@@ -57,7 +57,6 @@ export default function RecyclingHistory() {
 
   const [filter, setFilter] = useState<"All" | "Latest" | "Oldest">("All");
 
-  // Onboarding tour for new accounts (same key as the shared history screen)
   const [showTour, setShowTour] = useState(false);
   const summaryRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);

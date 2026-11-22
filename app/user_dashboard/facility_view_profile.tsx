@@ -22,6 +22,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
+import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 import { isActivePosting } from "../../utils/transactionItem";
 
 export default function FacilityViewProfile() {
@@ -458,7 +459,6 @@ export default function FacilityViewProfile() {
         return;
       }
 
-      // Only active postings: finished or deleted ones are hidden
       setPostings((data || []).filter(isActivePosting));
     } catch (error) {
       console.log("FETCH FACILITY POSTINGS ERROR:", error);
@@ -594,7 +594,6 @@ export default function FacilityViewProfile() {
     }
   };
 
-  // Posting the user is answering; opens the "Which item are you offering?" picker
   const [offerPost, setOfferPost] = useState<any>(null);
   const [offerUserId, setOfferUserId] = useState("");
 
@@ -604,6 +603,12 @@ export default function FacilityViewProfile() {
     if (!user?.id) {
       Alert.alert("User Error", "Please log in again.");
       router.replace("/signin" as any);
+      return;
+    }
+
+    if (
+      await alertIfTransactionBlocked(user.id, String(facility.id || facilityId || ""))
+    ) {
       return;
     }
 
@@ -664,7 +669,6 @@ export default function FacilityViewProfile() {
             facility_profile_image: currentFacilityImage,
             item_id: postingId,
             item_name: itemNeeded || "",
-            // Photo of the item the user is offering (shown in the chat card)
             item_photo: offer.photoPath,
             request_sender_role: "user",
             request_receiver_role: "facility",
@@ -695,7 +699,6 @@ export default function FacilityViewProfile() {
               facility_profile_image: currentFacilityImage,
               item_id: postingId,
               item_name: itemNeeded || "",
-              // Photo of the item the user is offering (shown in the chat card)
               item_photo: offer.photoPath,
               status: "match_pending",
               is_read: false,

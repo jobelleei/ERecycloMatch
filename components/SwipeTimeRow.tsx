@@ -4,15 +4,9 @@ import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from "react-native-gesture-handler/ReanimatedSwipeable";
 
-/*
- * Chat bubble row that reveals the message's date and time when the bubble is
- * swiped to the left. Used for messages whose time is hidden because they
- * were sent in the same minute as the next one. Slides back by itself.
- */
 
 type Props = {
   children: ReactNode;
-  // Full date and time, e.g. "4 Nov 2026, 12:14 am"
   timeText: string;
 };
 

@@ -53,7 +53,6 @@ export default function RecyclingHistory() {
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
   const [filter, setFilter] = useState<"Latest" | "Oldest">("Latest");
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const summaryRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);

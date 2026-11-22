@@ -15,12 +15,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import UserBottomNav from "../../components/UserBottomNav";
 
-import { YOLO_URL } from "../../config";
+import {
+  SCAN_CONFIRM_MIN_CONFIDENCE,
+  SCAN_MIN_CONFIDENCE,
+  YOLO_URL,
+} from "../../config";
+import DetectionOverlay, { Detection } from "../../components/DetectionOverlay";
 import { setScanPhoto } from "../../utils/scanPhoto";
 
-// Full camera photos (e.g. 4608px) exceed Android's max drawable size and show
-// blank, so the scan and the listing both use this resized copy.
 const SCAN_UPLOAD_WIDTH = 1280;
+
+const SHOW_BOX_MS = 1200;
 
 const SCAN_GUIDE_HIDDEN_KEY = "scanGuideHidden";
 
@@ -62,6 +67,22 @@ export default function ScanScreen() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [showUnknownModal, setShowUnknownModal] = useState(false);
   const [capturedPreview, setCapturedPreview] = useState("");
+  const [detections, setDetections] = useState<Detection[]>([]);
+  const [confirmLabel, setConfirmLabel] = useState("");
+  const confirmAnswerRef = useRef<((yes: boolean) => void) | null>(null);
+
+  const askToConfirm = (label: string) =>
+    new Promise<boolean>((resolve) => {
+      confirmAnswerRef.current = resolve;
+      setConfirmLabel(label);
+    });
+
+  const answerConfirm = (yes: boolean) => {
+    setConfirmLabel("");
+    confirmAnswerRef.current?.(yes);
+    confirmAnswerRef.current = null;
+  };
+  const [previewSize, setPreviewSize] = useState({ width: 0, height: 0 });
   const [showGuide, setShowGuide] = useState(false);
   const [dontShowGuideAgain, setDontShowGuideAgain] = useState(false);
 
@@ -199,14 +220,9 @@ export default function ScanScreen() {
     });
   };
 
-  // Resized copy used for YOLO (fast upload through the tunnel), the result
-  // preview (base64) and the listing photo. Falls back to the original photo
-  // if resizing fails.
   const resizeForScan = async (
     photoUri: string,
-  ): Promise<{ uri: string; base64?: string }> => {
-    // Keep references to the context and image until saving finishes;
-    // otherwise they can be released mid-render and the job gets cancelled.
+  ): Promise<{ uri: string; base64?: string; width?: number; height?: number }> => {
     const context = ImageManipulator.manipulate(photoUri);
 
     try {
@@ -220,7 +236,12 @@ export default function ScanScreen() {
           base64: true,
         });
 
-        return { uri: saved.uri, base64: saved.base64 };
+        return {
+          uri: saved.uri,
+          base64: saved.base64,
+          width: saved.width,
+          height: saved.height,
+        };
       } finally {
         rendered.release();
       }
@@ -259,7 +280,10 @@ export default function ScanScreen() {
       const scanImage = await resizeForScan(photo.uri);
       const resizeDone = Date.now();
 
-      // Freeze the captured photo over the camera while YOLO runs.
+      setPreviewSize({
+        width: scanImage.width || 0,
+        height: scanImage.height || 0,
+      });
       setCapturedPreview(
         scanImage.base64
           ? `data:image/jpeg;base64,${scanImage.base64}`
@@ -299,15 +323,50 @@ export default function ScanScreen() {
         "not detected",
       ];
 
-      if (unidentifiedItems.includes(String(detected).trim().toLowerCase())) {
-        setShowUnknownModal(true);
-        return;
+      let confidenceValue = Number(data?.confidence || 0);
+
+      if (confidenceValue < SCAN_MIN_CONFIDENCE) {
+        detected = "Unknown";
       }
 
-      const confidence =
-        data?.confidence !== undefined && data?.confidence !== null
-          ? String(data.confidence)
-          : "0";
+      let boxes: Detection[] = Array.isArray(data?.detections)
+        ? data.detections.filter(
+            (d: any) => Array.isArray(d?.box) && d.box.length === 4,
+          )
+        : [];
+
+      if (unidentifiedItems.includes(String(detected).trim().toLowerCase())) {
+        const guess = data?.guess;
+        const hasGuess =
+          guess?.label &&
+          Number(guess.confidence || 0) >= SCAN_CONFIRM_MIN_CONFIDENCE;
+
+        if (!hasGuess) {
+          setShowUnknownModal(true);
+          return;
+        }
+
+        const guessBox: Detection[] =
+          Array.isArray(guess.box) && guess.box.length === 4 ? [guess] : [];
+
+        if (guessBox.length > 0 && scanImage.width && scanImage.height) {
+          setDetections(guessBox);
+        }
+
+        const confirmed = await askToConfirm(String(guess.label));
+
+        if (!confirmed) {
+          setDetections([]);
+          setShowUnknownModal(true);
+          return;
+        }
+
+        detected = String(guess.label);
+        confidenceValue = Number(guess.confidence || 0);
+        boxes = [];
+      }
+
+      const confidence = String(confidenceValue);
 
       const processingTime =
         data?.processing_time !== undefined && data?.processing_time !== null
@@ -318,6 +377,11 @@ export default function ScanScreen() {
         data?.total_time !== undefined && data?.total_time !== null
           ? String(data.total_time)
           : "0";
+
+      if (boxes.length > 0 && scanImage.width && scanImage.height) {
+        setDetections(boxes);
+        await new Promise((resolve) => setTimeout(resolve, SHOW_BOX_MS));
+      }
 
       setScanPhoto(scanImage.uri, scanImage.base64);
 
@@ -340,6 +404,7 @@ export default function ScanScreen() {
     } finally {
       setScanning(false);
       setCapturedPreview("");
+      setDetections([]);
     }
   };
 
@@ -419,6 +484,14 @@ export default function ScanScreen() {
           />
         ) : null}
 
+        {capturedPreview && detections.length > 0 ? (
+          <DetectionOverlay
+            detections={detections}
+            imageWidth={previewSize.width}
+            imageHeight={previewSize.height}
+          />
+        ) : null}
+
         <TouchableOpacity
           style={styles.flashButton}
           onPress={() => setFlash((prev) => (prev === "off" ? "on" : "off"))}
@@ -446,7 +519,13 @@ export default function ScanScreen() {
           />
 
           <Text style={styles.scanText}>
-            {scanning ? "Scanning item..." : "Point camera at e-waste"}
+            {confirmLabel
+              ? "Please confirm the item"
+              : detections.length > 0
+              ? "E-waste detected"
+              : scanning
+                ? "Scanning item..."
+                : "Point camera at e-waste"}
           </Text>
         </View>
       </View>
@@ -466,6 +545,39 @@ export default function ScanScreen() {
         </Text>
       </TouchableOpacity>
 
+      {confirmLabel ? (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Ionicons
+              name="help-circle"
+              size={55}
+              color="#15803D"
+              style={styles.modalIcon}
+            />
+
+            <Text style={styles.modalTitle}>
+              Is this a {confirmLabel.replace(/-/g, " ")}?
+            </Text>
+
+            <Text style={styles.modalText}>
+              The scanner isn&apos;t completely sure. Confirm only if the item
+              in the photo is this electronic device.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => answerConfirm(true)}
+            >
+              <Text style={styles.modalButtonText}>Yes, continue</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => answerConfirm(false)}>
+              <Text style={styles.modalLinkText}>No, it&apos;s something else</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
+
       {showUnknownModal && (
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
@@ -476,11 +588,11 @@ export default function ScanScreen() {
               style={styles.modalIcon}
             />
 
-            <Text style={styles.modalTitle}>Item Unidentified</Text>
+            <Text style={styles.modalTitle}>Unknown</Text>
 
             <Text style={styles.modalText}>
-              The item could not be identified. Please try scanning again with
-              better lighting or a clearer view of the object.
+              No e-waste was recognised in this photo. If it is e-waste, scan
+              again with better lighting and the item in the middle of the frame.
             </Text>
 
             <TouchableOpacity

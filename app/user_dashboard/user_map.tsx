@@ -129,7 +129,6 @@ const DEFAULT_DROP_OFF_BINS: MapPin[] = [
     name: "Provincial Material Recovery Facility",
     address: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
     location: "N Capitol Rd, Bacolod, 6100 Negros Occidental",
-    // Approximate: a point on N Capitol Rd, not the facility's exact spot
     latitude: 10.6777286,
     longitude: 122.9499318,
     type: "bins",
@@ -170,7 +169,6 @@ export default function UserMapScreen() {
   const [mapMode, setMapMode] = useState<MapMode>("facilities");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
@@ -343,8 +341,6 @@ export default function UserMapScreen() {
     ? `${incomingSelectedBin.id}-${incomingSelectedBin.latitude}-${incomingSelectedBin.longitude}`
     : "";
 
-  // Scroll position of the facilities / drop off bins list, so a swipe down
-  // only closes the sheet when the list is already scrolled to the top.
   const listScrollOffset = useRef(0);
 
   const isSwipeDown = (gesture: { dx: number; dy: number }) =>
@@ -355,7 +351,6 @@ export default function UserMapScreen() {
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => isSwipeDown(gesture),
-      // Take the gesture away from the list rows and FlatList on a swipe down
       onMoveShouldSetPanResponderCapture: (_, gesture) => isSwipeDown(gesture),
       onPanResponderTerminationRequest: () => false,
       onPanResponderMove: (_, gesture) => {
@@ -528,9 +523,6 @@ useEffect(() => {
       .filter((word) => word.length > 0);
   };
 
-  // Related terms used by the map search.
-  // Example: searching "laptop" can also find facilities that list
-  // "notebook", "computer", "PC", or "portable computer".
   const SEARCH_ALIASES: Record<string, string[]> = {
     laptop: ["laptop", "notebook", "computer", "pc", "portable computer"],
     notebook: ["notebook", "laptop", "computer", "pc", "portable computer"],
@@ -593,15 +585,10 @@ useEffect(() => {
 
     if (!normalized) return [];
 
-    // First check the complete search phrase. This keeps searches such as
-    // "air conditioner" or "e waste" together instead of treating each
-    // word as an unrelated search term.
     if (SEARCH_ALIASES[normalized]) {
       return [SEARCH_ALIASES[normalized]];
     }
 
-    // For a multi-word search, every word must still have a match.
-    // A word without aliases falls back to itself.
     return getSearchWords(normalized).map((word) => {
       return SEARCH_ALIASES[word] || [word];
     });
@@ -861,13 +848,10 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return pinList.filter((pin) => {
       const searchableText = getPinSearchText(pin);
 
-      // Keep the original exact phrase search.
       if (searchableText.includes(keyword)) {
         return true;
       }
 
-      // Then check related terms. For a multi-word query, every query word
-      // must have at least one related term present in the pin data.
       return relatedGroups.every((group) => {
         return group.some((term) => searchableText.includes(normalizeText(term)));
       });
@@ -996,7 +980,6 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   return R * c;
 };
 
-// Road route (OpenRouteService, then OSRM, then a straight line)
   const getRoadRoute = async (origin: Coord, destination: Coord) => {
     const route = await fetchRoadRoute(origin, destination);
     setRouteCoordinates(route.coordinates);
@@ -1712,8 +1695,6 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     );
   };
 
-  // Returns the profile picture of a search result, or null when it has none
-  // so an icon is shown instead.
   const getSearchResultImage = (pin: MapPin) => {
     const imagePath = String(pin.profileImage || "").trim();
 
@@ -2130,7 +2111,6 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
             </ScrollView>
 
-            {/* Always visible below the details, which scroll if long */}
             <View style={styles.detailsButtonRow}>
               {selectedPin.type === "facilities" && (
                 <TouchableOpacity
@@ -2268,7 +2248,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
 
-  // Dark green bar with white text so it stands out over the map
   searchInput: {
     flex: 1,
     backgroundColor: "#1B5E20",

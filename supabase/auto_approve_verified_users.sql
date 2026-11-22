@@ -18,7 +18,6 @@ begin
 
   return new;
 exception when others then
-  -- Never block the email verification itself
   raise warning 'approve_user_on_email_verified failed: %', sqlerrm;
   return new;
 end;
@@ -29,8 +28,6 @@ create trigger approve_user_on_email_verified
   after update of email_confirmed_at on auth.users
   for each row execute function public.approve_user_on_email_verified();
 
--- Users who already verified their email but are still waiting as "pending":
--- approve them now too. The result lists who was approved (may be empty).
 update public.profiles p
 set status = 'approved',
     approval_source = 'system',

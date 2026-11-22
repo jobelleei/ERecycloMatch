@@ -28,12 +28,12 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
+import { alertIfSelfSuspended } from "../../utils/accountSuspension";
 import { NEARBY_NOTIFICATION_RADIUS_KM } from "../../config";
 
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
-// Same radius as the notification screens (config.ts)
 const NEARBY_RADIUS_KM = NEARBY_NOTIFICATION_RADIUS_KM;
 
 const calculateDistanceKm = (
@@ -74,7 +74,6 @@ export default function MyItems() {
   const [submitterName, setSubmitterName] = useState("");
   const [userId, setUserId] = useState("");
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const statsRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -411,6 +410,8 @@ export default function MyItems() {
       Alert.alert("Error", "User ID not found. Please log in again.");
       return;
     }
+
+    if (await alertIfSelfSuspended(userId)) return;
 
     try {
       const listedAt = new Date().toISOString();

@@ -3,13 +3,6 @@ import { supabase } from "./supabase";
 const PENDING_STATUSES = ["match_pending", "pending", "request_pending"];
 const POSTING_PREFIX = "facility_posting_";
 
-// When a match request is accepted, every other pending request for the same
-// item or facility posting is rejected so it can't be accepted a second time.
-//
-// - Facility postings (ids start with "facility_posting_"): many users can
-//   request one posting, so we reject the other users' requests on it.
-// - User items: many facilities can request one item, so we reject the other
-//   facilities' requests on it.
 export async function rejectCompetingRequests(acceptedConversation: any) {
   try {
     const acceptedId = String(acceptedConversation?.id || "");
@@ -92,7 +85,6 @@ export async function rejectCompetingRequests(acceptedConversation: any) {
       console.log("COMPETING REQUEST MESSAGE ERROR:", messageError);
     }
 
-    // Notify whoever is on the other side of each rejected request
     const notifications = competing
       .map((conversation: any) => {
         const profileId = Number(

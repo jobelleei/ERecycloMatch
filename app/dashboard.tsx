@@ -21,7 +21,6 @@ const HomeScreen = () => {
 
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
-        {/* Welcome */}
         <View style={styles.header}>
           <Text style={styles.welcomeText}>Welcome Back!</Text>
           <TouchableOpacity>
@@ -32,7 +31,6 @@ const HomeScreen = () => {
           </TouchableOpacity>
         </View>
 
-        {/*Search Bar*/}
         <View style={styles.searchBox}>
           <TextInput
             style={styles.searchInput}
@@ -56,7 +54,6 @@ const HomeScreen = () => {
           </View>
         </View>
 
-        {/*Partnered Recycling Facilities*/}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
             Partnered Recycling Facilities
@@ -114,7 +111,6 @@ const HomeScreen = () => {
               </Text>
             </TouchableOpacity>
 
-            {/* View More */}
             <TouchableOpacity style={styles.viewMoreCard}>
               <View style={styles.viewMoreCircle}>
                 <Text style={styles.viewMoreArrow}>→</Text>
@@ -125,7 +121,6 @@ const HomeScreen = () => {
           </ScrollView>
         </View>
 
-        {/* Recent Items */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Items</Text>
@@ -142,7 +137,6 @@ const HomeScreen = () => {
 
       </ScrollView>
 
-      {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem}>
           <Image

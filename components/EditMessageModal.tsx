@@ -11,10 +11,6 @@ import {
   View,
 } from "react-native";
 
-/*
- * Small dialog for correcting a chat message that was already sent
- * (for example a typo). Opened by long-pressing your own message.
- */
 
 type Props = {
   visible: boolean;
@@ -42,7 +38,6 @@ export default function EditMessageModal({
       transparent
       animationType="fade"
       onRequestClose={onCancel}
-      // Start from the current message each time the dialog opens
       onShow={() => setText(initialText)}
     >
       <KeyboardAvoidingView

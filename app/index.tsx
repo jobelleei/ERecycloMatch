@@ -5,18 +5,11 @@ import { Image, Text, View, TouchableOpacity } from "react-native";
 import { supabase } from "../utils/supabase";
 import styles from "./styles/index";
 
-/*
- * Android may close the app while it is in the background. When it is
- * opened again it starts here, so check for a saved login first and go
- * straight to the dashboard instead of looking logged out.
- */
 const DASHBOARDS: Record<string, string> = {
   user: "/user_dashboard",
   facility: "/facility_dashboard",
 };
 
-// Still approved? Unknown (e.g. no internet) counts as yes, so the user
-// is not locked out offline.
 const isStillApproved = async (userId: string): Promise<boolean> => {
   try {
     const result = await Promise.race([
@@ -30,7 +23,6 @@ const isStillApproved = async (userId: string): Promise<boolean> => {
       .trim()
       .toLowerCase();
 
-    // Account removed from the database
     if (!(result as any).data) return false;
 
     return status === "approved";
@@ -59,7 +51,6 @@ export default function Index() {
             return;
           }
 
-          // Rejected, deleted or no longer approved: forget the saved login
           await AsyncStorage.removeItem("user");
         }
       } catch (error) {
@@ -83,7 +74,6 @@ export default function Index() {
         style={styles.logo}
       />
 
-      {/* Only the logo shows while checking for a saved login */}
       {!checkingLogin && (
         <>
           <Text style={styles.title}>ERECYCLOMATCH</Text>

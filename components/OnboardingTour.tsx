@@ -15,9 +15,7 @@ export type TourStep = {
   title: string;
   description: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  // The button/section to highlight. Steps without a target show a centered card.
   targetRef?: RefObject<any>;
-  // Runs before the step is shown, e.g. to scroll the target into view.
   prepare?: () => void | Promise<void>;
 };
 
@@ -33,12 +31,9 @@ const HIGHLIGHT_PADDING = 6;
 const TOOLTIP_GAP = 12;
 const SCROLL_SETTLE_MS = 350;
 
-// Stored per account so each new user sees the tour once.
 export const getTourStorageKey = (tourName: string, accountId: string) =>
   `onboarding_done_${tourName}_${accountId}`;
 
-// Set by "Don't show again": no screen opens its tour by itself anymore.
-// The ? help button on each screen can still open the tour.
 const TOURS_OFF_KEY = "onboarding_tours_off";
 
 export const turnOffAllTours = async () => {
@@ -73,8 +68,6 @@ export const markTourCompleted = async (
   }
 };
 
-// Uses measure() page coordinates: on Android edge-to-edge, measureInWindow
-// leaves out the status bar, so highlights drew too high in the full-screen modal.
 const measureTarget = (ref?: RefObject<any>): Promise<Rect | null> =>
   new Promise((resolve) => {
     const node = ref?.current;
@@ -142,7 +135,6 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
     return () => {
       cancelled = true;
     };
-    // Keyed on step.key: the steps array is usually rebuilt on every render.
   }, [visible, index, step?.key]);
 
   if (!visible || !step) return null;
@@ -159,7 +151,6 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
       }
     : null;
 
-  // Put the tooltip below the highlight, or above it when there isn't room.
   const showTooltipAbove = hole
     ? hole.y + hole.height > screenHeight * 0.55
     : false;
@@ -180,7 +171,6 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
       onRequestClose={onFinish}
     >
       <View style={StyleSheet.absoluteFill}>
-        {/* Dim everything except the highlighted button */}
         {hole && ready ? (
           <>
             <View style={[styles.dim, { top: 0, left: 0, right: 0, height: hole.y }]} />
@@ -250,7 +240,13 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
 
             <View style={styles.actions}>
               {!isLast ? (
-                <TouchableOpacity onPress={onFinish} hitSlop={8}>
+                <TouchableOpacity
+                  onPress={async () => {
+                    await turnOffAllTours();
+                    onFinish();
+                  }}
+                  hitSlop={8}
+                >
                   <Text style={styles.skipText}>Skip tour</Text>
                 </TouchableOpacity>
               ) : (
@@ -271,18 +267,6 @@ export default function OnboardingTour({ visible, steps, onFinish }: Props) {
                 </TouchableOpacity>
               </View>
             </View>
-
-            {/* Stops the tours from opening by themselves on every screen */}
-            <TouchableOpacity
-              style={styles.dontShowButton}
-              hitSlop={8}
-              onPress={async () => {
-                await turnOffAllTours();
-                onFinish();
-              }}
-            >
-              <Text style={styles.dontShowText}>{"Don't show again"}</Text>
-            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -352,17 +336,6 @@ const styles = StyleSheet.create({
     color: "#777",
     fontSize: 13,
     fontWeight: "600",
-  },
-  dontShowButton: {
-    alignSelf: "center",
-    marginTop: 14,
-    paddingVertical: 2,
-  },
-  dontShowText: {
-    color: "#888",
-    fontSize: 12,
-    fontWeight: "600",
-    textDecorationLine: "underline",
   },
   navButtons: {
     flexDirection: "row",

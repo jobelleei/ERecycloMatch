@@ -1,6 +1,3 @@
-// Issues ("conditions") each e-waste item can have, with how much they lower
-// recyclability and raise the hazard score, plus disposal suggestions.
-// Shared by the scan result screen and the facility item-request form.
 
 export type IssueOption = {
   name: string;
@@ -1237,8 +1234,6 @@ const normalizeItemName = (value: any) => {
     .trim();
 };
 
-// Finds the data for a scan label or item name. Exact name first, then the
-// first entry whose name appears inside it ("flash drive usb" -> "flash drive").
 export const getItemData = (item: string): ItemData => {
   const normalizedLabel = normalizeItemName(item || "");
 
@@ -1253,7 +1248,6 @@ export const getItemData = (item: string): ItemData => {
   return matchedKey ? ITEM_DATA[matchedKey] : ITEM_DATA.unknown;
 };
 
-// Condition names for an item, without the "None" option.
 export const getItemConditions = (item: string): string[] =>
   getItemData(item)
     .issues.map((issue) => issue.name)

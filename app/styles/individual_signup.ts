@@ -109,27 +109,25 @@ export default StyleSheet.create({
 
   input: {
     flex: 1,
-    // Typed text (including password dots) is always black, whatever the phone's theme
     color: "#000000",
   },
 
-  // 🔥 UPDATED (dynamic image friendly)
   uploadBox: {
     width: "85%",
-    minHeight: 120, // ✅ instead of fixed height
+    minHeight: 120,
     borderWidth: 1,
     borderColor: "#2E7D32",
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 15,
-    overflow: "hidden", // ✅ prevents overflow
+    overflow: "hidden",
   },
 
   uploadedImage: {
     width: "100%",
     height: "100%",
-    resizeMode: "contain", // 🔥 keeps full image ratio
+    resizeMode: "contain",
   },
 
   button: {

@@ -27,6 +27,7 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { getItemConditions } from "../../utils/itemConditions";
 import { supabase } from "../../utils/supabase";
+import { alertIfSelfSuspended } from "../../utils/accountSuspension";
 import { isActivePosting } from "../../utils/transactionItem";
 
 const ITEM_OPTIONS = [
@@ -214,7 +215,6 @@ export default function FacilityProfile() {
     }
   }, [facility.id]);
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const infoBoxRef = useRef<ComponentRef<typeof View>>(null);
   const ratingRef = useRef<ComponentRef<typeof View>>(null);
@@ -337,8 +337,6 @@ export default function FacilityProfile() {
       (option) => option.toLowerCase() === String(name || "").trim().toLowerCase(),
     ) || "";
 
-  // An item counts as selected once its name matches one from the item list.
-  // Only that item's own conditions are offered.
   const selectedItemOption = findItemOption(itemName);
   const itemConditions = selectedItemOption
     ? getItemConditions(selectedItemOption)
@@ -369,7 +367,6 @@ export default function FacilityProfile() {
     );
   };
 
-  // Changing the item drops checked conditions the new item doesn't have
   const changeItemName = (name: string) => {
     setItemName(name);
 
@@ -736,7 +733,6 @@ export default function FacilityProfile() {
       );
 
       const visiblePostings = (postingData || []).filter((posting: any) => {
-        // Finished or deleted postings are no longer shown on the profile
         if (!isActivePosting(posting)) return false;
 
         const alreadyMatched = activeMatchedConversations.some(
@@ -830,6 +826,8 @@ export default function FacilityProfile() {
       return;
     }
 
+    if (await alertIfSelfSuspended(facility.id)) return;
+
     try {
       setSavingPost(true);
       Keyboard.dismiss();
@@ -919,8 +917,6 @@ export default function FacilityProfile() {
     setShowDropdown(false);
   };
 
-  // A condition can't be both accepted and rejected, so one checked in the
-  // other list isn't offered here.
   const renderConditionCheckboxes = (
     label: string,
     list: "accepted" | "rejected",

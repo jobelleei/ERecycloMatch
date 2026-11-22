@@ -35,7 +35,6 @@ function SwipeableConversation({
 }) {
   const translateX = useRef(new Animated.Value(0)).current;
   const openValue = -92;
-  // Where the row rests (0 = closed, openValue = open) so swipes start from there
   const restingX = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -55,7 +54,6 @@ function SwipeableConversation({
   const settleRow = (dx: number, vx: number) => {
     const finalX = restingX.current + dx;
 
-    // A quick flick decides direction; otherwise snap to the nearest side
     if (vx > 0.3) return closeRow();
     if (vx < -0.3) return openRow();
 
@@ -71,7 +69,6 @@ function SwipeableConversation({
         );
       },
 
-      // Keep the gesture so the list doesn't steal it mid-swipe
       onPanResponderTerminationRequest: () => false,
 
       onPanResponderMove: (_, gestureState) => {
@@ -140,7 +137,6 @@ export default function FacilityMessages() {
   const [refreshing, setRefreshing] = useState(false);
   const isFocusedRef = useRef(true);
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const firstConversationRef = useRef<ComponentRef<typeof View>>(null);
   const firstStatusRef = useRef<ComponentRef<typeof View>>(null);
@@ -532,8 +528,6 @@ export default function FacilityMessages() {
       const withUserProfiles =
         await fetchUserProfilesForConversations(visibleConversations);
 
-      // Use the timestamp of the latest actual message for the conversation time.
-      // This prevents opening/reading a conversation from changing the displayed time.
       const conversationIds = visibleConversations
         .map((conversation: any) => String(conversation.id || ""))
         .filter(Boolean);
@@ -868,7 +862,6 @@ export default function FacilityMessages() {
 
     const facilityIdNum = Number(facility?.id);
 
-    // 1. Clear the unread flag locally without changing the conversation's position
     setConversations((prev) =>
       prev.map((item) => {
         const clickedId = String(conversation.id);
@@ -880,7 +873,6 @@ export default function FacilityMessages() {
       }),
     );
 
-    // 2. Mark conversations as read in database
     if (conversationIds.length > 0) {
       supabase
         .from("conversations")
@@ -889,7 +881,6 @@ export default function FacilityMessages() {
         .then();
     }
 
-    // 3. Mark unread messages sent to this facility as read
     if (!isNaN(facilityIdNum) && conversationIds.length > 0) {
       supabase
         .from("messages")

@@ -5,10 +5,6 @@ import { Platform } from "react-native";
 
 export async function registerForPushNotifications(): Promise<string | null> {
   try {
-    /*
-     * Android Expo Go does not support remote push notifications.
-     * Do not even import expo-notifications in this case.
-     */
     const isExpoGo = isRunningInExpoGo();
 
     if (Platform.OS === "android" && isExpoGo) {
@@ -19,7 +15,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
       return null;
     }
 
-    // Import expo-notifications only when it is actually supported.
     const Notifications = await import("expo-notifications");
 
     Notifications.setNotificationHandler({
@@ -31,18 +26,14 @@ export async function registerForPushNotifications(): Promise<string | null> {
       }),
     });
 
-    // Android notification channel
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "Default Notifications",
         importance: Notifications.AndroidImportance.MAX,
-        // No `sound` here: Android uses the system default, and "default"
-        // would be looked up as a custom sound file bundled with the app.
         vibrationPattern: [0, 250, 250, 250],
       });
     }
 
-    // Remote push token requires a physical device
     if (!Device.isDevice) {
       console.log(
         "Push notifications require a physical device or supported development environment.",
@@ -93,13 +84,6 @@ export async function registerForPushNotifications(): Promise<string | null> {
   }
 }
 
-/*
- * Saves this phone's push token on the signed-in profile, so the database
- * (supabase/push_notifications.sql) knows where to send that profile's pushes.
- * The same token is removed from any other profile first, so a phone that
- * switched accounts only gets pushes for the account it is signed in to.
- * Never throws; push problems must not block sign-in.
- */
 export async function savePushTokenForProfile(
   profileId: string | number,
 ): Promise<void> {
@@ -131,10 +115,6 @@ export async function savePushTokenForProfile(
   }
 }
 
-/*
- * Removes the push token from a profile on logout, so a logged-out phone
- * stops getting that account's pushes. Never throws.
- */
 export async function clearPushTokenForProfile(
   profileId: string | number,
 ): Promise<void> {

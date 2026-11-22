@@ -29,7 +29,6 @@ import { clearPushTokenForProfile } from "../../services/notifications";
 export default function Settings() {
   const router = useRouter();
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const myItemsRef = useRef<any>(null);
@@ -552,7 +551,6 @@ export default function Settings() {
   };
 
   const logout = async () => {
-    // Stop this phone getting pushes for the account being logged out
     try {
       const stored = await AsyncStorage.getItem("user");
       const storedId = stored ? JSON.parse(stored)?.id : null;
@@ -561,7 +559,6 @@ export default function Settings() {
       console.log("CLEAR PUSH TOKEN ERROR:", error);
     }
 
-    // End the Supabase Auth session too, so the next account starts clean
     try {
       await supabase.auth.signOut();
     } catch (error) {

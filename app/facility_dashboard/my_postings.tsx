@@ -32,7 +32,6 @@ export default function MyPostings() {
 
   const [facilityId, setFacilityId] = useState("");
 
-  // Onboarding tour for new facilities
   const [showTour, setShowTour] = useState(false);
   const statsRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);

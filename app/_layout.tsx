@@ -17,7 +17,6 @@ import {
   savePushTokenForProfile,
 } from "../services/notifications";
 
-// The signed-in user saved by signin.tsx, or null
 const readStoredUser = async (): Promise<any | null> => {
   try {
     const stored = await AsyncStorage.getItem("user");
@@ -29,7 +28,6 @@ const readStoredUser = async (): Promise<any | null> => {
 
 export default function RootLayout() {
   useEffect(() => {
-    // Android Expo Go does not support remote push notifications.
     const isExpoGo = isRunningInExpoGo();
 
     if (Platform.OS === "android" && isExpoGo) {
@@ -49,11 +47,8 @@ export default function RootLayout() {
 
     const setupNotifications = async () => {
       try {
-        // Only load expo-notifications when it is supported.
         const Notifications = await import("expo-notifications");
 
-        // Already signed in on this phone: make sure pushes for this
-        // account come here. Otherwise just ask for permission early.
         const storedUser = await readStoredUser();
 
         if (storedUser?.id) {
@@ -69,7 +64,6 @@ export default function RootLayout() {
             },
           );
 
-        // Tapping a push opens Messages for a chat, otherwise Notifications
         responseSubscription =
           Notifications.addNotificationResponseReceivedListener(
             async (response) => {
@@ -83,7 +77,6 @@ export default function RootLayout() {
                 const base =
                   role === "facility" ? "/facility_dashboard" : "/user_dashboard";
 
-                // A message opens its chat; other pushes open Notifications
                 if (data.type === "message" && data.conversation_id) {
                   router.push({
                     pathname: `${base}/chat`,
@@ -121,7 +114,6 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        {/* Measures the keyboard correctly on every Android version (chat input) */}
         <KeyboardProvider>
           <AppArea />
 
@@ -132,15 +124,6 @@ export default function RootLayout() {
   );
 }
 
-/*
- * Keeps every screen above the phone's own navigation bar (back / home /
- * recent buttons). Android draws apps edge-to-edge, so without this the
- * phone's buttons cover the app's bottom menu. With gesture navigation the
- * inset is only a few pixels, so those phones look the same as before.
- */
-// Color of the strip behind the phone's navigation bar, matched to the
-// screen above it so it blends in (green on welcome/sign-in screens,
-// white under the dashboards' white bottom menu)
 const STRIP_COLORS: Record<string, string> = {
   "/": "#CFE8C6",
   "/signin": "#CFE8C6",
@@ -166,7 +149,6 @@ function AppArea() {
     >
       <Stack screenOptions={{ headerShown: false }} />
 
-      {/* "No internet connection" bar on every screen */}
       <OfflineBanner />
     </View>
   );

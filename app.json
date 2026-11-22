@@ -2,6 +2,7 @@
   "expo": {
     "name": "ERECYCLOMATCH",
     "slug": "ERECYCLOMATCH",
+    "owner": "erecyclomatchs-organization",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/logo.png",
@@ -67,9 +68,13 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
       "eas": {
-        "projectId": "83562ec8-f899-4c33-a14e-1d1a5a5d0660"
+        "projectId": "51eaded9-4b73-41c6-8532-e34697330b69"
       }
     }
   }

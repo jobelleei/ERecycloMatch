@@ -29,6 +29,10 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 import {
+  alertIfSelfSuspended,
+  alertIfTransactionBlocked,
+} from "../../utils/accountSuspension";
+import {
   getItemData,
   type IssueOption,
 } from "../../utils/itemConditions";
@@ -137,7 +141,6 @@ export default function ScanResult() {
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  // Onboarding tour for new users
   const [showTour, setShowTour] = useState(false);
   const [tourUserId, setTourUserId] = useState("");
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -263,7 +266,6 @@ export default function ScanResult() {
   ): AutoDecision => {
     const now = new Date().toISOString();
 
-    // AUTOMATIC APPROVAL
     if (recyclabilityValue >= 60 && hazardValue <= 30) {
       return {
         status: "Approved",
@@ -278,7 +280,6 @@ export default function ScanResult() {
       };
     }
 
-    // AUTOMATIC APPROVAL
     if (
       recyclabilityValue >= 40 &&
       recyclabilityValue <= 59 &&
@@ -298,8 +299,6 @@ export default function ScanResult() {
       };
     }
 
-    // ITEMS THAT DO NOT MEET THE AUTOMATIC APPROVAL RULES
-    // ARE SENT TO THE ADMIN FOR MANUAL REVIEW.
     const note = `Item requires admin review.\n\n${formatSuggestionBlock(
       "Disposal Instructions",
       disposalSuggestions,
@@ -905,6 +904,9 @@ export default function ScanResult() {
 
       const cleanUserId = String(loggedInUser.userId);
       const cleanFacilityId = String(facility.id);
+
+      if (await alertIfTransactionBlocked(cleanUserId, cleanFacilityId)) return;
+
       const cleanItemId = String(itemToMatch.id);
       const cleanItemName = String(itemToMatch.item_name || itemName || "Item");
       const cleanFacilityName = String(facility.name || "Facility");
@@ -1050,8 +1052,6 @@ export default function ScanResult() {
       setMatchModalVisible(false);
       setResultModalVisible(false);
 
-      // Go directly to the conversation after sending the request.
-      // No success popup/modal is shown.
       router.replace({
         pathname: "/user_dashboard/chat" as any,
         params: {
@@ -1459,6 +1459,8 @@ export default function ScanResult() {
         );
         return;
       }
+
+      if (await alertIfSelfSuspended(loggedInUser.userId)) return;
 
       let listingLatitude: number | null = null;
       let listingLongitude: number | null = null;

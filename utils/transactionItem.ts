@@ -1,18 +1,5 @@
 import { supabase } from "./supabase";
 
-/*
- * The user's item that a transaction is about.
- *
- * - Listed-item chats: the conversation's item_id is the item.
- * - Facility-posting chats ("facility_posting_..."): item_id holds the
- *   POSTING's id, not an item, so using it would change an unrelated item.
- *   The real item is the one the user offered, found by the photo saved on
- *   the conversation (item_photo = that item's item_image). If the user took
- *   a new photo instead of picking a listed item, there is no item: null.
- *
- * Used when accepting, declining, cancelling or finishing, so the right item
- * is updated, and a finished item leaves the active listings.
- */
 export async function getTransactionItemId(
   conversation: any,
 ): Promise<string | null> {
@@ -45,10 +32,6 @@ export async function getTransactionItemId(
   return data?.id ? String(data.id) : null;
 }
 
-/*
- * Facility postings ("Looking for: Keyboard") shown on a facility's profile
- * are only the active ones: not finished, completed or deleted.
- */
 export const isActivePosting = (posting: any) => {
   if (!posting || posting.deleted_at) return false;
 
@@ -61,11 +44,6 @@ export const isActivePosting = (posting: any) => {
   return true;
 };
 
-/*
- * When a facility-posting transaction finishes, mark the posting Finished too,
- * so it leaves the facility's active profile view. (For posting chats the
- * conversation's item_id holds the posting's id.)
- */
 export async function finishPostingForConversation(
   conversation: any,
   finishedAt: string,

@@ -1,7 +1,5 @@
 import { StyleSheet, Text, View } from "react-native";
 
-// Line shown in a chat where a new transaction starts,
-// e.g. "New request · Keyboard · Nov 4"
 export default function ThreadDivider({ label }: { label: string }) {
   return (
     <View style={styles.row}>

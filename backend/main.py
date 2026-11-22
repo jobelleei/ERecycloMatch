@@ -24,7 +24,6 @@ print("Loading YOLO model...")
 model = YOLO(MODEL_PATH)
 print("YOLO model loaded successfully.")
 
-# Warm up once so the first real scan isn't slowed by model initialization.
 model.predict(
     source=np.zeros((416, 416, 3), dtype=np.uint8),
     imgsz=416,

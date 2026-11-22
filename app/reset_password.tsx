@@ -36,7 +36,6 @@ export default function ResetPassword() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  // Step 1: Verify OTP Code
   const handleVerifyOtp = async () => {
     const cleanEmail = emailInput.trim().toLowerCase();
     const cleanToken = otpCode.trim();
@@ -96,7 +95,6 @@ export default function ResetPassword() {
     }
   };
 
-  // Step 2: Update Password in both Supabase Auth and the profiles table
   const handleUpdatePassword = async () => {
     const cleanPassword = password.trim();
     const cleanConfirm = confirmPassword.trim();
@@ -136,7 +134,6 @@ export default function ResetPassword() {
     setUpdating(true);
 
     try {
-      // 1. Update Auth account
       const { data: authData, error: authError } =
         await supabase.auth.updateUser({
           password: cleanPassword,
@@ -151,7 +148,6 @@ export default function ResetPassword() {
         return;
       }
 
-      // 2. Clear the old plain-text copy; signin.tsx now checks Supabase Auth
       if (targetEmail) {
         const { data: updatedRows, error: dbError } = await supabase
           .from("profiles")
@@ -172,7 +168,6 @@ export default function ResetPassword() {
         console.log("Profile rows updated:", updatedRows);
       }
 
-      // 3. Clear session so user signs in cleanly
       await supabase.auth.signOut();
 
       Toast.show({
@@ -212,14 +207,12 @@ export default function ResetPassword() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back Button */}
           <View style={{ position: "absolute", top: 10, left: 20, zIndex: 10 }}>
             <Pressable onPress={() => router.replace("/signin")}>
               <Ionicons name="arrow-back" size={28} color="#1B5E20" />
             </Pressable>
           </View>
 
-          {/* Picture Illustration */}
           <View
             style={{ alignItems: "center", marginTop: 10, marginBottom: -10 }}
           >
@@ -229,7 +222,6 @@ export default function ResetPassword() {
             />
           </View>
 
-          {/* Mode 1: Enter OTP Code */}
           {mode === "otp" && (
             <View>
               <Text
@@ -396,7 +388,6 @@ export default function ResetPassword() {
             </View>
           )}
 
-          {/* Mode 2: Create New Password */}
           {mode === "new_password" && (
             <View>
               <Text

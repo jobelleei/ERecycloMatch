@@ -86,7 +86,6 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      // 1. Verify user exists in profiles table
       const { data: profile } = await supabase
         .from("profiles")
         .select("id, email")
@@ -103,7 +102,6 @@ export default function ForgotPassword() {
         return;
       }
 
-      // 2. Request Recovery OTP token from Supabase
       const { error: resetError } =
         await supabase.auth.resetPasswordForEmail(cleanEmail);
 
@@ -117,7 +115,6 @@ export default function ForgotPassword() {
         return;
       }
 
-      // 3. Set cooldown timer
       await AsyncStorage.setItem(
         "last_reset_attempt",
         new Date().toISOString(),
@@ -130,7 +127,6 @@ export default function ForgotPassword() {
         text2: "Check your email inbox for your 6-digit code.",
       });
 
-      // 4. Navigate directly to OTP entry screen
       router.push({
         pathname: "/reset_password",
         params: { email: cleanEmail, mode: "otp" },
@@ -163,14 +159,12 @@ export default function ForgotPassword() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back button returns cleanly to sign in */}
           <View style={{ position: "absolute", top: 10, left: 20, zIndex: 10 }}>
             <Pressable onPress={() => router.replace("/signin")}>
               <Ionicons name="arrow-back" size={28} color="#1B5E20" />
             </Pressable>
           </View>
 
-          {/* Illustration */}
           <View
             style={{ alignItems: "center", marginTop: 10, marginBottom: -10 }}
           >
@@ -206,7 +200,6 @@ export default function ForgotPassword() {
             6-digit verification code to reset your password.
           </Text>
 
-          {/* Email Input Field */}
           <View
             style={{
               backgroundColor: "#FFFFFF",
@@ -254,7 +247,6 @@ export default function ForgotPassword() {
             </View>
           </View>
 
-          {/* Request OTP Button */}
           <Pressable
             onPress={handleSendOtp}
             disabled={loading || cooldown > 0}
@@ -284,7 +276,6 @@ export default function ForgotPassword() {
             )}
           </Pressable>
 
-          {/* Back to Sign In Link */}
           <Pressable
             onPress={() => router.replace("/signin")}
             style={{ paddingVertical: 8, alignItems: "center" }}
