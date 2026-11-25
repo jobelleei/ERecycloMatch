@@ -99,7 +99,8 @@ export default function VerifyEmail() {
           </View>
         </View>
 
-        <Text {/* Verification screen title */}
+        {/* Verification screen title */}
+        <Text
           style={{
             fontSize: 28,
             fontWeight: "bold",
@@ -111,8 +112,9 @@ export default function VerifyEmail() {
           Check Your Email
         </Text>
 
+        {/* Display the email address entered during registration */}
         <Text
-          style={{ {/* Display the email address entered during registration */}
+          style={{
             textAlign: "center",
             color: "#555",
             fontSize: 14,
@@ -125,8 +127,9 @@ export default function VerifyEmail() {
           <Text style={{ fontWeight: "bold", color: "#1B5E20" }}>{email}</Text>
         </Text>
 
+        {/* Instructions for completing email verification */}
         <View
-          style={{ {/* Instructions for completing email verification */}
+          style={{
             backgroundColor: "#FFFFFF",
             borderRadius: 18,
             padding: 18,
@@ -146,7 +149,8 @@ export default function VerifyEmail() {
           </Text>
         </View>
 
-        <Pressable {/* Navigate to the sign-in screen */}
+        {/* Navigate to the sign-in screen */}
+        <Pressable
           onPress={() => router.replace("/signin")}
           style={{
             backgroundColor: "#1B5E20",

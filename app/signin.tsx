@@ -137,25 +137,17 @@ export default function Signin() {
         return;
       }
 
-      //Checking the old password record for accounts using the previous login method
+      //Stop the login if Supabase Auth rejects the password
       if (authError) {
-        const { data: legacy } = await supabase
-          .from("profiles")
-          .select("password")
-          .eq("id", profile.id)
-          .maybeSingle();
-
-        const legacyPassword = String(legacy?.password || "").trim();
-
-        //Stop the login if the password does not match
-        if (!legacyPassword || legacyPassword !== cleanPassword) {
-          Toast.show({
-            type: "error",
-            text1: "Login Failed",
-            text2: "Incorrect password.",
-          });
-          return;
-        }
+        Toast.show({
+          type: "error",
+          text1: "Login Failed",
+          text2:
+            authError.code === "invalid_credentials"
+              ? "Incorrect password."
+              : authError.message,
+        });
+        return;
       }
 
       //Checking if the account is still waiting for admin approval
