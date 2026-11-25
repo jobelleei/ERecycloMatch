@@ -109,9 +109,3 @@ k6 run -e PROFILE=load yolo-detect.js                     # up to 10 users
 k6 run -e TEST_EMAIL=... -e TEST_PASSWORD=... supabase-browse.js
 ```
 Use a test account, and run heavier profiles only when the app is not in use.
-
-## Team
-
-- [jobelleei](https://github.com/jobelleei)
-- [Cherrii-isu](https://github.com/Cherrii-isu)
-- [kayenieregolis15-coder](https://github.com/kayenieregolis15-coder)
