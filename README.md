@@ -33,22 +33,6 @@ ERecycloMatch is an Android app that connects households with recycling faciliti
 | Push notifications | Expo push service, triggered from Supabase |
 | Scheduled jobs | GitHub Actions (daily inactive-user check) |
 
-## Project structure
-
-```
-app/                  Screens (Expo Router file-based routing)
-  user_dashboard/     Household screens: scan, items, listings, map, chat
-  facility_dashboard/ Facility screens: postings, requests, map, chat
-components/           Shared UI: bottom navigation, map view, tour, offline notice
-utils/                Supabase client, chat helpers, geocoding, routing, suspension checks
-services/             Push notification setup
-supabase/             SQL scripts (triggers, realtime, demo data) and Edge Functions
-deploy/yolo-space/    YOLO detection server: FastAPI app, Dockerfile, AWS setup script
-backend/              Model training and validation scripts
-scripts/              Node scripts used by the scheduled GitHub Action
-loadtest/             k6 load tests for the detection server and Supabase
-```
-
 ## Getting started
 
 ### Requirements
@@ -78,34 +62,3 @@ To build an installable APK with EAS:
 ```bash
 eas build --profile preview --platform android
 ```
-
-## Supabase setup
-
-Run the scripts in `supabase/` from the Supabase SQL editor:
-
-| Script | Purpose |
-|---|---|
-| `auto_approve_verified_users.sql` | Approves an account once its email is verified |
-| `push_notifications.sql` | Sends push notifications on new messages and updates |
-| `realtime_chat.sql` | Enables live chat updates |
-| `report_suspension.sql` | Suspends reported accounts pending admin review |
-| `demo_*.sql`, `add_partner_facilities.sql` | Optional demo facilities and postings |
-
-## Detection server
-
-The YOLO server lives in `deploy/yolo-space/`. See [its README](deploy/yolo-space/README.md) and `aws-setup.sh` to deploy it on an EC2 instance with HTTPS. The app reads the server address from `YOLO_URL` in `config.ts`.
-
-Endpoints:
-- `GET /` health check
-- `POST /detect` takes an image file and returns the detected item, confidence, and boxes
-
-## Load testing
-
-The `loadtest/` folder contains [k6](https://k6.io) scripts:
-```bash
-cd loadtest
-k6 run yolo-detect.js                                    # 1 user, 3 scans
-k6 run -e PROFILE=load yolo-detect.js                     # up to 10 users
-k6 run -e TEST_EMAIL=... -e TEST_PASSWORD=... supabase-browse.js
-```
-Use a test account, and run heavier profiles only when the app is not in use.
