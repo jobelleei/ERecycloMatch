@@ -30,15 +30,19 @@ import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
 import styles from "./styles/facility_signup";
 
+//Base URL for retrieving Philippine province, city, and barangay information.
 const PSGC_API = "https://psgc.gitlab.io/api";
 
 export default function FacilitySignup() {
+  //Sets up navigation and a reference to control the map.
   const router = useRouter();
   const mapRef = useRef<MapView | null>(null);
 
+  //Stores the facility details, account credentials, uploaded image, and form status.
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
 
+  //Stores the selected address components and the available location choices.
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [barangay, setBarangay] = useState("");
@@ -59,6 +63,7 @@ export default function FacilitySignup() {
   const [image, setImage] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  //Stores the map coordinates and map-search interaction states.
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
 
@@ -67,9 +72,11 @@ export default function FacilitySignup() {
   const [mapSearchText, setMapSearchText] = useState("");
   const [isSearchingMap, setIsSearchingMap] = useState(false);
 
+  //Controls the Terms and Conditions checkbox and its modal.
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
+  //Holds the reusable dropdown modal content and selection callback.
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [dropdownTitle, setDropdownTitle] = useState("");
   const [dropdownOptions, setDropdownOptions] = useState<string[]>([]);
@@ -77,10 +84,12 @@ export default function FacilitySignup() {
     ((value: string) => void) | null
   >(null);
 
+  //Loads the province list when the signup screen first appears.
   useEffect(() => {
     fetchProvinces();
   }, []);
 
+  //Opens the terms modal or unchecks the agreement when tapped.
   const handleCheckboxClick = () => {
     if (!termsAccepted) {
       setShowTermsModal(true);
@@ -89,11 +98,13 @@ export default function FacilitySignup() {
     }
   };
 
+  //Confirms that the user has accepted the Terms and Conditions.
   const handleAcceptTerms = () => {
     setTermsAccepted(true);
     setShowTermsModal(false);
   };
 
+  //Configures and displays the reusable dropdown modal.
   const openDropdown = (
     title: string,
     options: string[],
@@ -105,6 +116,7 @@ export default function FacilitySignup() {
     setDropdownVisible(true);
   };
 
+  //Sends the selected dropdown value to its corresponding field.
   const selectDropdownValue = (value: string) => {
     if (dropdownOnSelect) {
       dropdownOnSelect(value);
@@ -113,6 +125,7 @@ export default function FacilitySignup() {
     setDropdownVisible(false);
   };
 
+  //Combines the selected address parts into one full location string.
   const updateFullLocation = (
     newStreet = street,
     newBarangay = barangay,
@@ -126,6 +139,7 @@ export default function FacilitySignup() {
     setLocation(parts.join(", "));
   };
 
+  //Retrieves and sorts the list of provinces from the PSGC API.
   const fetchProvinces = async () => {
     try {
       const response = await axios.get(`${PSGC_API}/provinces`);
@@ -138,6 +152,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Retrieves the cities and municipalities belonging to the selected province.
   const fetchCities = async (selectedProvince: string) => {
     try {
       const provincesResponse = await axios.get(`${PSGC_API}/provinces`);
@@ -164,6 +179,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Retrieves the barangays belonging to the selected city or municipality.
   const fetchBarangays = async (selectedCity: string) => {
     try {
       const response = await axios.get(`${PSGC_API}/cities-municipalities`);
@@ -192,6 +208,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Finds the selected address coordinates and moves the map to that area.
   const moveMapToSelectedAddress = async (
     selectedProvince: string,
     selectedCity: string,
@@ -248,6 +265,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Reverse-geocodes a map pin and updates the address fields from its coordinates.
   const updateAddressFromPin = async (
     lat: number,
     lng: number,
@@ -308,6 +326,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Searches for a location entered by the user and moves the map to the result.
   const searchMapLocation = async () => {
     try {
       const cleanSearch = mapSearchText.trim();
@@ -379,6 +398,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Requests device location permission and gets the facility current location.
   const getCurrentFacilityLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -429,6 +449,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Defines the conditions used to validate the email address.
   const emailRules = [
     {
       label: "Must be a valid email address",
@@ -440,6 +461,7 @@ export default function FacilitySignup() {
     },
   ];
 
+  //Defines the password requirements displayed to the user.
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
     {
@@ -465,6 +487,7 @@ export default function FacilitySignup() {
     },
   ];
 
+  //Checks whether the confirmation password matches the password.
   const confirmRules = [
     {
       label: "Passwords match",
@@ -472,6 +495,7 @@ export default function FacilitySignup() {
     },
   ];
 
+  //Displays one validation requirement and whether it has been satisfied.
   const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
     <View
       style={{
@@ -504,6 +528,7 @@ export default function FacilitySignup() {
     </View>
   );
 
+  //Displays a group of validation requirements in the form.
   const RulesBox = ({
     rules,
   }: {
@@ -528,6 +553,7 @@ export default function FacilitySignup() {
     </View>
   );
 
+  //Renders a dropdown field that opens the reusable selection modal.
   const DropdownBox = ({
     value,
     placeholder,
@@ -569,6 +595,7 @@ export default function FacilitySignup() {
     </Pressable>
   );
 
+  //Opens the image picker or camera flow for the facility certification image.
   const openCamera = async () => {
     Keyboard.dismiss();
 
@@ -610,6 +637,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Gets the file extension from the selected image URI.
   const getImageExtension = (uri: string) => {
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
@@ -622,6 +650,7 @@ export default function FacilitySignup() {
     return "jpg";
   };
 
+  //Determines the MIME content type based on the image file extension.
   const getContentType = (extension: string) => {
     if (extension === "png") return "image/png";
     if (extension === "webp") return "image/webp";
@@ -629,6 +658,7 @@ export default function FacilitySignup() {
     return "image/jpeg";
   };
 
+  //Uploads the selected certification image to Supabase Storage.
   const uploadCertificationImage = async () => {
     if (!image?.uri) {
       throw new Error("No certification image selected");
@@ -674,7 +704,9 @@ export default function FacilitySignup() {
     return data.publicUrl;
   };
 
+  //Builds the final formatted facility address before saving the account.
   const buildFinalLocation = () => {
+    //Renders the facility signup screen, including the form, map, and modals.
     return (
       location ||
       [province, city, barangay, street]
@@ -683,6 +715,7 @@ export default function FacilitySignup() {
     );
   };
 
+  //Normalizes names to make text comparison more consistent.
   const normalizeName = (value: string) => {
     return value
       .toLowerCase()
@@ -693,6 +726,7 @@ export default function FacilitySignup() {
       .trim();
   };
 
+  //Compares the facility name with the text extracted from its document.
   const isNameMatch = (enteredName: string, ocrText: string) => {
     const normalizedName = normalizeName(enteredName);
     const normalizedOCR = normalizeName(ocrText);
@@ -706,6 +740,7 @@ export default function FacilitySignup() {
     return nameParts.every((part) => normalizedOCR.includes(part));
   };
 
+  //Sends the uploaded document for OCR checking and validates its extracted text.
   const checkIdWithOCR = async (imageUrl: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -742,6 +777,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Validates the form, creates the facility account, and saves its information.
   const handleSignUp = async () => {
     console.log("FACILITY SIGNUP CLICKED");
 
@@ -951,6 +987,7 @@ export default function FacilitySignup() {
     }
   };
 
+  //Renders the facility signup screen, including the form, map, and modals.
   return (
     <View style={{ flex: 1, backgroundColor: "#DDEFD3" }}>
       <ImageBackground
@@ -1909,6 +1946,7 @@ export default function FacilitySignup() {
   );
 }
 
+//Contains additional styles used by the Terms and Conditions and dropdown modals.
 const localStyles = StyleSheet.create({
   termsCheckboxContainer: {
     flexDirection: "row",

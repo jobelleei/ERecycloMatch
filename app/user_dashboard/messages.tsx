@@ -24,6 +24,7 @@ import OnboardingTour, {
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
+//Conversation row that swipes left to reveal delete.
 function SwipeableConversation({
   item,
   onDelete,
@@ -33,11 +34,13 @@ function SwipeableConversation({
   onDelete: (conversation: any) => void;
   children: React.ReactNode;
 }) {
+  //Swipe position and open state.
   const translateX = useRef(new Animated.Value(0)).current;
   const openValue = -92;
   const restingX = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
 
+  //Animate the row to a position.
   const animateTo = (toValue: number) => {
     restingX.current = toValue;
     setIsOpen(toValue !== 0);
@@ -51,6 +54,7 @@ function SwipeableConversation({
   const closeRow = () => animateTo(0);
   const openRow = () => animateTo(openValue);
 
+  //Snap the row open or closed after a swipe.
   const settleRow = (dx: number, vx: number) => {
     const finalX = restingX.current + dx;
 
@@ -60,6 +64,7 @@ function SwipeableConversation({
     finalX < openValue / 2 ? openRow() : closeRow();
   };
 
+  //Horizontal swipe gesture handler.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -91,6 +96,7 @@ function SwipeableConversation({
 
   return (
     <View style={styles.swipeWrapper}>
+      {/*Delete button behind the row.*/}
       <View style={styles.deleteActionBehind}>
         <TouchableOpacity
           style={styles.deleteSwipeButton}
@@ -115,6 +121,7 @@ function SwipeableConversation({
       >
         {children}
 
+        {/*Tap outside to close the open row.*/}
         {isOpen && (
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -127,20 +134,24 @@ function SwipeableConversation({
   );
 }
 
+//Messages screen listing the user's conversations.
 export default function UserMessages() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //Conversation list state.
   const [user, setUser] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const firstConversationRef = useRef<ComponentRef<typeof View>>(null);
   const firstStatusRef = useRef<ComponentRef<typeof View>>(null);
   const messagesHelpRef = useRef<any>(null);
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!user?.id || loading) return;
 
@@ -149,6 +160,7 @@ export default function UserMessages() {
     });
   }, [user?.id, loading]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -190,6 +202,7 @@ export default function UserMessages() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -198,10 +211,12 @@ export default function UserMessages() {
     }
   };
 
+  //Load the user on mount.
   useEffect(() => {
     loadUser();
   }, []);
 
+  //Reload conversations when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       if (user?.id) {
@@ -217,6 +232,7 @@ export default function UserMessages() {
     }, [user?.id]),
   );
 
+  //Listen for conversation and message changes.
   useEffect(() => {
     if (!user?.id) return;
 
@@ -259,6 +275,7 @@ export default function UserMessages() {
     };
   }, [user?.id]);
 
+  //Load the logged in user from storage.
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -321,6 +338,7 @@ export default function UserMessages() {
     }
   };
 
+  //Get the latest activity time of a conversation.
   const getConversationTimeValue = (conversation: any) => {
     const dateValue =
       conversation?.updated_at ||
@@ -339,6 +357,7 @@ export default function UserMessages() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Merge conversations with the same facility.
   const groupConversationsByFacility = (list: any[]) => {
     const grouped: Record<string, any> = {};
 
@@ -391,6 +410,7 @@ export default function UserMessages() {
     );
   };
 
+  //Fetch the user's conversations.
   const fetchConversations = async (currentUserId = user?.id) => {
     try {
       if (!currentUserId) {
@@ -430,6 +450,7 @@ export default function UserMessages() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     try {
       setRefreshing(true);
@@ -441,6 +462,7 @@ export default function UserMessages() {
     }
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
     let cleanPath = String(path).trim();
@@ -454,6 +476,7 @@ export default function UserMessages() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
     const cleanPath = normalizeStoragePath(path, bucket);
@@ -463,6 +486,7 @@ export default function UserMessages() {
     return data?.publicUrl || "";
   };
 
+  //Get the facility image for a conversation.
   const getFacilityImageSource = (conversation: any) => {
     const imagePath =
       conversation?.facility_profile_image ||
@@ -494,6 +518,7 @@ export default function UserMessages() {
     };
   };
 
+  //Format a date for display.
   const formatDate = (value: string) => {
     if (!value) return "";
     const date = new Date(value);
@@ -508,10 +533,12 @@ export default function UserMessages() {
     });
   };
 
+  //Get who sent the match request.
   const getRequestSender = (conversation: any) => {
     return String(conversation?.requested_by || "").toLowerCase();
   };
 
+  //Check if a match request is still pending.
   const isPendingRequest = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const requestStatus = String(
@@ -525,6 +552,7 @@ export default function UserMessages() {
     );
   };
 
+  //Get the status label of a conversation.
   const getConversationStatus = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const lastMessage = String(conversation?.last_message || "").toLowerCase();
@@ -550,6 +578,7 @@ export default function UserMessages() {
     return "Conversation";
   };
 
+  //Status text and dot colors.
   const getStatusStyle = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const lastMessage = String(conversation?.last_message || "").toLowerCase();
@@ -579,6 +608,7 @@ export default function UserMessages() {
     return { backgroundColor: textStyle.color || "#555" };
   };
 
+  //Delete a conversation after confirming.
   const deleteConversation = async (conversation: any) => {
     Alert.alert(
       "Delete Conversation",
@@ -643,6 +673,7 @@ export default function UserMessages() {
     );
   };
 
+  //Open the chat and mark messages as read.
   const openChat = async (conversation: any) => {
     const convId = conversation.id;
     const currentUserId = Number(user?.id);
@@ -680,6 +711,7 @@ export default function UserMessages() {
     });
   };
 
+  //Render a conversation row.
   const renderConversation = ({ item, index }: any) => {
     const isUnread = !item.is_read;
 
@@ -699,6 +731,7 @@ export default function UserMessages() {
         >
           {isUnread && <View style={styles.unreadAccentBar} />}
 
+          {/*Facility avatar.*/}
           <View style={styles.avatarWrapper}>
             <Image
               source={getFacilityImageSource(item)}
@@ -707,6 +740,7 @@ export default function UserMessages() {
             {isUnread && <View style={styles.unreadAvatarDot} />}
           </View>
 
+          {/*Name, message preview and status.*/}
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
               <Text
@@ -756,6 +790,7 @@ export default function UserMessages() {
     );
   };
 
+  //Show a loader while loading.
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -767,6 +802,7 @@ export default function UserMessages() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/*Header with help button.*/}
       <View style={styles.headerRow}>
         <Text style={styles.header}>Messages</Text>
 
@@ -779,6 +815,7 @@ export default function UserMessages() {
         </TouchableOpacity>
       </View>
 
+      {/*Conversation list.*/}
       <FlatList
         data={conversations}
         keyExtractor={(item: any, index: number) =>
@@ -802,6 +839,7 @@ export default function UserMessages() {
 
       {user?.id && <UserBottomNav userId={user.id} active="messages" />}
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -811,6 +849,7 @@ export default function UserMessages() {
   );
 }
 
+//Styles for the messages screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -23,6 +23,7 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
+//A finished transaction record.
 type HistoryItem = {
   id: string | number;
   user_id?: string | number;
@@ -43,20 +44,25 @@ type HistoryItem = {
   created_at?: string | null;
 };
 
+//Screen showing completed recycling transactions.
 export default function RecyclingHistory() {
   const router = useRouter();
 
+  //History list and filter state.
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  //Logged in account info.
   const [accountId, setAccountId] = useState("");
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
   const [accountName, setAccountName] = useState("");
 
+  //Selected sort filter.
   const [filter, setFilter] = useState<"All" | "Latest" | "Oldest">("All");
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const summaryRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -64,6 +70,7 @@ export default function RecyclingHistory() {
   const historyHelpRef = useRef<any>(null);
   const tourName = `recycling_history_${accountRole || "facility"}`;
 
+  //Show the tour if the account has not finished it.
   useEffect(() => {
     if (!accountId || loading) return;
 
@@ -72,10 +79,12 @@ export default function RecyclingHistory() {
     });
   }, [accountId, loading, tourName]);
 
+  //Re-sort when history or filter changes.
   useEffect(() => {
     applyFilter();
   }, [history, filter]);
 
+  //Load the logged in account from storage.
   const loadAccount = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -139,10 +148,12 @@ export default function RecyclingHistory() {
     }
   };
 
+//Load the account on mount.
 useEffect(() => {
   loadAccount();
 }, []);
 
+//Fetch finished transactions for the account.
 const fetchHistory = async (
   currentAccountId: string,
   currentRole: "user" | "facility"
@@ -180,12 +191,14 @@ const fetchHistory = async (
   }
 };
 
+//Load history once the account is known.
 useEffect(() => {
   if (accountId && accountRole) {
     fetchHistory(accountId, accountRole);
   }
 }, [accountId, accountRole]);
 
+//Sort history by latest or oldest.
 const applyFilter = () => {
   let updated = [...history];
 
@@ -248,6 +261,7 @@ const applyFilter = () => {
     setFilteredHistory(updated);
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
   try {
     setRefreshing(true);
@@ -260,10 +274,12 @@ const applyFilter = () => {
   }
 };
 
+  //Go back to the previous screen.
   const goBack = () => {
     router.back();
   };
   
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -278,6 +294,7 @@ const applyFilter = () => {
     return data?.publicUrl || "";
   };
 
+  //Get the image for a history item.
   const getHistoryImageSource = (item: HistoryItem) => {
     const imagePath = String(item.item_image || "").trim();
 
@@ -296,6 +313,7 @@ const applyFilter = () => {
     };
   };
 
+  //Format a date and time for display.
   const formatDateTime = (dateValue: any) => {
     if (!dateValue) return "N/A";
 
@@ -315,6 +333,7 @@ const applyFilter = () => {
     });
   };
 
+  //Labels that depend on the account role.
   const getMatchedWithText = (item: HistoryItem) => {
     if (accountRole === "facility") {
       return item.user_name || "User";
@@ -339,6 +358,7 @@ const applyFilter = () => {
     return "Completed matches from your listed items";
   };
 
+  //Render a history card.
   const renderHistoryItem = ({
     item,
     index,
@@ -354,6 +374,7 @@ const applyFilter = () => {
       >
         <Image source={getHistoryImageSource(item)} style={styles.itemImage} />
 
+        {/*Item name, match info and dates.*/}
         <View style={styles.cardContent}>
           <Text style={styles.itemName}>{item.item_name || "Unnamed Item"}</Text>
 
@@ -387,6 +408,7 @@ const applyFilter = () => {
     );
   };
 
+  //Render the filter buttons.
   const renderFilters = () => {
     const filters: ("All" | "Latest" | "Oldest")[] = [
       "All",
@@ -396,6 +418,7 @@ const applyFilter = () => {
 
     return (
       <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
+        {/*Filter buttons.*/}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -425,8 +448,10 @@ const applyFilter = () => {
     );
   };
 
+  //Whether the account is a facility.
   const isFacility = accountRole !== "user";
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -471,6 +496,7 @@ const applyFilter = () => {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -479,6 +505,7 @@ const applyFilter = () => {
     }
   };
 
+  //Show a loader while loading.
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
@@ -490,6 +517,7 @@ const applyFilter = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/*Header with back and help buttons.*/}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={goBack}>
           <Text style={styles.backButton}>←</Text>
@@ -509,6 +537,7 @@ const applyFilter = () => {
         </TouchableOpacity>
       </View>
 
+      {/*Total completed records.*/}
       <View ref={summaryRef} collapsable={false} style={styles.summaryBox}>
         <Text style={styles.summaryNumber}>{history.length}</Text>
         <Text style={styles.summaryLabel}>Completed Match Records</Text>
@@ -516,6 +545,7 @@ const applyFilter = () => {
 
       {renderFilters()}
 
+      {/*History list.*/}
       <FlatList
         data={filteredHistory}
         keyExtractor={(item, index) => `history-${item.id || index}`}
@@ -537,6 +567,7 @@ const applyFilter = () => {
         }
       />
 
+      {/*Bottom navigation for the account type.*/}
       {accountRole === "facility" ? (
         <FacilityBottomNav
           facilityId={accountId}
@@ -549,6 +580,7 @@ const applyFilter = () => {
         />
       )}
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -558,6 +590,7 @@ const applyFilter = () => {
   );
 }
 
+//Styles for the recycling history screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -21,15 +21,18 @@ import OnboardingTour, {
 import { supabase } from "../../utils/supabase";
 import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
+//Screen showing details of a user's posted item.
 export default function ItemDetails() {
   const router = useRouter();
   const { item_id } = useLocalSearchParams();
 
+  //Item, facility and loading state.
   const [item, setItem] = useState<any>(null);
   const [facility, setFacility] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submittingInterest, setSubmittingInterest] = useState(false);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const titleRef = useRef<ComponentRef<typeof View>>(null);
@@ -40,6 +43,7 @@ export default function ItemDetails() {
   const detailsHelpRef = useRef<any>(null);
   const facilityTourId = String(facility?.id || facility?.facility_id || "");
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facilityTourId || loading || !item) return;
 
@@ -50,9 +54,11 @@ export default function ItemDetails() {
     );
   }, [facilityTourId, loading, item]);
 
+  //Scroll helpers used by the tour.
   const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -114,6 +120,7 @@ export default function ItemDetails() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
     scrollToTop();
@@ -123,10 +130,12 @@ export default function ItemDetails() {
     }
   };
 
+  //Load data when the item id changes.
   useEffect(() => {
     loadFacilityAndItem();
   }, [item_id]);
 
+  //Load the logged in facility and the item.
   const loadFacilityAndItem = async () => {
     try {
       setLoading(true);
@@ -165,6 +174,7 @@ export default function ItemDetails() {
     }
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -178,6 +188,7 @@ export default function ItemDetails() {
     return data?.publicUrl || "";
   };
 
+  //Open the item owner's profile.
   const openOwnerProfile = () => {
     const userId = item?.user_id || item?.submitter_user_id || item?.owner_id;
 
@@ -194,6 +205,7 @@ export default function ItemDetails() {
     });
   };
 
+  //Send an interest request to the item owner.
   const handleInterestedInItem = async () => {
     try {
       setSubmittingInterest(true);
@@ -393,6 +405,7 @@ export default function ItemDetails() {
     }
   };
 
+  //Show a loader while loading.
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -401,6 +414,7 @@ export default function ItemDetails() {
     );
   }
 
+  //Show a message if the item is missing.
   if (!item) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -415,6 +429,7 @@ export default function ItemDetails() {
     );
   }
 
+  //Item image url.
   const itemImage = getPublicImageUrl(
     "item-images",
     item.item_image || item.image || item.image_path || "",
@@ -423,6 +438,7 @@ export default function ItemDetails() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false}>
+        {/*Header with back and help buttons.*/}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={26} color="#222" />
@@ -447,6 +463,7 @@ export default function ItemDetails() {
         />
 
         <View style={styles.content}>
+          {/*Item name and category.*/}
           <View ref={titleRef} collapsable={false}>
             <Text style={styles.title}>
               {item.item_name || item.item_type || "Unnamed Item"}
@@ -457,6 +474,7 @@ export default function ItemDetails() {
             </Text>
           </View>
 
+          {/*Description.*/}
           <View style={styles.section}>
             <Text style={styles.label}>Description</Text>
             <Text style={styles.value}>
@@ -464,6 +482,7 @@ export default function ItemDetails() {
             </Text>
           </View>
 
+          {/*Issues or condition.*/}
           <View ref={issuesRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Issues / Condition</Text>
             <Text style={styles.value}>
@@ -471,6 +490,7 @@ export default function ItemDetails() {
             </Text>
           </View>
 
+          {/*Location.*/}
           <View ref={locationRef} collapsable={false} style={styles.section}>
             <Text style={styles.label}>Location</Text>
             <Text style={styles.value}>
@@ -478,6 +498,7 @@ export default function ItemDetails() {
             </Text>
           </View>
 
+          {/*Interested and view owner buttons.*/}
           <View style={styles.actionButtonsContainer}>
             <TouchableOpacity
               ref={interestedRef}
@@ -507,6 +528,7 @@ export default function ItemDetails() {
         </View>
       </ScrollView>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -516,6 +538,7 @@ export default function ItemDetails() {
   );
 }
 
+//Styles for the item details screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

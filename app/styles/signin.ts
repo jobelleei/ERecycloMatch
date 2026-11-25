@@ -1,6 +1,8 @@
 import { StyleSheet } from "react-native";
 
+//Styles for the sign in screen.
 export default StyleSheet.create({
+  //Main screen container.
   container: {
     flex: 1,
     backgroundColor: "#CFE8C6",
@@ -8,17 +10,20 @@ export default StyleSheet.create({
     justifyContent: "center",
   },
 
+  //Background image.
   background: {
     position: "absolute",
     width: "100%",
     height: "100%",
   },
 
+  //Dark layer over the background.
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(207,232,198,0.85)",
   },
 
+  //Back button in the top corner.
   backButton: {
     position: "absolute",
     top: 50,
@@ -26,29 +31,34 @@ export default StyleSheet.create({
     zIndex: 10,
   },
 
+  //Back arrow icon.
   backIcon: {
     width: 24,
     height: 24,
   },
 
+  //App logo.
   logo: {
     width: 110,
     height: 110,
     marginBottom: 10,
   },
 
+  //Screen title.
   title: {
     fontSize: 28,
     fontWeight: "bold",
     marginTop: 10,
   },
 
+  //Text under the title.
   subtitle: {
     fontSize: 14,
     color: "#333",
     marginBottom: 25,
   },
 
+  //Input field label.
   label: {
     alignSelf: "flex-start",
     marginLeft: "10%",
@@ -56,6 +66,7 @@ export default StyleSheet.create({
     fontWeight: "600",
   },
 
+  //Input wrapper with icon.
   inputBox: {
     width: "85%",
     height: 50,
@@ -67,6 +78,7 @@ export default StyleSheet.create({
     marginTop: 5,
   },
 
+  //Icon inside the input.
   inputIcon: {
     width: 20,
     height: 20,
@@ -74,18 +86,21 @@ export default StyleSheet.create({
     tintColor: "#666",
   },
 
+  //Show/hide password icon.
   eyeIcon: {
     width: 20,
     height: 20,
     tintColor: "#666",
   },
 
+  //Text input.
   input: {
     flex: 1,
     color: "#000000",
     fontSize: 14,
   },
 
+  //Forgot password link.
   forgot: {
     alignSelf: "flex-end",
     marginRight: "10%",
@@ -93,6 +108,7 @@ export default StyleSheet.create({
     color: "#333",
   },
 
+  //Main action button.
   button: {
     marginTop: 25,
     width: "70%",
@@ -103,6 +119,7 @@ export default StyleSheet.create({
     alignItems: "center",
   },
 
+  //Main action button text.
   buttonText: {
     color: "#fff",
     fontSize: 16,

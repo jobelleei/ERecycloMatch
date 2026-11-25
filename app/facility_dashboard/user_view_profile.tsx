@@ -18,10 +18,12 @@ import FacilityBottomNav from "../../components/FacilityBottomNav";
 import { supabase } from "../../utils/supabase";
 import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
+//Screen showing a user's public profile to a facility.
 export default function UserViewProfile() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //User lookup values from the route params.
   const userId = String(
     params.user_id ||
       params.receiver_id ||
@@ -55,6 +57,7 @@ export default function UserViewProfile() {
       "",
   );
 
+  //Logged in facility info.
   const [facility, setFacility] = useState({
     id: "",
     name: "",
@@ -63,6 +66,7 @@ export default function UserViewProfile() {
     profileImage: "",
   });
 
+  //Viewed user's profile details.
   const [user, setUser] = useState({
     id: "",
     name: "",
@@ -72,6 +76,7 @@ export default function UserViewProfile() {
     profileImage: "",
   });
 
+  //Listings, feedbacks and screen state.
   const [items, setItems] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -87,6 +92,7 @@ export default function UserViewProfile() {
   const [refreshing, setRefreshing] = useState(false);
   const [openingChatItemId, setOpeningChatItemId] = useState("");
 
+  //Issue photos and carousel index per post.
   const [postIssuePhotos, setPostIssuePhotos] = useState<{
     [itemId: string]: any[];
   }>({});
@@ -95,13 +101,16 @@ export default function UserViewProfile() {
     [itemId: string]: number;
   }>({});
 
+  //Images that failed to load.
   const [brokenImageUrls, setBrokenImageUrls] = useState<{
     [url: string]: boolean;
   }>({});
 
+  //Full screen image preview state.
   const [imagePreviewVisible, setImagePreviewVisible] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
 
+  //Sort feedbacks by the selected option.
   const sortedFeedbacks = useMemo(() => {
     return [...feedbacks].sort((a, b) => {
       if (feedbackSort === "newest") {
@@ -130,6 +139,7 @@ export default function UserViewProfile() {
     });
   }, [feedbacks, feedbackSort]);
 
+  //Load the facility and user on mount.
   useEffect(() => {
     loadFacility();
 
@@ -152,6 +162,7 @@ export default function UserViewProfile() {
     }
   }, [userId, usernameParam, emailParam, nameParam]);
 
+  //Reload when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadFacility();
@@ -162,6 +173,7 @@ export default function UserViewProfile() {
     }, [userId, usernameParam, emailParam, nameParam]),
   );
 
+  //Auto refresh the user profile.
   useEffect(() => {
     if (!userId && !usernameParam && !emailParam && !nameParam) return;
 
@@ -172,6 +184,7 @@ export default function UserViewProfile() {
     return () => clearInterval(interval);
   }, [userId, usernameParam, emailParam, nameParam]);
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -236,10 +249,12 @@ export default function UserViewProfile() {
     }
   };
 
+  //Reload the user's profile.
   const refreshUserProfile = async () => {
     await fetchUserProfile();
   };
 
+  //Image preview helpers.
   const openImagePreview = (imageUrl: string) => {
     if (!imageUrl || imageUrl.includes("via.placeholder.com")) return;
 
@@ -252,6 +267,7 @@ export default function UserViewProfile() {
     setPreviewImageUrl("");
   };
 
+  //Remember an image that failed to load.
   const markImageAsBroken = (imageUrl: string) => {
     if (!imageUrl || imageUrl.includes("via.placeholder.com")) return;
 
@@ -261,6 +277,7 @@ export default function UserViewProfile() {
     }));
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -278,6 +295,7 @@ export default function UserViewProfile() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -292,12 +310,14 @@ export default function UserViewProfile() {
     return data?.publicUrl ? encodeURI(data.publicUrl) : "";
   };
 
+  //Get the profile image url.
   const getProfileImageUrl = (image: string) => {
     if (!image || String(image).trim() === "") return "";
 
     return getPublicImageUrl("profile-images", image);
   };
 
+  //Item getters.
   const getPostStatus = (item: any) => {
     return item.match_status || item.matchStatus || item.status || "Listed";
   };
@@ -306,6 +326,7 @@ export default function UserViewProfile() {
     return String(item?.item_name || item?.item_type || "Unnamed Item");
   };
 
+  //Get the city from an address.
   const extractCityFromAddress = (address: any) => {
     const rawAddress = String(address || "").trim();
 
@@ -382,6 +403,7 @@ export default function UserViewProfile() {
     return parts[0] || rawAddress;
   };
 
+  //City helpers for posts and the user.
   const getPostCity = (item: any) => {
     const address =
       item.city ||
@@ -400,6 +422,7 @@ export default function UserViewProfile() {
     return extractCityFromAddress(user.address);
   };
 
+  //Get the main scanned image of an item.
   const getMainScannedImageUrl = (item: any) => {
     const imagePath = String(item?.item_image || "").trim();
 
@@ -412,6 +435,7 @@ export default function UserViewProfile() {
     return getPublicImageUrl("item-images", imagePath);
   };
 
+  //Get the url of an issue photo.
   const getIssuePhotoUrl = (photo: any) => {
     const imagePath = String(
       photo?.photo_url ||
@@ -434,6 +458,7 @@ export default function UserViewProfile() {
     return getPublicImageUrl("item-issue-photos", imagePath);
   };
 
+  //Get all images for a post.
   const getPostImages = (item: any) => {
     const itemId = String(item.id);
 
@@ -464,6 +489,7 @@ export default function UserViewProfile() {
     return finalImages;
   };
 
+  //Go to the next post image.
   const nextPostImage = (itemId: string, totalImages: number) => {
     setPostImageIndexes((prev) => {
       const currentIndex = prev[itemId] || 0;
@@ -476,6 +502,7 @@ export default function UserViewProfile() {
     });
   };
 
+  //Go to the previous post image.
   const previousPostImage = (itemId: string, totalImages: number) => {
     setPostImageIndexes((prev) => {
       const currentIndex = prev[itemId] || 0;
@@ -489,6 +516,7 @@ export default function UserViewProfile() {
     });
   };
 
+  //Split issues into a clean list.
   const cleanIssues = (issues: any) => {
     if (!issues || String(issues).trim() === "") return [];
 
@@ -522,6 +550,7 @@ export default function UserViewProfile() {
       .filter((issue) => issue.length > 0 && issue.toLowerCase() !== "none");
   };
 
+  //Render a star rating.
   const renderStars = (rating: number) => {
     const cleanRating = Math.max(
       0,
@@ -531,6 +560,7 @@ export default function UserViewProfile() {
     return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
   };
 
+  //Fetch the user's profile from Supabase.
   const fetchUserProfile = async () => {
     try {
       let selectedUser: any = null;
@@ -669,6 +699,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Fetch issue photos for the listed items.
   const fetchIssuePhotosForListings = async (listedItems: any[]) => {
     try {
       if (!listedItems || listedItems.length === 0) {
@@ -716,6 +747,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Get the time used to sort items.
   const getItemTimeValue = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -738,10 +770,12 @@ export default function UserViewProfile() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Sort items from newest to oldest.
   const sortByLatest = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
   };
 
+  //Fetch the user's listed items.
   const fetchListings = async (mappedUser: any) => {
     try {
       if (!mappedUser.name && !mappedUser.id) {
@@ -809,6 +843,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Fetch feedbacks and compute the average rating.
   const fetchFeedbacks = async (mappedUser: any) => {
     try {
       if (!mappedUser.id) {
@@ -851,12 +886,14 @@ export default function UserViewProfile() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshUserProfile();
     setRefreshing(false);
   }, [userId, usernameParam, emailParam, nameParam]);
 
+  //Date formatters.
   const formatListedDate = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -899,6 +936,7 @@ export default function UserViewProfile() {
     });
   };
 
+  //Set an item's status to pending match.
   const markItemAsPendingMatch = async (item: any) => {
     try {
       if (!item?.id) return;
@@ -920,6 +958,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Add a "Match request sent" message once.
   const ensureMatchRequestMessage = async (conversationId: string) => {
     try {
       const { data: existingMessage, error: findError } = await supabase
@@ -958,6 +997,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Start or open a chat about an item.
   const openMessage = async (item: any) => {
     try {
       if (!facility.id) {
@@ -1086,6 +1126,7 @@ export default function UserViewProfile() {
     }
   };
 
+  //Render a listed post card.
   const renderPost = ({ item }: any) => {
     const itemId = String(item.id);
     const images = getPostImages(item);
@@ -1099,6 +1140,7 @@ export default function UserViewProfile() {
 
     return (
       <View style={styles.postCard}>
+        {/*Image carousel with arrows and counter.*/}
         <View style={styles.imageCarouselWrapper}>
           <TouchableOpacity
             activeOpacity={0.9}
@@ -1143,6 +1185,7 @@ export default function UserViewProfile() {
           {item.description || item.item_type || "No description added."}
         </Text>
 
+        {/*Issues list.*/}
         {issuesList.length > 0 && (
           <View style={styles.issuesBox}>
             <Text style={styles.issuesTitle}>Issues:</Text>
@@ -1155,6 +1198,7 @@ export default function UserViewProfile() {
           </View>
         )}
 
+        {/*Location and date row.*/}
         <View style={styles.postMetaRow}>
           <Image
             source={require("../../assets/icons/location.png")}
@@ -1170,6 +1214,7 @@ export default function UserViewProfile() {
 
         <View style={styles.divider} />
 
+        {/*Interested button.*/}
         <TouchableOpacity
           style={[
             styles.interestedButton,
@@ -1186,9 +1231,11 @@ export default function UserViewProfile() {
     );
   };
 
+  //Render a feedback card.
   const renderFeedback = ({ item }: any) => {
     return (
       <View style={styles.feedbackCard}>
+        {/*Rater name and stars.*/}
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackName}>
             {item.rater_name || "Anonymous Facility"}
@@ -1203,6 +1250,7 @@ export default function UserViewProfile() {
           {renderStars(Number(item.rating || 0))}
         </Text>
 
+        {/*Feedback comment.*/}
         {item.comment ? (
           <Text style={styles.feedbackMessage}>{item.comment}</Text>
         ) : (
@@ -1212,6 +1260,7 @@ export default function UserViewProfile() {
     );
   };
 
+  //Render feedback sort options.
   const renderFeedbackSort = () => {
     if (activeSection !== "feedbacks") return null;
 
@@ -1229,6 +1278,7 @@ export default function UserViewProfile() {
       <View style={styles.filterWrapper}>
         <Text style={styles.filterTitle}>Sort Feedbacks</Text>
 
+        {/*Sort option chips.*/}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1258,6 +1308,7 @@ export default function UserViewProfile() {
     );
   };
 
+  //Data for the active tab.
   const listData = activeSection === "listed" ? items : sortedFeedbacks;
 
   return (
@@ -1277,6 +1328,7 @@ export default function UserViewProfile() {
         }
         ListHeaderComponent={
           <View>
+            {/*Profile header with photo, name and location.*/}
             <View style={styles.profileHeader}>
               <TouchableOpacity
                 style={styles.backButton}
@@ -1311,6 +1363,7 @@ export default function UserViewProfile() {
                 <Text style={styles.headerAddress}>{getUserCity()}</Text>
               </View>
 
+              {/*Average rating summary.*/}
               <View style={styles.ratingSummaryBox}>
                 <Text style={styles.ratingSummaryStars}>
                   {renderStars(Math.round(averageRating))}
@@ -1326,6 +1379,7 @@ export default function UserViewProfile() {
               </View>
             </View>
 
+            {/*Listed and feedbacks tabs.*/}
             <View style={styles.sectionTabs}>
               <TouchableOpacity
                 style={[
@@ -1375,6 +1429,7 @@ export default function UserViewProfile() {
         }
       />
 
+      {/*Full screen image preview.*/}
       <Modal visible={imagePreviewVisible} transparent animationType="fade">
         <View style={styles.previewOverlay}>
           <TouchableOpacity
@@ -1392,11 +1447,13 @@ export default function UserViewProfile() {
         </View>
       </Modal>
 
+      {/*Bottom navigation bar.*/}
       <FacilityBottomNav facilityId={facility.id} active="profile" />
     </SafeAreaView>
   );
 }
 
+//Styles for the user profile screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

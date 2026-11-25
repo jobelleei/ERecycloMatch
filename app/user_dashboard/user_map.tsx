@@ -32,15 +32,19 @@ import { getRoadRoute as fetchRoadRoute } from "../../utils/routing";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { supabase } from "../../utils/supabase";
 
+//Height of the bottom navigation bar.
 const NAV_HEIGHT = 70;
 
+//Latitude and longitude pair.
 type Coord = {
   latitude: number;
   longitude: number;
 };
 
+//Which set of pins the map is showing.
 type MapMode = "facilities" | "bins";
 
+//A facility or drop off bin shown on the map.
 type MapPin = {
   id: string;
   name: string;
@@ -63,6 +67,7 @@ type MapPin = {
   profileImage?: string;
 };
 
+//Fallback drop off bins used when the database has none.
 const DEFAULT_DROP_OFF_BINS: MapPin[] = [
   {
     id: "default-bin-1",
@@ -146,29 +151,36 @@ const DEFAULT_DROP_OFF_BINS: MapPin[] = [
   },
 ];
 
+//Map screen for finding recycling facilities and drop off bins.
 export default function UserMapScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //Map and live location tracking references.
   const mapRef = useRef<MapView | null>(null);
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
     null
   );
 
+  //Signatures used to skip reloading unchanged data.
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
 
+  //Latest pin lists kept in refs for use inside callbacks.
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
 
+  //Track route params that were already handled.
   const handledRouteFocusKeyRef = useRef<string>("");
   const handledDropOffInterfaceKeyRef = useRef<string>("");
   const isApplyingRouteFocusRef = useRef(false);
 
+  //Core screen state.
   const [userLocation, setUserLocation] = useState<Coord | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("facilities");
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
@@ -176,12 +188,14 @@ export default function UserMapScreen() {
   const showListRef = useRef<any>(null);
   const mapHelpRef = useRef<any>(null);
 
+  //List and pin data state.
   const [showList, setShowList] = useState(false);
   const [sortedPins, setSortedPins] = useState<MapPin[]>([]);
 
   const [facilities, setFacilities] = useState<MapPin[]>([]);
   const [dropOffBins, setDropOffBins] = useState<MapPin[]>([]);
 
+  //Selected pin and navigation state.
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [navigationTarget, setNavigationTarget] = useState<MapPin | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -189,11 +203,14 @@ export default function UserMapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState<Coord[]>([]);
 
 
+  //Search state.
   const [search, setSearch] = useState("");
   const [loadingPins, setLoadingPins] = useState(false);
 
+  //Slide animation for the bottom list.
   const translateY = useRef(new Animated.Value(300)).current;
 
+  //Read a route param as a trimmed string.
   const getParamValue = (value: any) => {
     if (Array.isArray(value)) {
       return String(value[0] || "").trim();
@@ -202,6 +219,7 @@ export default function UserMapScreen() {
     return String(value || "").trim();
   };
 
+  //Check if the route asks to open the drop off bins view.
   const shouldOpenDropOffBinsInterface = useMemo(() => {
     const mapModeParam = getParamValue(params.mapMode);
     const modeParam = getParamValue(params.mode);
@@ -236,6 +254,7 @@ export default function UserMapScreen() {
     params.selectedPinType,
   ]);
 
+  //Unique key for the drop off bins route request.
   const dropOffInterfaceRouteKey = shouldOpenDropOffBinsInterface
     ? [
         getParamValue(params.mapMode),
@@ -250,6 +269,7 @@ export default function UserMapScreen() {
       ].join("|")
     : "";
 
+  //Build a bin pin from route params to focus on.
   const incomingSelectedBin = useMemo(() => {
     const rawLatitude =
       getParamValue(params.selectedBinLatitude) ||
@@ -337,17 +357,21 @@ export default function UserMapScreen() {
     shouldOpenDropOffBinsInterface,
   ]);
 
+  //Unique key for the incoming bin.
   const incomingSelectedBinKey = incomingSelectedBin
     ? `${incomingSelectedBin.id}-${incomingSelectedBin.latitude}-${incomingSelectedBin.longitude}`
     : "";
 
+  //Scroll position of the bottom list.
   const listScrollOffset = useRef(0);
 
+  //Detect a downward swipe when the list is at the top.
   const isSwipeDown = (gesture: { dx: number; dy: number }) =>
     gesture.dy > 10 &&
     Math.abs(gesture.dy) > Math.abs(gesture.dx) &&
     listScrollOffset.current <= 0;
 
+  //Swipe down gesture to close the bottom list.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => isSwipeDown(gesture),
@@ -383,6 +407,7 @@ export default function UserMapScreen() {
     })
   ).current;
 
+  //Load location and pins on mount, stop navigation on unmount.
   useEffect(() => {
     loadUserLocation();
     checkAndLoadFacilities(true, false);
@@ -393,6 +418,7 @@ export default function UserMapScreen() {
     };
   }, []);
 
+//Load the logged in user from storage.
 useEffect(() => {
   const loadCurrentUser = async () => {
     try {
@@ -412,6 +438,7 @@ useEffect(() => {
   loadCurrentUser();
 }, []);
 
+  //Refresh the list when map mode or location changes.
   useEffect(() => {
     const currentPins = getPinsForSearch(search);
 
@@ -429,12 +456,14 @@ useEffect(() => {
     }
   }, [mapMode, userLocation]);
 
+  //Refresh the list when pins or search change.
   useEffect(() => {
     const currentPins = getPinsForSearch(search);
 
     updateNearestList(currentPins, search);
   }, [facilities, dropOffBins, search]);
 
+  //Focus on a bin passed through the route.
   useEffect(() => {
     if (!incomingSelectedBin || !incomingSelectedBinKey) {
       return;
@@ -448,6 +477,7 @@ useEffect(() => {
     focusIncomingDropOffBin(incomingSelectedBin);
   }, [incomingSelectedBinKey, dropOffBins.length]);
 
+  //Open the drop off bins view when requested by the route.
   useEffect(() => {
     if (!shouldOpenDropOffBinsInterface || incomingSelectedBin) {
       return;
@@ -471,6 +501,7 @@ useEffect(() => {
     userLocation,
   ]);
 
+  //Ask for location permission and center the map on the user.
   const loadUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -508,6 +539,7 @@ useEffect(() => {
     }
   };
 
+  //Lowercase text and strip special characters.
   const normalizeText = (text: any) => {
     return String(text || "")
       .toLowerCase()
@@ -516,6 +548,7 @@ useEffect(() => {
       .trim();
   };
 
+  //Split a search keyword into words.
   const getSearchWords = (keywordValue: string) => {
     return normalizeText(keywordValue)
       .split(" ")
@@ -523,6 +556,7 @@ useEffect(() => {
       .filter((word) => word.length > 0);
   };
 
+  //Related terms used to widen search matches.
   const SEARCH_ALIASES: Record<string, string[]> = {
     laptop: ["laptop", "notebook", "computer", "pc", "portable computer"],
     notebook: ["notebook", "laptop", "computer", "pc", "portable computer"],
@@ -580,6 +614,7 @@ useEffect(() => {
     bins: ["bins", "bin", "drop off", "drop off bin", "dropoff", "collection point", "collection bin"],
   };
 
+  //Get alias groups for each search word.
   const getRelatedSearchGroups = (keywordValue: string) => {
     const normalized = normalizeText(keywordValue);
 
@@ -594,6 +629,7 @@ useEffect(() => {
     });
   };
 
+  //Return the first non-empty value from a list of keys.
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -610,6 +646,7 @@ useEffect(() => {
     return "";
   };
 
+  //Get the facility name from possible fields.
   const getFacilityName = (facility: any) => {
     return (
       getValueFromKeys(facility, [
@@ -626,6 +663,7 @@ useEffect(() => {
     );
   };
 
+  //Get the facility address from possible fields.
   const getFacilityAddress = (facility: any) => {
     const directAddress = getValueFromKeys(facility, [
       "location",
@@ -653,6 +691,7 @@ useEffect(() => {
     return parts.join(", ");
   };
 
+  //Facility detail getters.
   const getFacilityOpeningDaysFrom = (facility: any) => {
   return String(
     getValueFromKeys(facility, [
@@ -717,6 +756,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     ).trim();
   };
 
+  //Format opening days for display.
   const formatOpeningDays = (from?: string, to?: string) => {
   const cleanFrom = String(from || "").trim();
   const cleanTo = String(to || "").trim();
@@ -736,6 +776,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   return `${cleanFrom} - ${cleanTo}`;
 };
 
+  //Format operating hours for display.
   const formatOperatingHours = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
     const cleanTo = String(to || "").trim();
@@ -755,6 +796,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Clean up comma separated text.
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
 
@@ -769,6 +811,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       .join(", ");
   };
 
+  //Get coordinates from possible fields.
   const getLatitude = (item: any) => {
     return getValueFromKeys(item, [
       "latitude",
@@ -788,6 +831,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     ]);
   };
 
+  //Check if a profile is an approved facility.
   const isApprovedFacility = (profile: any) => {
     const role = normalizeText(
       getValueFromKeys(profile, ["role", "account_type", "user_type", "type"])
@@ -814,6 +858,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return roleIsFacility && statusIsApproved;
   };
 
+  //Build searchable text for a pin.
   const getPinSearchText = (pin: MapPin) => {
     const typeWords =
       pin.type === "facilities"
@@ -836,6 +881,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     );
   };
 
+  //Filter pins that match the search keyword.
   const filterPinsBySearch = (pinList: MapPin[], keywordValue = search) => {
     const keyword = normalizeText(keywordValue);
     const words = getSearchWords(keywordValue);
@@ -858,6 +904,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     });
   };
 
+  //Combine facilities and bins without duplicates.
   const getAllPins = () => {
     const combinedPins = [...facilitiesRef.current, ...binsRef.current];
     const uniquePins = new Map<string, MapPin>();
@@ -869,6 +916,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return Array.from(uniquePins.values());
   };
 
+  //Use all pins when searching, else only the current mode.
   const getPinsForSearch = (keywordValue = search) => {
     if (keywordValue.trim().length > 0) {
       return getAllPins();
@@ -877,6 +925,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return mapMode === "facilities" ? facilitiesRef.current : binsRef.current;
   };
 
+  //Shorten an address for geocoding.
   const extractBarangayMunicipalityProvince = (addressText: string) => {
     if (!addressText) return "";
 
@@ -900,6 +949,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return `${addressText}, Philippines`;
   };
 
+  //Convert an address to coordinates.
   const geocodeLocation = async (addressText: string) => {
     try {
       if (!addressText) return null;
@@ -932,6 +982,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Check if coordinates are valid.
   const hasValidCoordinates = (latitude: any, longitude: any) => {
     const lat = Number(latitude);
     const lng = Number(longitude);
@@ -948,6 +999,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     );
   };
 
+  //Create a signature to detect data changes.
   const getRowsSignature = (list: any[]) => {
     return list
       .map((row) => JSON.stringify(row))
@@ -955,6 +1007,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       .join("::");
   };
 
+  //Distance in km between two points (Haversine).
   const getDistanceKmNumber = (a: Coord, b: Coord) => {
   const R = 6371;
 
@@ -980,12 +1033,14 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   return R * c;
 };
 
+  //Fetch the road route and remaining distance.
   const getRoadRoute = async (origin: Coord, destination: Coord) => {
     const route = await fetchRoadRoute(origin, destination);
     setRouteCoordinates(route.coordinates);
     setRemainingDistance(route.distanceKm.toFixed(2));
   };
 
+  //Filter pins and sort them by distance.
   const updateNearestList = (pinList: MapPin[], keywordValue = search) => {
     const filteredPins = filterPinsBySearch(pinList, keywordValue);
 
@@ -1007,6 +1062,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return sorted;
   };
 
+  //Convert facility rows into map pins.
   const buildFacilitiesFromRows = async (approvedFacilities: any[]) => {
     const finalFacilities: MapPin[] = [];
 
@@ -1066,6 +1122,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return finalFacilities;
   };
 
+  //Convert bin rows into map pins.
   const buildBinsFromRows = async (bins: any[]) => {
     const finalBins: MapPin[] = [];
 
@@ -1114,6 +1171,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return finalBins;
   };
 
+  //Load approved facilities from Supabase.
   const checkAndLoadFacilities = async (
     forceLoad = false,
     showLoader = true
@@ -1142,6 +1200,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         facilitiesSignatureRef.current !== newSignature;
 
       if (!hasChanges) {
+        //No changes, just refresh the list.
         if (mapMode === "facilities") {
           updateNearestList(facilitiesRef.current, search);
         }
@@ -1169,6 +1228,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Load active drop off bins from Supabase.
   const checkAndLoadDropOffBins = async (
     forceLoad = false,
     showLoader = true
@@ -1183,6 +1243,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         .select("*");
 
       if (error) {
+        //Use default bins on error.
         console.log("CHECK DROP OFF BINS ERROR:", error);
 
         binsSignatureRef.current = "default-drop-off-bins";
@@ -1197,6 +1258,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         return DEFAULT_DROP_OFF_BINS;
       }
 
+      //Keep only active bins.
       const activeBins = (data || []).filter((bin: any) => {
         const status = normalizeText(
           getValueFromKeys(bin, ["status", "state"]) || "active"
@@ -1227,6 +1289,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
       let finalBins = await buildBinsFromRows(activeBins);
 
+      //Use default bins if none were found.
       if (finalBins.length === 0) {
         finalBins = DEFAULT_DROP_OFF_BINS;
       }
@@ -1261,6 +1324,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Find a bin by id, name, or nearby coordinates.
   const findMatchingBinPin = (targetPin: MapPin, pinList: MapPin[]) => {
     const exactIdMatch = pinList.find(
       (pin) => String(pin.id) === String(targetPin.id)
@@ -1294,6 +1358,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return targetPin;
   };
 
+  //Switch to bins mode and zoom to the selected bin.
   const focusIncomingDropOffBin = async (targetPin: MapPin) => {
     try {
       isApplyingRouteFocusRef.current = true;
@@ -1338,6 +1403,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Open the bins list and zoom to the nearest bin.
   const openDropOffBinsInterfaceFromRoute = async () => {
     try {
       isApplyingRouteFocusRef.current = true;
@@ -1361,6 +1427,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         useNativeDriver: true,
       }).start();
 
+      //Pick the closest bin to focus on.
       const firstPinToFocus =
         userLocation && latestBins.length > 0
           ? [...latestBins]
@@ -1394,6 +1461,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Reload pins for the current map mode.
   const refreshCurrentModePins = async (showLoader = true) => {
     if (mapMode === "facilities") {
       return await checkAndLoadFacilities(false, showLoader);
@@ -1402,6 +1470,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return await checkAndLoadDropOffBins(false, showLoader);
   };
 
+  //Load pins and slide up the list.
   const openPinsList = async () => {
     if (search.trim().length > 0) {
       const latestFacilities = await checkAndLoadFacilities(true, true);
@@ -1427,6 +1496,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }).start();
   };
 
+  //Run the search and show results.
   const handleSearch = async () => {
     const cleanSearch = search.trim();
 
@@ -1454,6 +1524,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       return;
     }
 
+    //Zoom to the first result.
     if (filteredPins.length > 0) {
       const firstResult = filteredPins[0];
 
@@ -1479,12 +1550,14 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       useNativeDriver: true,
     }).start();
 
+    //No results found.
     Alert.alert(
       "Not Found",
       "No facility or drop off bin matched your search."
     );
   };
 
+  //Move the map to a pin.
   const goToPinOnMap = (pin: MapPin) => {
     mapRef.current?.animateToRegion(
       {
@@ -1497,6 +1570,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     );
   };
 
+  //Show pin details and focus on it.
   const openPinDetails = (pin: MapPin) => {
     Keyboard.dismiss();
     setSelectedPin(pin);
@@ -1504,6 +1578,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     goToPinOnMap(pin);
   };
 
+  //Open the facility profile screen.
   const viewFacilityProfile = (pin: MapPin) => {
     if (pin.type !== "facilities") return;
 
@@ -1515,6 +1590,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     });
   };
 
+  //Stop tracking and clear the route.
   const stopNavigation = async () => {
     try {
       if (locationSubscriptionRef.current) {
@@ -1531,6 +1607,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Start directions to the selected pin.
   const startNavigation = async (pin: MapPin) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -1569,6 +1646,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
             }
         );
 
+      //Fit both points on screen.
       mapRef.current?.fitToCoordinates(
         [
           currentCoords,
@@ -1588,6 +1666,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         }
       );
 
+      //Track the user and stop when they arrive.
       const subscription = await Location.watchPositionAsync(
         {
           accuracy: Location.Accuracy.High,
@@ -1634,6 +1713,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Update results while typing.
   const handleSearchTextChange = (text: string) => {
     setSearch(text);
 
@@ -1659,6 +1739,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Clear the search box.
   const clearSearch = () => {
     Keyboard.dismiss();
     setSearch("");
@@ -1670,6 +1751,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     updateNearestList(currentPins, "");
   };
 
+  //Switch between facilities and bins.
   const switchMapMode = async (mode: MapMode) => {
     Keyboard.dismiss();
     setMapMode(mode);
@@ -1686,6 +1768,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Render a label and value row.
   const renderFacilityInfoRow = (label: string, value: string) => {
     return (
       <View style={styles.facilityInfoRow}>
@@ -1695,6 +1778,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     );
   };
 
+  //Get the facility image for search results.
   const getSearchResultImage = (pin: MapPin) => {
     const imagePath = String(pin.profileImage || "").trim();
 
@@ -1713,6 +1797,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     return data?.publicUrl ? { uri: data.publicUrl } : null;
   };
 
+  //Pins currently shown on the map.
   const currentMapPins =
     search.trim().length > 0
       ? filterPinsBySearch([...facilities, ...dropOffBins], search)
@@ -1720,6 +1805,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
         ? filterPinsBySearch(facilities, search)
         : filterPinsBySearch(dropOffBins, search);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -1776,6 +1862,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -1784,6 +1871,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     }
   };
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!currentUser?.id) return;
 
@@ -1796,6 +1884,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View style={{ flex: 1 }}>
+        {/*Search bar, help button and app icon.*/}
         <View style={styles.searchContainer}>
           <View
             ref={searchBarRef}
@@ -1824,6 +1913,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           )}
           </View>
 
+          {/*Replay the onboarding tour.*/}
           <TouchableOpacity
             ref={mapHelpRef}
             style={styles.clearSearchButton}
@@ -1841,6 +1931,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           />
         </View>
 
+        {/*Search suggestions dropdown.*/}
         {search.trim().length > 0 && (
           <View style={styles.searchDropdown}>
             <FlatList
@@ -1897,6 +1988,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </View>
         )}
 
+        {/*Map mode toggle buttons.*/}
         <View style={styles.modeButtonContainer}>
           <TouchableOpacity
             ref={facilitiesModeRef}
@@ -1935,6 +2027,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </TouchableOpacity>
         </View>
 
+        {/*Button to open the pins list.*/}
         <TouchableOpacity
           ref={showListRef}
           style={styles.button}
@@ -1951,6 +2044,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           )}
         </TouchableOpacity>
 
+        {/*Map with pins and route.*/}
         <MapView
           ref={mapRef}
           style={{ flex: 1, paddingBottom: NAV_HEIGHT }}
@@ -1992,6 +2086,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
             </Marker>
           ))}
 
+          {/*Route line while navigating.*/}
           {isNavigating && userLocation && navigationTarget && (
             <Polyline
               coordinates={routeCoordinates}
@@ -2001,6 +2096,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           )}
           </MapView>
 
+        {/*Map legend.*/}
         <View style={styles.legend}>
           <Text style={styles.legendTitle}>Legend</Text>
 
@@ -2027,6 +2123,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           )}
         </View>
 
+        {/*Active route info with cancel button.*/}
         {isNavigating && navigationTarget && (
           <View style={styles.routeBox}>
             <View style={styles.routeInfo}>
@@ -2052,6 +2149,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </View>
         )}
 
+        {/*Selected pin details panel.*/}
         {selectedPin && (
           <View style={styles.detailsBox}>
             <ScrollView
@@ -2073,6 +2171,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
                   "No address provided"}
               </Text>
 
+              {/*Extra facility details.*/}
               {selectedPin.type === "facilities" && (
                 <View style={styles.facilityInfoBox}>
                 {renderFacilityInfoRow(
@@ -2111,6 +2210,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
 
             </ScrollView>
 
+            {/*Profile and directions buttons.*/}
             <View style={styles.detailsButtonRow}>
               {selectedPin.type === "facilities" && (
                 <TouchableOpacity
@@ -2142,6 +2242,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </View>
         )}
 
+        {/*Swipeable list of nearby pins.*/}
         {showList && search.trim().length === 0 && (
           <Animated.View
             style={[
@@ -2213,6 +2314,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
           </Animated.View>
         )}
 
+        {/*Bottom navigation bar.*/}
         {currentUser && (
           <UserBottomNav
             userId={currentUser.id}
@@ -2222,6 +2324,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
       </View>
       </TouchableWithoutFeedback>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -2231,6 +2334,7 @@ const getFacilityOpeningDaysTo = (facility: any) => {
   );
 }
 
+//Styles for the map screen.
 const styles = StyleSheet.create({
   searchContainer: {
     position: "absolute",

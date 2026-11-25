@@ -20,10 +20,12 @@ import OnboardingTour, {
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
+//Profile screen for individual users.
 export default function Profile() {
   const router = useRouter();
   const pathname = usePathname();
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const ratingRef = useRef<ComponentRef<typeof View>>(null);
   const myItemsRef = useRef<any>(null);
@@ -32,6 +34,7 @@ export default function Profile() {
   const feedbacksTabRef = useRef<any>(null);
   const profileHelpRef = useRef<any>(null);
 
+  //Profile details.
   const [user, setUser] = useState({
     id: "",
     name: "",
@@ -41,6 +44,7 @@ export default function Profile() {
     profileImage: "",
   });
 
+  //Listings, feedbacks and screen state.
   const [items, setItems] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -54,6 +58,7 @@ export default function Profile() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  //Issue photos and carousel index per post.
   const [postIssuePhotos, setPostIssuePhotos] = useState<{
     [itemId: string]: any[];
   }>({});
@@ -62,6 +67,7 @@ export default function Profile() {
     [itemId: string]: number;
   }>({});
 
+  //Sort feedbacks by the selected option.
   const sortedFeedbacks = useMemo(() => {
     return [...feedbacks].sort((a, b) => {
       if (feedbackSort === "newest") {
@@ -90,10 +96,12 @@ export default function Profile() {
     });
   }, [feedbacks, feedbackSort]);
 
+  //Navigate to a page.
   const goToPage = (path: string) => {
     router.push(path as any);
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -113,11 +121,13 @@ export default function Profile() {
     return data?.publicUrl || "";
   };
 
+  //Get the profile image url.
   const getProfileImageUrl = (image: string) => {
     if (!image || String(image).trim() === "") return "";
     return getPublicImageUrl("profile-images", image);
   };
 
+  //Get only the city from an address.
   const getCityOnlyFromAddress = (addressValue: any) => {
     const fullAddress = String(addressValue || "").trim();
 
@@ -152,6 +162,7 @@ export default function Profile() {
     return parts[0];
   };
 
+  //Item getters.
   const getPostStatus = (item: any) => {
     return item.match_status || item.matchStatus || item.status || "Listed";
   };
@@ -185,6 +196,7 @@ export default function Profile() {
     return getPublicImageUrl("item-images", imagePath);
   };
 
+  //Get the url of an issue photo.
   const getIssuePhotoUrl = (photo: any) => {
     const imagePath =
       photo?.image_url ||
@@ -204,6 +216,7 @@ export default function Profile() {
     return getPublicImageUrl("item-issue-photos", String(imagePath));
   };
 
+  //Get all images for a post.
   const getPostImages = (item: any) => {
     const itemId = String(item.id);
     const mainImage = getItemImageUrl(item);
@@ -223,6 +236,7 @@ export default function Profile() {
     return allImages;
   };
 
+  //Go to the next post image.
   const nextPostImage = (itemId: string, totalImages: number) => {
     setPostImageIndexes((prev) => {
       const currentIndex = prev[itemId] || 0;
@@ -235,6 +249,7 @@ export default function Profile() {
     });
   };
 
+  //Go to the previous post image.
   const previousPostImage = (itemId: string, totalImages: number) => {
     setPostImageIndexes((prev) => {
       const currentIndex = prev[itemId] || 0;
@@ -248,6 +263,7 @@ export default function Profile() {
     });
   };
 
+  //Get the time used to sort items.
   const getItemTimeValue = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -270,10 +286,12 @@ export default function Profile() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Sort items from newest to oldest.
   const sortByLatest = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
   };
 
+  //Split issues text into a clean list.
   const cleanIssues = (issues: string) => {
     if (!issues || String(issues).trim() === "") return [];
 
@@ -289,6 +307,7 @@ export default function Profile() {
       .filter((issue) => issue.length > 0 && issue.toLowerCase() !== "none");
   };
 
+  //Render a star rating.
   const renderStars = (rating: number) => {
     const cleanRating = Math.max(
       0,
@@ -298,16 +317,19 @@ export default function Profile() {
     return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
   };
 
+  //Load the user on mount.
   useEffect(() => {
     loadUser();
   }, []);
 
+  //Reload the user when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadUser();
     }, []),
   );
 
+  //Load listings and feedbacks once the user is known.
   useEffect(() => {
     if (user.id) {
       fetchListings();
@@ -315,6 +337,7 @@ export default function Profile() {
     }
   }, [user.id]);
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!user.id) return;
 
@@ -323,6 +346,7 @@ export default function Profile() {
     });
   }, [user.id]);
 
+  //Load the logged in user and profile.
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -374,6 +398,7 @@ export default function Profile() {
     }
   };
 
+  //Fetch issue photos for the listed items.
   const fetchIssuePhotosForListings = async (listedItems: any[]) => {
     try {
       if (!listedItems || listedItems.length === 0) {
@@ -421,6 +446,7 @@ export default function Profile() {
     }
   };
 
+  //Fetch the user's listed items.
   const fetchListings = async () => {
     try {
       if (!user.id) {
@@ -486,6 +512,7 @@ export default function Profile() {
     }
   };
 
+  //Fetch feedbacks and compute the average rating.
   const fetchFeedbacks = async () => {
     try {
       if (!user.id) {
@@ -528,6 +555,7 @@ export default function Profile() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     setRefreshing(true);
     await loadUser();
@@ -536,6 +564,7 @@ export default function Profile() {
     setRefreshing(false);
   };
 
+  //Date formatters.
   const formatListedDate = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -578,6 +607,7 @@ export default function Profile() {
     });
   };
 
+  //Render a listed post card.
   const renderPost = ({ item }: any) => {
     const itemId = String(item.id);
     const images = getPostImages(item);
@@ -589,6 +619,7 @@ export default function Profile() {
 
     return (
       <View style={styles.postCard}>
+        {/*Image carousel with arrows and counter.*/}
         <View style={styles.imageCarouselWrapper}>
           <Image source={{ uri: currentImage }} style={styles.postImage} />
 
@@ -623,6 +654,7 @@ export default function Profile() {
           {item.description || "No description added."}
         </Text>
 
+        {/*Issues list.*/}
         {issuesList.length > 0 && (
           <View style={styles.issuesBox}>
             <Text style={styles.issuesTitle}>Issues:</Text>
@@ -635,6 +667,7 @@ export default function Profile() {
           </View>
         )}
 
+        {/*Location and date row.*/}
         <View style={styles.postMetaRow}>
           <Image
             source={require("../../assets/icons/location.png")}
@@ -653,9 +686,11 @@ export default function Profile() {
     );
   };
 
+  //Render a feedback card.
   const renderFeedback = ({ item }: any) => {
     return (
       <View style={styles.feedbackCard}>
+        {/*Rater name and stars.*/}
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackName}>
             {item.rater_name || item.facility_name || "Partnered Facility"}
@@ -670,6 +705,7 @@ export default function Profile() {
           {renderStars(Number(item.rating || 0))}
         </Text>
 
+        {/*Feedback comment.*/}
         {item.comment || item.feedback || item.review ? (
           <Text style={styles.feedbackMessage}>
             {item.comment || item.feedback || item.review}
@@ -681,6 +717,7 @@ export default function Profile() {
     );
   };
 
+  //Render feedback sort options.
   const renderFeedbackSort = () => {
     if (activeSection !== "feedbacks") return null;
 
@@ -698,6 +735,7 @@ export default function Profile() {
       <View style={styles.filterWrapper}>
         <Text style={styles.filterTitle}>Sort Feedbacks</Text>
 
+        {/*Sort option chips.*/}
         <View style={styles.filterChipsRow}>
           {options.map((option) => (
             <TouchableOpacity
@@ -724,8 +762,10 @@ export default function Profile() {
     );
   };
 
+  //Data for the active tab.
   const listData = activeSection === "listed" ? items : sortedFeedbacks;
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -782,6 +822,7 @@ export default function Profile() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -807,6 +848,7 @@ export default function Profile() {
         }
         ListHeaderComponent={
           <View>
+            {/*Profile header with photo, name and location.*/}
             <View style={styles.profileHeader}>
               <TouchableOpacity
                 style={styles.backButton}
@@ -849,6 +891,7 @@ export default function Profile() {
                 <Text style={styles.headerAddress}>{user.address}</Text>
               </View>
 
+              {/*Average rating summary.*/}
               <View
                 ref={ratingRef}
                 collapsable={false}
@@ -867,6 +910,7 @@ export default function Profile() {
                 </Text>
               </View>
 
+              {/*My Items and My Listings buttons.*/}
               <View style={styles.profileActionButtons}>
                 <TouchableOpacity
                   ref={myItemsRef}
@@ -887,6 +931,7 @@ export default function Profile() {
                 </TouchableOpacity>
               </View>
 
+              {/*Listed and feedbacks tabs.*/}
               <View style={styles.sectionTabs}>
                 <TouchableOpacity
                   ref={listedTabRef}
@@ -943,6 +988,7 @@ export default function Profile() {
 
       {user.id ? <UserBottomNav userId={user.id} active="profile" /> : null}
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -952,6 +998,7 @@ export default function Profile() {
   );
 }
 
+//Styles for the profile screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

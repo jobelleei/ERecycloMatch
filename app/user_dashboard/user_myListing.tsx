@@ -29,9 +29,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
 import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 
+//Get screen dimensions
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
+//Set default drop-off bin locations
 const DROP_OFF_BINS = [
   {
     id: "default-bin-1",
@@ -58,6 +60,7 @@ const DROP_OFF_BINS = [
 ];
 
 export default function MyListing() {
+  //Initialize navigation and screen states
   const router = useRouter();
 
   const [items, setItems] = useState<any[]>([]);
@@ -93,6 +96,7 @@ export default function MyListing() {
   const firstCardRef = useRef<any>(null);
   const listingHelpRef = useRef<any>(null);
 
+  //Check if the user has completed the onboarding tour
   useEffect(() => {
     if (!userId) return;
 
@@ -100,8 +104,10 @@ export default function MyListing() {
       if (!completed) setShowTour(true);
     });
   }, [userId]);
+
   const [userName, setUserName] = useState("");
 
+  //Sort listings and check their statuses
   const getItemTimeValue = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -157,11 +163,13 @@ export default function MyListing() {
     return getMatchStatus(item) === "Listed";
   };
 
+  //Filter listings based on the selected status
   const filteredItems =
     filter === "All"
       ? items
       : items.filter((item) => getMatchStatus(item) === filter);
 
+  //Load user information and listings
   useEffect(() => {
     loadUser();
   }, []);
@@ -178,6 +186,7 @@ export default function MyListing() {
     }
   }, [userId]);
 
+  //Retrieve the logged-in user's information
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -219,6 +228,7 @@ export default function MyListing() {
     }
   };
 
+  //Fetch the user's listings from Supabase
   const fetchListings = async () => {
     try {
       if (!userId) {
@@ -271,12 +281,14 @@ export default function MyListing() {
     }
   };
 
+  //Refresh the listings
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchListings();
     setRefreshing(false);
   };
 
+  //Normalize text and prepare item matching
   const normalizeText = (value: any) => {
     return String(value || "")
       .toLowerCase()
@@ -286,6 +298,7 @@ export default function MyListing() {
       .trim();
   };
 
+  //Remove unnecessary issue descriptions
   const cleanIssues = (issues: string) => {
     if (!issues) return "None";
 
@@ -297,6 +310,7 @@ export default function MyListing() {
       .trim();
   };
 
+  //Identify unknown item labels
   const isUnknownLabel = (value: any) => {
     const cleanValue = normalizeText(value);
 
@@ -319,6 +333,7 @@ export default function MyListing() {
     return unknownValues.includes(cleanValue);
   };
 
+  //Remove common words from matching text
   const getUsefulTokens = (value: any) => {
     const stopWords = [
       "the",
@@ -369,6 +384,7 @@ export default function MyListing() {
       .filter((word) => word.length >= 3 && !stopWords.includes(word));
   };
 
+  //Expand related item names for better matching
   const getExpandedItemWords = (value: any) => {
     const baseTokens = getUsefulTokens(value);
     const expanded = new Set(baseTokens);
@@ -406,6 +422,7 @@ export default function MyListing() {
     return Array.from(expanded);
   };
 
+  //Check for similar text values
   const hasSubstringMatch = (textA: any, textB: any) => {
     const cleanA = normalizeText(textA).replace(/\s+/g, "");
     const cleanB = normalizeText(textB).replace(/\s+/g, "");
@@ -415,6 +432,7 @@ export default function MyListing() {
     return cleanA.includes(cleanB) || cleanB.includes(cleanA);
   };
 
+  //Compare item names with facility requirements
   const hasNameOrNeededMatch = (itemName: any, postItemNeeded: any) => {
     if (isUnknownLabel(itemName) || isUnknownLabel(postItemNeeded)) {
       return false;
@@ -437,6 +455,7 @@ export default function MyListing() {
     return itemTokens.some((token) => postTokenSet.has(token));
   };
 
+  //Calculate the similarity score between two texts
   const getTokenScore = (textA: any, textB: any) => {
     const tokensA = getUsefulTokens(textA);
     const tokensB = getUsefulTokens(textB);
@@ -451,6 +470,7 @@ export default function MyListing() {
     return matchedTokens.length / Math.max(tokensA.length, tokensB.length);
   };
 
+  //Get matching words from two texts
   const getMatchedTokens = (textA: any, textB: any) => {
     const tokensA = getExpandedItemWords(textA);
     const tokensB = getExpandedItemWords(textB);
@@ -460,6 +480,7 @@ export default function MyListing() {
     return tokensA.filter((token) => setB.has(token));
   };
 
+  //Retrieve available values from object fields
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -476,6 +497,7 @@ export default function MyListing() {
     return "";
   };
 
+  //Get item information from available fields
   const getItemNameText = (item: any) => {
     return getValueFromKeys(item, [
       "item_name",
@@ -511,6 +533,7 @@ export default function MyListing() {
     );
   };
 
+  //Get facility post requirements
   const getPostItemNeededText = (post: any) => {
     return getValueFromKeys(post, [
       "item_needed",
@@ -555,6 +578,7 @@ export default function MyListing() {
     ]);
   };
 
+  //Get facility information from posts and profiles
   const getFacilityIdFromPost = (post: any) => {
     return String(
       getValueFromKeys(post, [
@@ -655,6 +679,7 @@ export default function MyListing() {
     );
   };
 
+  //Check if facility posts are active
   const isPostActive = (post: any) => {
     const status = normalizeText(
       getValueFromKeys(post, ["status", "post_status", "state"]) || "active",
@@ -672,6 +697,7 @@ export default function MyListing() {
     );
   };
 
+  //Check if a profile belongs to a facility
   const isFacilityProfile = (profile: any) => {
     const role = normalizeText(profile?.role || profile?.account_type || "");
 
@@ -680,6 +706,7 @@ export default function MyListing() {
     return role.includes("facility");
   };
 
+  //Define keywords for item condition detection
   const BROKEN_KEYWORDS = [
     "broken",
     "damaged",
@@ -708,6 +735,7 @@ export default function MyListing() {
     "good",
   ];
 
+  //Identify the item's condition
   const detectConditionType = (text: string) => {
     const cleanText = String(text || "").toLowerCase();
 
@@ -721,6 +749,7 @@ export default function MyListing() {
     return "unknown";
   };
 
+  //Calculate the compatibility score between an item and a facility post
   const calculateMatchScore = (item: any, post: any) => {
     const itemName = getItemNameText(item);
     const itemDescription = getItemDescriptionText(item);
@@ -750,6 +779,7 @@ export default function MyListing() {
 
     const itemLooksWorking = itemCondition === "working";
 
+    //Exclude items that do not meet facility condition requirements
     if (acceptedConditions.includes("broken") && itemLooksWorking) {
       console.log("MATCH FILTERED: facility accepts broken only");
 
@@ -789,6 +819,7 @@ export default function MyListing() {
       };
     }
 
+    //Compare item names and descriptions with facility requirements
     const itemNameIsUnknown = isUnknownLabel(itemName);
     const postNeededIsUnknown = isUnknownLabel(postItemNeeded);
 
@@ -842,6 +873,7 @@ export default function MyListing() {
         matchedDescriptionTokens.length * 10 +
         descriptionScore * 20;
     } else {
+      //Use descriptions as fallback when item names are unknown
       const itemFallbackText = `${itemDescription} ${itemIssues}`;
       const postFallbackText = `${postItemNeeded} ${postDescription} ${postIssues}`;
 
@@ -871,6 +903,7 @@ export default function MyListing() {
         (fallbackSubstringMatch ? 25 : 0);
     }
 
+    //Log the matching result
     console.log("MATCH CHECK RESULT:", {
       item_id: item.id,
       item_name: itemName,
@@ -903,6 +936,7 @@ export default function MyListing() {
     };
   };
 
+  //Generate public image URLs
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
 
@@ -917,6 +951,7 @@ export default function MyListing() {
     return data?.publicUrl || "";
   };
 
+  //Get the item's image source
   const getItemImageSource = (item: any) => {
     const imagePath =
       item?.item_image ||
@@ -943,6 +978,7 @@ export default function MyListing() {
     };
   };
 
+  //Get the submitted issue photo source
   const getIssuePhotoImageSource = (photo: any) => {
     const imagePath =
       photo?.image_url ||
@@ -976,6 +1012,7 @@ export default function MyListing() {
     };
   };
 
+  //Get the facility profile image source
   const getFacilityImageSource = (profileImage: string) => {
     if (!profileImage || String(profileImage).trim() === "") {
       return require("../../assets/icons/icon.png");
@@ -1010,6 +1047,7 @@ export default function MyListing() {
     return require("../../assets/icons/icon.png");
   };
 
+  //Format dates and retrieve matched facility details
   const formatDateTime = (value: any) => {
     if (!value) return "Not available";
 
@@ -1022,6 +1060,7 @@ export default function MyListing() {
     return date.toLocaleString();
   };
 
+  //Fetch the conversation details for a matched item
   const fetchMatchedDetailForItem = async (item: any) => {
     try {
       setMatchedDetail(null);
@@ -1063,6 +1102,7 @@ export default function MyListing() {
     }
   };
 
+  //Fetch issue photos for the selected item
   const fetchIssuePhotosForItem = async (item: any) => {
     try {
       if (!item?.id) {
@@ -1092,6 +1132,7 @@ export default function MyListing() {
     }
   };
 
+  //Open and close the full image preview
   const openImagePreview = (source: any, title: string) => {
     setPreviewImageSource(source);
     setPreviewTitle(title);
@@ -1114,6 +1155,7 @@ export default function MyListing() {
     }
   };
 
+  //Open the listing update modal
   const openUpdateModal = async (item: any) => {
     setEditingItem(item);
     setEditedDescription(item.description || "");
@@ -1127,6 +1169,7 @@ export default function MyListing() {
     ]);
   };
 
+  //Update the listing description
   const updateDescription = async () => {
     if (!editingItem) return;
 
@@ -1159,6 +1202,7 @@ export default function MyListing() {
     }
   };
 
+  //Remove an item from the listings
   const deleteItem = async (item: any) => {
     Alert.alert(
       "Remove Listing",
@@ -1212,6 +1256,7 @@ export default function MyListing() {
     );
   };
 
+  //Update the item's match status
   const markItemAsPendingMatch = async (itemId: string) => {
     try {
       const { error } = await supabase
@@ -1246,6 +1291,7 @@ export default function MyListing() {
     }
   };
 
+  //Create or reopen a conversation with a facility
   const createOrOpenConversation = async (facility: any) => {
     try {
       if (!userId || !selectedMatchedItem?.id || !facility?.id) {
@@ -1262,6 +1308,7 @@ export default function MyListing() {
 
       const conversationId = `${cleanUserId}_${cleanFacilityId}_${cleanItemId}`;
 
+      //Check if a conversation already exists
       const { data: existingConversation, error: findError } = await supabase
         .from("conversations")
         .select("*")
@@ -1272,6 +1319,7 @@ export default function MyListing() {
         console.log("FIND CONVERSATION ERROR:", findError);
       }
 
+      //Create a new conversation if none exists
       if (!existingConversation) {
         const { error: insertError } = await supabase
           .from("conversations")
@@ -1310,6 +1358,7 @@ export default function MyListing() {
           return;
         }
       } else {
+        //Reset an existing conversation when its status allows reuse
         const reusableStatuses = ["cancelled", "rejected", "match_pending"];
 
         if (reusableStatuses.includes(String(existingConversation.status))) {
@@ -1336,6 +1385,7 @@ export default function MyListing() {
         }
       }
 
+      //Mark the item as pending and navigate to the chat
       await markItemAsPendingMatch(cleanItemId);
 
       setMatchModalVisible(false);
@@ -1368,6 +1418,7 @@ export default function MyListing() {
     }
   };
 
+  //Fetch posts from available facility tables
   const fetchFacilityPosts = async () => {
     try {
       const possibleTables = [
@@ -1410,6 +1461,7 @@ export default function MyListing() {
     }
   };
 
+  //Fetch all facility profiles
   const fetchAllFacilityProfiles = async () => {
     try {
       const { data, error } = await supabase.from("profiles").select("*");
@@ -1425,6 +1477,7 @@ export default function MyListing() {
     }
   };
 
+  //Find the profile connected to a facility post
   const findBestProfileForPost = (post: any, profiles: any[]) => {
     const postFacilityId = getFacilityIdFromPost(post);
     const postFacilityName = getFacilityNameFromPost(post);
@@ -1512,6 +1565,7 @@ export default function MyListing() {
     return null;
   };
 
+  //Open a drop-off bin location on the map
   const openDropOffBinInAppMap = (bin: any) => {
     setMatchModalVisible(false);
 
@@ -1549,6 +1603,7 @@ export default function MyListing() {
     });
   };
 
+  //Find facilities that accept the selected item
   const matchItem = async (item: any) => {
     try {
       if (!canFindMatchForItem(item)) {
@@ -1571,6 +1626,7 @@ export default function MyListing() {
         issues: item.issues,
       });
 
+      //Retrieve facility posts and profiles
       const facilityPosts = await fetchFacilityPosts();
       const facilityProfiles = await fetchAllFacilityProfiles();
 
@@ -1580,6 +1636,7 @@ export default function MyListing() {
 
       console.log("ACTIVE FACILITY POSTS:", activePosts.length);
 
+      //Calculate and rank possible matches
       const scoredMatches = activePosts
         .map((post: any) => {
           const matchResult = calculateMatchScore(item, post);
@@ -1594,6 +1651,7 @@ export default function MyListing() {
 
       console.log("SCORED MATCHES FOUND:", scoredMatches.length);
 
+      //Show the modal when no matching facility is found
       if (scoredMatches.length === 0) {
         setMatchFound(false);
         setMatchedFacilities([]);
@@ -1601,6 +1659,7 @@ export default function MyListing() {
         return;
       }
 
+      //Keep the highest-scoring post for each facility
       const bestMatchByFacility: any = {};
 
       scoredMatches.forEach((match: any) => {
@@ -1628,6 +1687,7 @@ export default function MyListing() {
         }
       });
 
+      //Prepare the matched facility information
       const facilities = Object.keys(bestMatchByFacility).map((facilityKey) => {
         const match = bestMatchByFacility[facilityKey];
         const post = match.post;
@@ -1660,6 +1720,7 @@ export default function MyListing() {
         };
       });
 
+      //Update the matching results
       if (facilities.length > 0) {
         setMatchFound(true);
         setMatchedFacilities(facilities);
@@ -1677,6 +1738,7 @@ export default function MyListing() {
     }
   };
 
+  //Render each listing card and its available actions
   const renderItem = ({ item, index }: any) => {
     const uniqueKey = `listed-${item.id}`;
     const matchStatus = getMatchStatus(item);
@@ -1747,6 +1809,7 @@ export default function MyListing() {
     );
   };
 
+  //Define the onboarding tour steps
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -1788,6 +1851,7 @@ export default function MyListing() {
     },
   ];
 
+  //Mark the onboarding tour as completed
   const finishTour = () => {
     setShowTour(false);
 
@@ -1796,6 +1860,7 @@ export default function MyListing() {
     }
   };
 
+  //Display the My Listing screen
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
@@ -1813,6 +1878,7 @@ export default function MyListing() {
         </TouchableOpacity>
       </View>
 
+      {/*Display listing statistics*/}
       <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
         <View style={styles.statsCard}>
           <Text style={styles.statsNumber}>{items.length}</Text>
@@ -1837,6 +1903,7 @@ export default function MyListing() {
         </View>
       </View>
 
+      {/*Display listing status filters*/}
       <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
         <ScrollView
           horizontal
@@ -1868,6 +1935,7 @@ export default function MyListing() {
         </ScrollView>
       </View>
 
+      {/*Display the user's filtered listings*/}
       <FlatList
         data={filteredItems}
         keyExtractor={(item) => `listed-${item.id}`}
@@ -1884,6 +1952,7 @@ export default function MyListing() {
         }
       />
 
+      {/*Display the update listing modal*/}
       <Modal visible={editVisible} transparent animationType="fade">
         <View style={styles.overlay}>
           <KeyboardAvoidingView
@@ -1919,6 +1988,7 @@ export default function MyListing() {
                       Tap the image to view the whole photo.
                     </Text>
 
+                    {/*Display submitted issue photos*/}
                     <Text style={styles.modalLabel}>
                       Submitted Issue Photos
                     </Text>
@@ -1974,6 +2044,7 @@ export default function MyListing() {
                       </View>
                     )}
 
+                    {/*Display the item's saved information*/}
                     <Text style={styles.modalLabel}>Item Name</Text>
                     <Text style={styles.readOnlyText}>
                       {editingItem.item_name}
@@ -2005,6 +2076,7 @@ export default function MyListing() {
                       {getMatchStatus(editingItem)}
                     </Text>
 
+                    {/*Display matched facility details*/}
                     {(getMatchStatus(editingItem) === "Matched" ||
                       getMatchStatus(editingItem) === "Pending Match") && (
                       <View style={styles.matchedDetailBox}>
@@ -2059,6 +2131,7 @@ export default function MyListing() {
                       </View>
                     )}
 
+                    {/*Allow the user to update the description*/}
                     <Text style={styles.modalLabel}>Description</Text>
                     <TextInput
                       value={editedDescription}
@@ -2070,6 +2143,7 @@ export default function MyListing() {
                   </>
                 )}
 
+                {/*Display update and cancel buttons*/}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={styles.cancelButton}
@@ -2096,6 +2170,7 @@ export default function MyListing() {
         </View>
       </Modal>
 
+      {/*Display the full image preview modal*/}
       <Modal
         visible={previewVisible}
         transparent={false}
@@ -2136,6 +2211,7 @@ export default function MyListing() {
         </View>
       </Modal>
 
+      {/*Display matching facilities or drop-off bin locations*/}
       <Modal visible={matchModalVisible} transparent animationType="fade">
         <View style={styles.matchOverlay}>
           <View style={styles.matchCard}>
@@ -2143,6 +2219,7 @@ export default function MyListing() {
               {matchFound ? "Found a Match!" : "No match found"}
             </Text>
 
+            {/*Show a message when no matching facility is found*/}
             {!matchFound && (
               <>
                 <Text style={styles.noMatchMainText}>
@@ -2157,6 +2234,7 @@ export default function MyListing() {
               </>
             )}
 
+            {/*Display matching facility information*/}
             {matchFound && matchedFacilities.length > 0 ? (
               <ScrollView
                 style={{
@@ -2207,6 +2285,7 @@ export default function MyListing() {
                       ) : null}
                     </View>
 
+                    {/*Send a match request to the selected facility*/}
                     <TouchableOpacity
                       style={styles.matchGreenButton}
                       onPress={() => createOrOpenConversation(facility)}
@@ -2219,6 +2298,7 @@ export default function MyListing() {
                 ))}
               </ScrollView>
             ) : (
+              /*Display available drop-off bin locations*/
               <ScrollView
                 style={styles.dropOffScroll}
                 showsVerticalScrollIndicator={false}
@@ -2229,6 +2309,7 @@ export default function MyListing() {
 
                     <Text style={styles.dropOffAddress}>{bin.address}</Text>
 
+                    {/*Open the selected bin location on the map*/}
                     <TouchableOpacity
                       style={styles.openMapButton}
                       onPress={() => openDropOffBinInAppMap(bin)}
@@ -2242,6 +2323,7 @@ export default function MyListing() {
               </ScrollView>
             )}
 
+            {/*Close the matching modal*/}
             <TouchableOpacity
               style={styles.cancelMatchButton}
               onPress={() => setMatchModalVisible(false)}
@@ -2252,6 +2334,7 @@ export default function MyListing() {
         </View>
       </Modal>
 
+      {/*Display bottom navigation and onboarding guide*/}
       <UserBottomNav
         userId={userId}
         active="profile"
@@ -2266,6 +2349,7 @@ export default function MyListing() {
   );
 }
 
+//Define the My Listing screen styles
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
 

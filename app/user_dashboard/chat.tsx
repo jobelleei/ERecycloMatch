@@ -49,12 +49,15 @@ import {
   formatSensitiveInfoList,
 } from "../../utils/sensitiveInfo";
 
+//Chat screen between a user and a facility.
 export default function UserChat() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //Message list ref used for auto scrolling.
   const flatListRef = useRef<FlatList<any>>(null);
 
+  //Scroll to the newest message when the keyboard opens.
   useEffect(() => {
     const subscription = Keyboard.addListener("keyboardDidShow", () => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
@@ -62,6 +65,7 @@ export default function UserChat() {
     return () => subscription.remove();
   }, []);
 
+  //Conversation and item info from the route params.
   const conversationId = String(params.conversationId || "");
   const facilityIdParam = String(params.facility_id || "");
   const facilityNameParam = String(params.facility_name || "Facility");
@@ -72,6 +76,7 @@ export default function UserChat() {
     params.item_photo || params.item_image || params.itemImage || "",
   );
 
+  //Conversation, messages and input state.
   const [user, setUser] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -86,15 +91,18 @@ export default function UserChat() {
   const [sending, setSending] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
+  //Which messages show their full timestamp.
   const [visibleTimestamps, setVisibleTimestamps] = useState<{
     [key: string]: boolean;
   }>({});
 
+  //Facility profile details.
   const [facilityProfile, setFacilityProfile] = useState({
     name: "Facility",
     profileImage: "",
   });
 
+  //Feedback and report modal state.
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [selectedRating, setSelectedRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -103,6 +111,7 @@ export default function UserChat() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
 
+  //Reasons a user can report a facility.
   const reportReasons = [
     "Scam or fraud",
     "Harassment or inappropriate behavior",
@@ -113,10 +122,12 @@ export default function UserChat() {
     "Other",
   ];
 
+  //Load the user on mount.
   useEffect(() => {
     loadUser();
   }, []);
 
+  //Load the chat and poll every 15 seconds.
   useEffect(() => {
     if (!conversationId) return;
 
@@ -135,6 +146,7 @@ export default function UserChat() {
     return () => clearInterval(interval);
   }, [conversationId, user?.id]);
 
+  //Load all transactions between this user and facility.
   useEffect(() => {
     const threadUserId = conversation?.user_id;
     const threadFacilityId = conversation?.facility_id;
@@ -165,12 +177,14 @@ export default function UserChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.user_id, conversation?.facility_id, conversationId]);
 
+  //Live updates for messages and conversation.
   useChatRealtime(
     conversationId,
     () => fetchMessages(),
     () => fetchConversation(),
   );
 
+  //Mark messages as read when the chat opens.
   useEffect(() => {
     if (!conversationId || !user?.id) {
       return;
@@ -179,12 +193,14 @@ export default function UserChat() {
     markMessagesAsRead();
   }, [conversationId, user?.id]);
 
+  //Add a pending warning while the match is not accepted.
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
       addPendingMatchWarningIfNeeded();
     }
   }, [conversation?.id, conversation?.status, conversation?.request_status]);
 
+  //Load the facility profile.
   useEffect(() => {
     const currentFacilityId = String(
       conversation?.facility_id || facilityIdParam || "",
@@ -195,6 +211,7 @@ export default function UserChat() {
     }
   }, [conversation?.facility_id, facilityIdParam]);
 
+  //Load the requested item details.
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
@@ -228,6 +245,7 @@ export default function UserChat() {
     itemImageParam,
   ]);
 
+  //Load the logged in user from storage.
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -267,6 +285,7 @@ export default function UserChat() {
     }
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -284,6 +303,7 @@ export default function UserChat() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -298,6 +318,7 @@ export default function UserChat() {
     return data?.publicUrl || "";
   };
 
+  //Fetch the facility profile from Supabase.
   const fetchFacilityProfile = async (targetFacilityId: string) => {
     try {
       const { data, error } = await supabase
@@ -350,6 +371,7 @@ export default function UserChat() {
     }
   };
 
+  //Get the facility image.
   const getFacilityImage = () => {
     const imagePath =
       facilityProfile.profileImage ||
@@ -382,6 +404,7 @@ export default function UserChat() {
     };
   };
 
+  //Get the requested item name and image.
   const getRequestItemName = () => {
     return String(
       requestItem?.item_name ||
@@ -441,6 +464,7 @@ export default function UserChat() {
     };
   };
 
+  //Fetch the requested item from Supabase.
   const fetchRequestItem = async (targetItemId: string) => {
     try {
       if (!targetItemId) return;
@@ -481,6 +505,7 @@ export default function UserChat() {
     }
   };
 
+  //Date and time formatters.
   const formatMessageTime = (value: string) => {
     if (!value) return "";
 
@@ -529,6 +554,7 @@ export default function UserChat() {
     });
   };
 
+  //Checks for special system messages.
   const isMatchRequestMessage = (item: any) => {
     const message = String(item?.message || "")
       .trim()
@@ -646,6 +672,7 @@ export default function UserChat() {
     );
   };
 
+  //Fetch the conversation record.
   const fetchConversation = async () => {
     try {
       if (!conversationId) return;
@@ -669,6 +696,7 @@ export default function UserChat() {
     }
   };
 
+  //Mark the other side's messages as read.
   const markMessagesAsRead = async () => {
     try {
       if (!conversationId || !user?.id) {
@@ -697,6 +725,7 @@ export default function UserChat() {
     }
   };
 
+  //Fetch messages for every transaction in the thread.
   const fetchMessages = async () => {
     try {
       if (!conversationId) return;
@@ -743,6 +772,7 @@ export default function UserChat() {
     }
   };
 
+  //Update the conversation record.
   const updateConversation = async (updates: any) => {
     const { error } = await supabase
       .from("conversations")
@@ -757,6 +787,7 @@ export default function UserChat() {
     }
   };
 
+  //Add a system message to the chat.
   const addSystemMessage = async (text: string) => {
     try {
       const now = new Date().toISOString();
@@ -790,6 +821,7 @@ export default function UserChat() {
     }
   };
 
+  //Add a pending match notice once.
   const addPendingMatchWarningIfNeeded = async () => {
     try {
       const warningMessage =
@@ -830,6 +862,7 @@ export default function UserChat() {
     }
   };
 
+  //Get who sent the match request.
   const getCurrentRequestSender = () => {
     return String(
       conversation?.requested_by ||
@@ -839,6 +872,7 @@ export default function UserChat() {
     ).toLowerCase();
   };
 
+  //Accept the match request.
   const acceptMatch = async () => {
     Alert.alert(
       "Accept Request",
@@ -888,6 +922,7 @@ export default function UserChat() {
     );
   };
 
+  //Reject the match request.
   const rejectMatch = async () => {
     Alert.alert("Reject Match", "Are you sure you want to reject this match?", [
       { text: "No", style: "cancel" },
@@ -925,6 +960,7 @@ export default function UserChat() {
     ]);
   };
 
+  //Cancel the match.
   const cancelMatch = async () => {
     const userAlreadyFinished = Boolean(conversation?.user_finished);
     const facilityAlreadyFinished = Boolean(conversation?.facility_finished);
@@ -973,6 +1009,7 @@ export default function UserChat() {
     ]);
   };
 
+  //Save the finished match to recycling history.
   const createRecyclingHistoryRecord = async (finishedAt: string) => {
     try {
       let itemData: any = null;
@@ -1040,6 +1077,7 @@ export default function UserChat() {
     }
   };
 
+  //Mark the match as finished.
   const finishMatch = async () => {
     Alert.alert(
       "Finish Match",
@@ -1111,6 +1149,7 @@ export default function UserChat() {
     );
   };
 
+  //Submit a rating, feedback and optional report.
   const submitFeedback = async () => {
     try {
       Keyboard.dismiss();
@@ -1228,6 +1267,7 @@ export default function UserChat() {
     }
   };
 
+  //Match status checks.
   const getCurrentStatus = () => {
     return String(conversation?.status || "match_pending")
       .trim()
@@ -1284,6 +1324,7 @@ export default function UserChat() {
     });
   };
 
+  //Check if the user can send a message.
   const canSendOfferMessage = () => {
     return isCurrentAccountRequester() && !hasCurrentAccountSentOffer();
   };
@@ -1292,6 +1333,7 @@ export default function UserChat() {
     return isAcceptedMatch() || canSendOfferMessage();
   };
 
+  //Input placeholder based on the match status.
   const getInputPlaceholder = () => {
     if (isAcceptedMatch()) return "Message";
     if (isCurrentAccountRequester()) {
@@ -1303,6 +1345,7 @@ export default function UserChat() {
     return "Chat is locked until the match is active";
   };
 
+  //Explain how to allow camera or gallery access.
   const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
     const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
     const message =
@@ -1321,6 +1364,7 @@ export default function UserChat() {
     ]);
   };
 
+  //Take a photo with the camera.
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -1340,6 +1384,7 @@ export default function UserChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
+  //Pick a photo from the gallery.
   const pickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -1360,6 +1405,7 @@ export default function UserChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
+  //Ask whether to use the camera or gallery.
   const handlePickImage = () => {
     if (!canSendMessage()) {
       Alert.alert(
@@ -1378,6 +1424,7 @@ export default function UserChat() {
     ]);
   };
 
+  //Send the typed message or selected photo.
   const sendMessage = () => {
     const sensitiveInfo = detectSensitiveInfo(messageText);
 
@@ -1509,6 +1556,7 @@ export default function UserChat() {
     }
   };
 
+  //Status text and dot color under the name.
   const getSubtitle = () => {
     const status = conversation?.status || "match_pending";
 
@@ -1537,6 +1585,7 @@ export default function UserChat() {
     return "#888";
   };
 
+  //Render buttons based on the match status.
   const renderTopButtons = () => {
     const status = conversation?.status || "match_pending";
     const facilityFinished = Boolean(conversation?.facility_finished);
@@ -1651,6 +1700,7 @@ export default function UserChat() {
     return null;
   };
 
+  //Render the requested item card.
   const renderRequestItemCard = (requestMsg?: any) => {
     const pastTransaction =
       requestMsg &&
@@ -1688,6 +1738,7 @@ export default function UserChat() {
     );
   };
 
+  //Open edit options for a message.
   const openMessageOptions = (item: any) => {
     Alert.alert("Message", "Fix a typo in this message?", [
       { text: "Cancel", style: "cancel" },
@@ -1695,6 +1746,7 @@ export default function UserChat() {
     ]);
   };
 
+  //Save an edited message.
   const handleSaveEdit = async (newText: string) => {
     if (!editingMessage) return;
 
@@ -1728,6 +1780,7 @@ export default function UserChat() {
     setEditingMessage(null);
   };
 
+  //Add a divider before each new transaction.
   const renderThreadItem = (args: any) => {
     const { item, index } = args;
     const content = renderMessage(args);
@@ -1752,6 +1805,7 @@ export default function UserChat() {
     );
   };
 
+  //Render a chat message.
   const renderMessage = ({ item, index }: any) => {
     const messageTextValue = String(item?.message || "").trim();
     const messageLower = messageTextValue.toLowerCase();
@@ -1786,6 +1840,7 @@ export default function UserChat() {
     const canEditThis = isEditableMessage(item, String(user?.id || ""));
     const wasEdited = Boolean(item.edited_at);
 
+    //Show or hide the full timestamp.
     const toggleTimestamp = () => {
       setVisibleTimestamps((prev) => ({
         ...prev,
@@ -1910,6 +1965,7 @@ export default function UserChat() {
     );
   };
 
+  //Header and lock state.
   const headerName =
     facilityProfile.name ||
     conversation?.facility_name ||
@@ -1930,6 +1986,7 @@ export default function UserChat() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView style={styles.container}>
+          {/*Header with back button, facility name and status.*/}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={() => router.replace("/user_dashboard/messages" as any)}
@@ -1958,6 +2015,7 @@ export default function UserChat() {
 
           {renderTopButtons()}
 
+          {/*Message list.*/}
           <FlatList
             ref={flatListRef}
             data={messages}
@@ -1986,6 +2044,7 @@ export default function UserChat() {
             }
           />
 
+          {/*Selected photo preview.*/}
           {selectedImageUri && (
             <View style={styles.imagePreviewContainer}>
               <Image
@@ -2001,6 +2060,7 @@ export default function UserChat() {
             </View>
           )}
 
+          {/*Message input with attach and send buttons.*/}
           <View style={styles.inputRow}>
             <TouchableOpacity
               style={styles.attachButton}
@@ -2048,6 +2108,7 @@ export default function UserChat() {
             </TouchableOpacity>
           </View>
 
+          {/*Rate and report modal.*/}
           <Modal
             visible={feedbackModalVisible}
             transparent
@@ -2076,6 +2137,7 @@ export default function UserChat() {
                         How was your match with {headerName}?
                       </Text>
 
+                      {/*Star rating.*/}
                       <View style={styles.starsRow}>
                         {[1, 2, 3, 4, 5].map((star) => (
                           <TouchableOpacity
@@ -2097,6 +2159,7 @@ export default function UserChat() {
                         ))}
                       </View>
 
+                      {/*Feedback comment.*/}
                       <TextInput
                         value={feedbackComment}
                         onChangeText={setFeedbackComment}
@@ -2109,6 +2172,7 @@ export default function UserChat() {
                         blurOnSubmit={true}
                         onSubmitEditing={Keyboard.dismiss}
                       />
+                      {/*Optional report section.*/}
                       <View style={styles.reportSection}>
                         <TouchableOpacity
                           style={styles.reportToggle}
@@ -2211,6 +2275,7 @@ export default function UserChat() {
                         )}
                       </View>
 
+                      {/*Cancel and submit buttons.*/}
                       <View style={styles.modalButtons}>
                         <TouchableOpacity
                           style={styles.modalCancelButton}
@@ -2243,6 +2308,7 @@ export default function UserChat() {
             </TouchableWithoutFeedback>
           </Modal>
 
+          {/*Edit message modal.*/}
           <EditMessageModal
             visible={Boolean(editingMessage)}
             initialText={String(editingMessage?.message || "")}
@@ -2256,6 +2322,7 @@ export default function UserChat() {
   );
 }
 
+//Styles for the chat screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

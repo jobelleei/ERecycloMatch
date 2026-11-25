@@ -19,10 +19,13 @@ import { supabase } from "../utils/supabase";
 
 export default function ForgotPassword() {
   const router = useRouter();
+
+  //Stores the email, loading state, and resend cooldown
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
+  //Checks if a previous reset request is still within the cooldown
   useEffect(() => {
     const checkCooldown = async () => {
       try {
@@ -44,17 +47,22 @@ export default function ForgotPassword() {
     checkCooldown();
   }, []);
 
+  //Updates the countdown every second
   useEffect(() => {
     if (cooldown <= 0) return;
+
     const timer = setInterval(() => {
       setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
+
     return () => clearInterval(timer);
   }, [cooldown]);
 
+  //Validates the email and sends the password reset code
   const handleSendOtp = async () => {
     const cleanEmail = email.trim().toLowerCase();
 
+    //Checks if the email field is empty
     if (!cleanEmail) {
       Toast.show({
         type: "error",
@@ -64,6 +72,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    //Checks if the email format is valid
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
       Toast.show({
@@ -74,6 +83,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    //Prevents multiple reset requests during the cooldown
     if (cooldown > 0) {
       Toast.show({
         type: "info",
@@ -86,6 +96,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
+      //Checks if the email belongs to a registered account
       const { data: profile } = await supabase
         .from("profiles")
         .select("id, email")
@@ -102,6 +113,7 @@ export default function ForgotPassword() {
         return;
       }
 
+      //Requests a password reset code through Supabase
       const { error: resetError } =
         await supabase.auth.resetPasswordForEmail(cleanEmail);
 
@@ -115,6 +127,7 @@ export default function ForgotPassword() {
         return;
       }
 
+      //Saves the request time to enforce the 60-second cooldown
       await AsyncStorage.setItem(
         "last_reset_attempt",
         new Date().toISOString(),
@@ -127,6 +140,7 @@ export default function ForgotPassword() {
         text2: "Check your email inbox for your 6-digit code.",
       });
 
+      //Opens the reset password screen with the email and OTP mode
       router.push({
         pathname: "/reset_password",
         params: { email: cleanEmail, mode: "otp" },
@@ -159,12 +173,14 @@ export default function ForgotPassword() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Back button */}
           <View style={{ position: "absolute", top: 10, left: 20, zIndex: 10 }}>
             <Pressable onPress={() => router.replace("/signin")}>
               <Ionicons name="arrow-back" size={28} color="#1B5E20" />
             </Pressable>
           </View>
 
+          {/* Forgot password illustration */}
           <View
             style={{ alignItems: "center", marginTop: 10, marginBottom: -10 }}
           >
@@ -174,6 +190,7 @@ export default function ForgotPassword() {
             />
           </View>
 
+          {/* Page title */}
           <Text
             style={{
               fontSize: 28,
@@ -200,6 +217,7 @@ export default function ForgotPassword() {
             6-digit verification code to reset your password.
           </Text>
 
+          {/* Email input container */}
           <View
             style={{
               backgroundColor: "#FFFFFF",
@@ -234,6 +252,7 @@ export default function ForgotPassword() {
               }}
             >
               <Ionicons name="mail-outline" size={20} color="#777" />
+
               <TextInput
                 value={email}
                 onChangeText={setEmail}
@@ -247,6 +266,7 @@ export default function ForgotPassword() {
             </View>
           </View>
 
+          {/* Send OTP button with cooldown countdown */}
           <Pressable
             onPress={handleSendOtp}
             disabled={loading || cooldown > 0}
@@ -276,6 +296,7 @@ export default function ForgotPassword() {
             )}
           </Pressable>
 
+          {/* Redirects back to sign in */}
           <Pressable
             onPress={() => router.replace("/signin")}
             style={{ paddingVertical: 8, alignItems: "center" }}

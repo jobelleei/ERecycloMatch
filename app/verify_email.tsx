@@ -7,11 +7,11 @@ import Toast from "react-native-toast-message";
 import { EMAIL_VERIFIED_URL } from "../config";
 import { supabase } from "../utils/supabase";
 
-const RESEND_COOLDOWN_SECONDS = 60;
+const RESEND_COOLDOWN_SECONDS = 60; //The time before a user can request another verification email
 
 export default function VerifyEmail() {
   const router = useRouter();
-  const params = useLocalSearchParams<{
+  const params = useLocalSearchParams<{ //Get the email and account status passed from the previous screen
     email?: string;
     role?: string;
     approved?: string;
@@ -23,18 +23,19 @@ export default function VerifyEmail() {
   const [resending, setResending] = useState(false);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
 
-  useEffect(() => {
+  useEffect(() => { //Update the resend timer every second
     if (cooldown <= 0) return;
 
     const timer = setTimeout(() => setCooldown((value) => value - 1), 1000);
     return () => clearTimeout(timer);
   }, [cooldown]);
 
+  //Shows the next step based on the user's account approval status
   const nextStepMessage = isApproved
     ? "Once verified, your account is ready and you can sign in."
     : "Once verified, your account is approved automatically and you can sign in.";
 
-  const handleResend = async () => {
+  const handleResend = async () => { //Send another verification email through Supabase
     if (cooldown > 0 || resending) return;
 
     setResending(true);
@@ -45,7 +46,7 @@ export default function VerifyEmail() {
         options: { emailRedirectTo: EMAIL_VERIFIED_URL },
       });
 
-      if (error) {
+      if (error) { //Show an error if Supabase fails to send the email
         Toast.show({
           type: "error",
           text1: "Could not resend link",
@@ -54,7 +55,7 @@ export default function VerifyEmail() {
         return;
       }
 
-      Toast.show({
+      Toast.show({ //Show confirmation and restart the resend timer
         type: "success",
         text1: "Link sent",
         text2: "Check your inbox (and spam folder) for the new link.",
@@ -98,7 +99,7 @@ export default function VerifyEmail() {
           </View>
         </View>
 
-        <Text
+        <Text {/* Verification screen title */}
           style={{
             fontSize: 28,
             fontWeight: "bold",
@@ -111,7 +112,7 @@ export default function VerifyEmail() {
         </Text>
 
         <Text
-          style={{
+          style={{ {/* Display the email address entered during registration */}
             textAlign: "center",
             color: "#555",
             fontSize: 14,
@@ -125,7 +126,7 @@ export default function VerifyEmail() {
         </Text>
 
         <View
-          style={{
+          style={{ {/* Instructions for completing email verification */}
             backgroundColor: "#FFFFFF",
             borderRadius: 18,
             padding: 18,
@@ -145,7 +146,7 @@ export default function VerifyEmail() {
           </Text>
         </View>
 
-        <Pressable
+        <Pressable {/* Navigate to the sign-in screen */}
           onPress={() => router.replace("/signin")}
           style={{
             backgroundColor: "#1B5E20",
@@ -167,7 +168,8 @@ export default function VerifyEmail() {
           </Text>
         </Pressable>
 
-        <Pressable
+        {/* Resend the verification email when the cooldown ends */}
+        <Pressable 
           onPress={handleResend}
           disabled={cooldown > 0 || resending}
           style={{ alignItems: "center", paddingVertical: 8 }}

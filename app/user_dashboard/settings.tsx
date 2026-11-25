@@ -26,9 +26,11 @@ import OnboardingTour, {
 import { supabase } from "../../utils/supabase";
 import { clearPushTokenForProfile } from "../../services/notifications";
 
+//Settings screen for individual users.
 export default function Settings() {
   const router = useRouter();
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const myItemsRef = useRef<any>(null);
@@ -39,9 +41,11 @@ export default function Settings() {
   const deleteAccountRef = useRef<any>(null);
   const settingsHelpRef = useRef<any>(null);
 
+  //Scroll helpers used by the tour.
   const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -113,6 +117,7 @@ export default function Settings() {
     },
   ];
 
+  //Profile details.
   const [user, setUser] = useState({
     id: "",
     name: "",
@@ -125,10 +130,12 @@ export default function Settings() {
     usernameChangedAt: "",
   });
 
+  //Edit profile modal state.
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  //Edit form fields.
   const [editName, setEditName] = useState("");
   const [editUsername, setEditUsername] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -136,8 +143,10 @@ export default function Settings() {
   const [editProfileImage, setEditProfileImage] = useState("");
   const [editProfileImagePath, setEditProfileImagePath] = useState("");
 
+  //Days left before the name can be changed again.
   const [remainingDays, setRemainingDays] = useState(0);
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
     scrollToTop();
@@ -147,6 +156,7 @@ export default function Settings() {
     }
   };
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!user.id) return;
 
@@ -155,10 +165,12 @@ export default function Settings() {
     });
   }, [user.id]);
 
+  //Load the user on mount.
   useEffect(() => {
     loadUser();
   }, []);
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -174,11 +186,13 @@ export default function Settings() {
     return data?.publicUrl || "";
   };
 
+  //Get the profile image url.
   const getProfileImageUrl = (image: string) => {
     if (!image || String(image).trim() === "") return "";
     return getPublicImageUrl("profile-images", image);
   };
 
+  //Days left in the 7 day change limit.
   const calculateRemainingDays = (lastChanged: string) => {
     if (!lastChanged) return 0;
 
@@ -197,6 +211,7 @@ export default function Settings() {
     return daysLeft > 0 ? daysLeft : 0;
   };
 
+  //Get the file extension of an image.
   const getImageExtension = (uri: string) => {
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
@@ -209,6 +224,7 @@ export default function Settings() {
     return "jpg";
   };
 
+  //Get the content type for an image extension.
   const getContentType = (extension: string) => {
     if (extension === "png") return "image/png";
     if (extension === "webp") return "image/webp";
@@ -216,6 +232,7 @@ export default function Settings() {
     return "image/jpeg";
   };
 
+  //Load the logged in user and profile.
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -287,6 +304,7 @@ export default function Settings() {
     }
   };
 
+  //Fill the edit form and open the modal.
   const openEditProfileModal = () => {
     setEditName(user.name || "");
     setEditUsername(user.username || "");
@@ -298,6 +316,7 @@ export default function Settings() {
     setEditModalVisible(true);
   };
 
+  //Validate the edit profile form.
   const validateEditProfile = () => {
     if (!editName.trim()) {
       Alert.alert("Missing Name", "Please enter your name.");
@@ -337,6 +356,7 @@ export default function Settings() {
     return true;
   };
 
+  //Pick and upload a new profile photo.
   const changeProfilePhotoInModal = async () => {
     try {
       if (!user.id) {
@@ -404,6 +424,7 @@ export default function Settings() {
     }
   };
 
+  //Save profile changes to Supabase.
   const saveProfileChanges = async () => {
     try {
       if (!validateEditProfile()) return;
@@ -550,6 +571,7 @@ export default function Settings() {
     }
   };
 
+  //Clear the session and go to sign in.
   const logout = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -568,6 +590,7 @@ export default function Settings() {
     router.replace("/signin" as any);
   };
 
+  //Ask before logging out.
   const confirmLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       {
@@ -582,6 +605,7 @@ export default function Settings() {
     ]);
   };
 
+  //Ask before deleting the account.
   const deleteAccount = () => {
     Alert.alert(
       "Delete Account",
@@ -600,6 +624,7 @@ export default function Settings() {
     );
   };
 
+  //Delete the account and log out.
   const deleteUserAccount = async () => {
     try {
       if (!user.id) {
@@ -639,6 +664,7 @@ export default function Settings() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        {/*Top bar with back and help buttons.*/}
         <View style={styles.topBar}>
           <TouchableOpacity
             onPress={() => router.replace("/user_dashboard" as any)}
@@ -657,6 +683,7 @@ export default function Settings() {
           </TouchableOpacity>
         </View>
 
+        {/*Profile photo, name and location.*/}
         <View style={styles.profileHeader}>
           <Image
             source={
@@ -682,6 +709,7 @@ export default function Settings() {
           </View>
         </View>
 
+        {/*My Items, My Listings and History links.*/}
         <View style={styles.profileSectionSpacing}>
           <View style={styles.menu}>
             <TouchableOpacity
@@ -734,6 +762,7 @@ export default function Settings() {
 
         <Text style={styles.sectionTitle}>Account</Text>
 
+        {/*Edit profile link.*/}
         <View style={styles.menu}>
           <TouchableOpacity
             ref={editProfileRef}
@@ -752,6 +781,7 @@ export default function Settings() {
 
         <Text style={styles.sectionTitle}>About</Text>
 
+        {/*App version.*/}
         <View style={styles.menu}>
           <View style={styles.item}>
             <Image
@@ -764,6 +794,7 @@ export default function Settings() {
           </View>
         </View>
 
+        {/*Logout button.*/}
         <TouchableOpacity
           ref={logoutRef}
           style={styles.logoutBox}
@@ -777,6 +808,7 @@ export default function Settings() {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
+        {/*Delete account button.*/}
         <TouchableOpacity
           ref={deleteAccountRef}
           style={styles.deleteBox}
@@ -791,6 +823,7 @@ export default function Settings() {
         </TouchableOpacity>
       </ScrollView>
 
+      {/*Edit profile modal.*/}
       <Modal visible={editModalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.editModalBox}>
@@ -800,6 +833,7 @@ export default function Settings() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
+              {/*Profile photo and change button.*/}
               <View style={styles.profilePhotoSection}>
                 <Image
                   source={
@@ -868,6 +902,7 @@ export default function Settings() {
                 ]}
               />
 
+              {/*Cancel and save buttons.*/}
               <View style={styles.modalButtons}>
                 <TouchableOpacity
                   style={styles.cancelButton}
@@ -898,6 +933,7 @@ export default function Settings() {
         </View>
       </Modal>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -907,6 +943,7 @@ export default function Settings() {
   );
 }
 
+//Styles for the settings screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

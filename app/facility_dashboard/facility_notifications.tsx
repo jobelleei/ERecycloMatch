@@ -28,6 +28,7 @@ import {
   rememberRead,
 } from "../../utils/notificationState";
 
+//A notification shown in the list.
 type NotificationItem = {
   id: string;
   type: "message" | "item_update" | "system";
@@ -40,6 +41,7 @@ type NotificationItem = {
   timestamp: number;
 };
 
+//Notification row that swipes left to reveal delete.
 function SwipeableNotificationRow({
   item,
   onDelete,
@@ -55,12 +57,14 @@ function SwipeableNotificationRow({
   onOpen: (id: string) => void;
   onClose: () => void;
 }) {
+  //Swipe position tracking.
   const translateX = useRef(new Animated.Value(0)).current;
   const currentX = useRef(0);
   const gestureStartX = useRef(0);
 
   const DELETE_WIDTH = 80;
 
+  //Animate the row to a position.
   const animateTo = useCallback(
     (toValue: number) => {
       currentX.current = toValue;
@@ -74,12 +78,14 @@ function SwipeableNotificationRow({
     [translateX],
   );
 
+  //Close the row when another one opens.
   useEffect(() => {
     if (!isOpen && currentX.current !== 0) {
       animateTo(0);
     }
   }, [isOpen, animateTo]);
 
+  //Horizontal swipe gesture handler.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponderCapture: (_, gestureState) => {
@@ -135,6 +141,7 @@ function SwipeableNotificationRow({
     }),
   ).current;
 
+  //Close the row and delete the notification.
   const handleDelete = () => {
     onClose();
     animateTo(0);
@@ -143,6 +150,7 @@ function SwipeableNotificationRow({
 
   return (
     <View style={styles.swipeWrapper}>
+      {/*Delete button behind the row.*/}
       <View style={styles.behindDelete}>
         <TouchableOpacity
           style={styles.behindDeleteBtn}
@@ -164,9 +172,11 @@ function SwipeableNotificationRow({
   );
 }
 
+//Notifications screen for facilities.
 export default function FacilityNotifications() {
   const router = useRouter();
 
+  //Notification list, filter and swipe state.
   const [facilityId, setFacilityId] = useState<string>("");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,6 +188,7 @@ export default function FacilityNotifications() {
   const screenTouchStart = useRef({ x: 0, y: 0 });
   const screenTouchMoved = useRef(false);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const markAllRef = useRef<any>(null);
   const allTabRef = useRef<any>(null);
@@ -186,6 +197,7 @@ export default function FacilityNotifications() {
   const firstNotificationRef = useRef<ComponentRef<typeof View>>(null);
   const notificationsHelpRef = useRef<any>(null);
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facilityId || loading) return;
 
@@ -196,6 +208,7 @@ export default function FacilityNotifications() {
     );
   }, [facilityId, loading]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -251,6 +264,7 @@ export default function FacilityNotifications() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -259,11 +273,13 @@ export default function FacilityNotifications() {
     }
   };
 
+  //Number of unread notifications.
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
     [notifications],
   );
 
+  //Filter and sort notifications for display.
   const displayedNotifications = useMemo(() => {
     let result =
       activeTab === "unread"
@@ -279,10 +295,12 @@ export default function FacilityNotifications() {
     return result;
   }, [notifications, activeTab, sortOrder]);
 
+  //Load the facility on mount.
   useEffect(() => {
     resolveFacility();
   }, []);
 
+  //Reload notifications when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       if (facilityId) {
@@ -291,6 +309,7 @@ export default function FacilityNotifications() {
     }, [facilityId]),
   );
 
+  //Listen for realtime updates.
   useEffect(() => {
     if (!facilityId) return;
 
@@ -334,6 +353,7 @@ export default function FacilityNotifications() {
     };
   }, [facilityId]);
 
+  //Load the logged in facility from storage.
   const resolveFacility = async () => {
     try {
       setLoading(true);
@@ -374,6 +394,7 @@ export default function FacilityNotifications() {
     }
   };
 
+  //Format a time as "5m ago" style text.
   const formatRelativeTime = (dateValue: string | number) => {
     if (!dateValue) return "";
     const date = new Date(dateValue);
@@ -392,6 +413,7 @@ export default function FacilityNotifications() {
     return `${days}d ago`;
   };
 
+  //Fetch messages, matches and other updates as notifications.
   const fetchAllFacilityUpdates = async (currentFacilityId: string) => {
     try {
       const combined: NotificationItem[] = [];
@@ -612,6 +634,7 @@ export default function FacilityNotifications() {
     }
   };
 
+  //Mark one notification as read.
   const markAsRead = async (item: NotificationItem) => {
     if (facilityId) rememberRead(facilityId, [item]);
     setNotifications((prev) =>
@@ -649,6 +672,7 @@ export default function FacilityNotifications() {
     }
   };
 
+  //Mark all notifications as read.
   const markAllAsRead = async () => {
     if (facilityId) rememberRead(facilityId, notifications);
     setOpenSwipeId(null);
@@ -682,12 +706,14 @@ export default function FacilityNotifications() {
       .eq("is_read", false);
   };
 
+  //Remove a notification from the list.
   const deleteNotification = (item: NotificationItem) => {
     if (facilityId) rememberDismissed(facilityId, [item]);
     setOpenSwipeId(null);
     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
   };
 
+  //Mark as read and open the related screen.
   const handleOpen = async (item: NotificationItem) => {
     setOpenSwipeId(null);
     if (dropdownOpen) setDropdownOpen(false);
@@ -720,14 +746,17 @@ export default function FacilityNotifications() {
     }
   };
 
+  //Set the sort order and close the dropdown.
   const selectSortOption = (order: "newest" | "oldest") => {
     setSortOrder(order);
     setDropdownOpen(false);
   };
 
+  //Get the icon for a notification type.
   const getNotificationIcon = (type: string) =>
     type === "message" ? "chatbubbles-outline" : "notifications-outline";
 
+  //Render a notification row.
   const renderItem = ({
     item,
     index,
@@ -753,6 +782,7 @@ export default function FacilityNotifications() {
       >
         {!item.read && <View style={styles.unreadAccentBar} />}
 
+        {/*Notification icon.*/}
         <View style={styles.iconColumn}>
           <View
             style={[
@@ -768,6 +798,7 @@ export default function FacilityNotifications() {
           </View>
         </View>
 
+        {/*Title, message and time.*/}
         <View style={styles.textColumn}>
           <View style={styles.titleRow}>
             <View style={styles.titleWithBadge}>
@@ -809,6 +840,7 @@ export default function FacilityNotifications() {
     </View>
   );
 
+  //Close any open row when the user taps elsewhere.
   return (
     <SafeAreaView
       style={styles.container}
@@ -831,6 +863,7 @@ export default function FacilityNotifications() {
         }
       }}
     >
+      {/*Header with mark all and help buttons.*/}
       <View style={styles.topHeader}>
         <Text style={styles.panelTitle}>Notifications</Text>
         <View style={styles.headerActions}>
@@ -862,6 +895,7 @@ export default function FacilityNotifications() {
         </View>
       </View>
 
+      {/*All/unread tabs and sort button.*/}
       <View style={styles.tabsRow}>
         <View style={styles.tabsLeft}>
           <TouchableOpacity
@@ -919,12 +953,14 @@ export default function FacilityNotifications() {
         </TouchableOpacity>
       </View>
 
+      {/*Backdrop that closes the sort dropdown.*/}
       {dropdownOpen && (
         <TouchableWithoutFeedback onPress={() => setDropdownOpen(false)}>
           <View style={styles.dropdownBackdrop} />
         </TouchableWithoutFeedback>
       )}
 
+      {/*Sort dropdown menu.*/}
       {dropdownOpen && (
         <View style={styles.dropdownMenu}>
           <TouchableOpacity
@@ -973,6 +1009,7 @@ export default function FacilityNotifications() {
         </View>
       )}
 
+      {/*Loading spinner or notification list.*/}
       {loading ? (
         <View style={styles.loaderArea}>
           <ActivityIndicator size="small" color="#1B5E20" />
@@ -1005,10 +1042,12 @@ export default function FacilityNotifications() {
         />
       )}
 
+      {/*Bottom navigation bar.*/}
       {facilityId ? (
         <FacilityBottomNav facilityId={facilityId} active="home" />
       ) : null}
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1018,6 +1057,7 @@ export default function FacilityNotifications() {
   );
 }
 
+//Styles for the notifications screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

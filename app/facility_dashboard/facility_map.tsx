@@ -30,15 +30,19 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
+//Height of the bottom navigation bar.
 const NAV_HEIGHT = 70;
 
+//Latitude and longitude pair.
 type Coord = {
   latitude: number;
   longitude: number;
 };
 
+//Which set of pins the map is showing.
 type MapMode = "facilities" | "bins";
 
+//A facility or drop off bin shown on the map.
 type MapPin = {
   id: string;
   name: string;
@@ -56,6 +60,7 @@ type MapPin = {
   availableServices?: string;
 };
 
+//Fallback drop off bins used when the database has none.
 const DEFAULT_DROP_OFF_BINS: MapPin[] = [
   {
     id: "default-bin-1",
@@ -139,37 +144,46 @@ const DEFAULT_DROP_OFF_BINS: MapPin[] = [
   },
 ];
 
+//Map screen for facilities to find other facilities and drop off bins.
 export default function FacilityMapScreen() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useLocalSearchParams();
 
+  //Logged in facility.
   const [facility, setFacility] = useState<any>(null);
 
+  //Map and live location tracking references.
   const mapRef = useRef<MapView | null>(null);
   const locationSubscriptionRef = useRef<Location.LocationSubscription | null>(
     null,
   );
 
+  //Signatures used to skip reloading unchanged data.
   const facilitiesSignatureRef = useRef<string>("");
   const binsSignatureRef = useRef<string>("");
 
+  //Latest pin lists kept in refs for use inside callbacks.
   const facilitiesRef = useRef<MapPin[]>([]);
   const binsRef = useRef<MapPin[]>([]);
 
+  //Track route params that were already handled.
   const handledRouteFocusKeyRef = useRef<string>("");
   const handledDropOffInterfaceKeyRef = useRef<string>("");
   const isApplyingRouteFocusRef = useRef(false);
 
+  //Core map state.
   const [userLocation, setUserLocation] = useState<Coord | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>("facilities");
 
+  //List and pin data state.
   const [showList, setShowList] = useState(false);
   const [sortedPins, setSortedPins] = useState<MapPin[]>([]);
 
   const [facilities, setFacilities] = useState<MapPin[]>([]);
   const [dropOffBins, setDropOffBins] = useState<MapPin[]>([]);
 
+  //Selected pin and navigation state.
   const [selectedPin, setSelectedPin] = useState<MapPin | null>(null);
   const [navigationTarget, setNavigationTarget] = useState<MapPin | null>(null);
   const [isNavigating, setIsNavigating] = useState(false);
@@ -178,11 +192,14 @@ export default function FacilityMapScreen() {
     { latitude: number; longitude: number }[]
   >([]);
 
+  //Search state.
   const [search, setSearch] = useState("");
   const [loadingPins, setLoadingPins] = useState(false);
 
+  //Slide animation for the bottom list.
   const translateY = useRef(new Animated.Value(300)).current;
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const searchBarRef = useRef<ComponentRef<typeof View>>(null);
   const facilitiesModeRef = useRef<any>(null);
@@ -191,6 +208,7 @@ export default function FacilityMapScreen() {
   const legendRef = useRef<ComponentRef<typeof View>>(null);
   const mapHelpRef = useRef<any>(null);
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facility?.id) return;
 
@@ -199,6 +217,7 @@ export default function FacilityMapScreen() {
     });
   }, [facility?.id]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -262,6 +281,7 @@ export default function FacilityMapScreen() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -270,6 +290,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -322,6 +343,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Read a route param as a trimmed string.
   const getParamValue = (value: any) => {
     if (Array.isArray(value)) {
       return String(value[0] || "").trim();
@@ -330,6 +352,7 @@ export default function FacilityMapScreen() {
     return String(value || "").trim();
   };
 
+  //Check if the route asks to open the drop off bins view.
   const shouldOpenDropOffBinsInterface = useMemo(() => {
     const mapModeParam = getParamValue(params.mapMode);
     const modeParam = getParamValue(params.mode);
@@ -364,6 +387,7 @@ export default function FacilityMapScreen() {
     params.selectedPinType,
   ]);
 
+  //Unique key for the drop off bins route request.
   const dropOffInterfaceRouteKey = shouldOpenDropOffBinsInterface
     ? [
         getParamValue(params.mapMode),
@@ -378,6 +402,7 @@ export default function FacilityMapScreen() {
       ].join("|")
     : "";
 
+  //Build a bin pin from route params to focus on.
   const incomingSelectedBin = useMemo(() => {
     const rawLatitude =
       getParamValue(params.selectedBinLatitude) ||
@@ -465,10 +490,12 @@ export default function FacilityMapScreen() {
     shouldOpenDropOffBinsInterface,
   ]);
 
+  //Unique key for the incoming bin.
   const incomingSelectedBinKey = incomingSelectedBin
     ? `${incomingSelectedBin.id}-${incomingSelectedBin.latitude}-${incomingSelectedBin.longitude}`
     : "";
 
+  //Swipe down gesture to close the bottom list.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 10,
@@ -495,6 +522,7 @@ export default function FacilityMapScreen() {
     }),
   ).current;
 
+  //Load data on mount, stop navigation on unmount.
   useEffect(() => {
     loadFacility();
     loadUserLocation();
@@ -506,6 +534,7 @@ export default function FacilityMapScreen() {
     };
   }, []);
 
+  //Ask for location permission and center the map.
   const loadUserLocation = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -543,6 +572,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Lowercase text and strip special characters.
   const normalizeText = (text: any) => {
     return String(text || "")
       .toLowerCase()
@@ -551,6 +581,7 @@ export default function FacilityMapScreen() {
       .trim();
   };
 
+  //Split a search keyword into words.
   const getSearchWords = (keywordValue: string) => {
     return normalizeText(keywordValue)
       .split(" ")
@@ -558,6 +589,7 @@ export default function FacilityMapScreen() {
       .filter((word) => word.length > 0);
   };
 
+  //Return the first non-empty value from a list of keys.
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -574,6 +606,7 @@ export default function FacilityMapScreen() {
     return "";
   };
 
+  //Get the facility name from possible fields.
   const getFacilityName = (facility: any) => {
     return (
       getValueFromKeys(facility, [
@@ -590,6 +623,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Get the facility address from possible fields.
   const getFacilityAddress = (facility: any) => {
     const directAddress = getValueFromKeys(facility, [
       "location",
@@ -617,6 +651,7 @@ export default function FacilityMapScreen() {
     return parts.join(", ");
   };
 
+  //Facility detail getters.
   const getFacilityOpeningDaysFrom = (facility: any) => {
     return String(
       getValueFromKeys(facility, ["opening_days_from", "openingDaysFrom"]) ||
@@ -676,6 +711,7 @@ export default function FacilityMapScreen() {
     ).trim();
   };
 
+  //Format operating hours for display.
   const formatOperatingHours = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
     const cleanTo = String(to || "").trim();
@@ -695,6 +731,7 @@ export default function FacilityMapScreen() {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Format opening days for display.
   const formatOpeningDays = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
     const cleanTo = String(to || "").trim();
@@ -706,6 +743,7 @@ export default function FacilityMapScreen() {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Clean up comma separated text.
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
 
@@ -720,6 +758,7 @@ export default function FacilityMapScreen() {
       .join(", ");
   };
 
+  //Get coordinates from possible fields.
   const getLatitude = (item: any) => {
     return getValueFromKeys(item, [
       "latitude",
@@ -739,6 +778,7 @@ export default function FacilityMapScreen() {
     ]);
   };
 
+  //Check if a profile is an approved facility.
   const isApprovedFacility = (profile: any) => {
     const role = normalizeText(
       getValueFromKeys(profile, ["role", "account_type", "user_type", "type"]),
@@ -765,6 +805,7 @@ export default function FacilityMapScreen() {
     return roleIsFacility && statusIsApproved;
   };
 
+  //Build searchable text for a pin.
   const getPinSearchText = (pin: MapPin) => {
     const typeWords =
       pin.type === "facilities"
@@ -785,6 +826,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Filter pins that match the search keyword.
   const filterPinsBySearch = (pinList: MapPin[], keywordValue = search) => {
     const keyword = normalizeText(keywordValue);
     const words = getSearchWords(keywordValue);
@@ -804,6 +846,7 @@ export default function FacilityMapScreen() {
     });
   };
 
+  //Combine facilities and bins without duplicates.
   const getAllPins = () => {
     const combinedPins = [...facilitiesRef.current, ...binsRef.current];
     const uniquePins = new Map<string, MapPin>();
@@ -815,6 +858,7 @@ export default function FacilityMapScreen() {
     return Array.from(uniquePins.values());
   };
 
+  //Use all pins when searching, else only the current mode.
   const getPinsForSearch = (keywordValue = search) => {
     if (keywordValue.trim().length > 0) {
       return getAllPins();
@@ -823,6 +867,7 @@ export default function FacilityMapScreen() {
     return mapMode === "facilities" ? facilitiesRef.current : binsRef.current;
   };
 
+  //Shorten an address for geocoding.
   const extractBarangayMunicipalityProvince = (addressText: string) => {
     if (!addressText) return "";
 
@@ -846,6 +891,7 @@ export default function FacilityMapScreen() {
     return `${addressText}, Philippines`;
   };
 
+  //Convert an address to coordinates.
   const geocodeLocation = async (addressText: string) => {
     try {
       if (!addressText) return null;
@@ -878,6 +924,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Check if coordinates are valid.
   const hasValidCoordinates = (latitude: any, longitude: any) => {
     const lat = Number(latitude);
     const lng = Number(longitude);
@@ -894,6 +941,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Create a signature to detect data changes.
   const getRowsSignature = (list: any[]) => {
     return list
       .map((row) => JSON.stringify(row))
@@ -901,6 +949,7 @@ export default function FacilityMapScreen() {
       .join("::");
   };
 
+  //Distance in km between two points (Haversine).
   const getDistanceKmNumber = (a: Coord, b: Coord) => {
     const R = 6371;
     const dLat = (b.latitude - a.latitude) * (Math.PI / 180);
@@ -918,6 +967,7 @@ export default function FacilityMapScreen() {
     return R * c;
   };
 
+  //Distance from a point to a pin.
   const getDistanceKm = (a: Coord, b: MapPin) => {
     return getDistanceKmNumber(a, {
       latitude: b.latitude,
@@ -925,6 +975,7 @@ export default function FacilityMapScreen() {
     }).toFixed(2);
   };
 
+  //Filter pins and sort them by distance.
   const updateNearestList = (pinList: MapPin[], keywordValue = search) => {
     const filteredPins = filterPinsBySearch(pinList, keywordValue);
 
@@ -946,6 +997,7 @@ export default function FacilityMapScreen() {
     return sorted;
   };
 
+  //Convert facility rows into map pins.
   const buildFacilitiesFromRows = async (approvedFacilities: any[]) => {
     const finalFacilities: MapPin[] = [];
 
@@ -998,6 +1050,7 @@ export default function FacilityMapScreen() {
     return finalFacilities;
   };
 
+  //Convert bin rows into map pins.
   const buildBinsFromRows = async (bins: any[]) => {
     const finalBins: MapPin[] = [];
 
@@ -1047,6 +1100,7 @@ export default function FacilityMapScreen() {
     return finalBins;
   };
 
+  //Load approved facilities from Supabase.
   const checkAndLoadFacilities = async (
     forceLoad = false,
     showLoader = true,
@@ -1102,6 +1156,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Load active drop off bins from Supabase.
   const checkAndLoadDropOffBins = async (
     forceLoad = false,
     showLoader = true,
@@ -1192,6 +1247,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Find a bin by id, name, or nearby coordinates.
   const findMatchingBinPin = (targetPin: MapPin, pinList: MapPin[]) => {
     const exactIdMatch = pinList.find(
       (pin) => String(pin.id) === String(targetPin.id),
@@ -1219,6 +1275,7 @@ export default function FacilityMapScreen() {
     return targetPin;
   };
 
+  //Switch to bins mode and zoom to the selected bin.
   const focusIncomingDropOffBin = async (targetPin: MapPin) => {
     try {
       isApplyingRouteFocusRef.current = true;
@@ -1263,6 +1320,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Open the bins list and zoom to the nearest bin.
   const openDropOffBinsInterfaceFromRoute = async () => {
     try {
       isApplyingRouteFocusRef.current = true;
@@ -1319,6 +1377,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Reload pins for the current map mode.
   const refreshCurrentModePins = async (showLoader = true) => {
     if (mapMode === "facilities") {
       return await checkAndLoadFacilities(false, showLoader);
@@ -1327,6 +1386,7 @@ export default function FacilityMapScreen() {
     return await checkAndLoadDropOffBins(false, showLoader);
   };
 
+  //Load pins and slide up the list.
   const openPinsList = async () => {
     if (search.trim().length > 0) {
       const latestFacilities = await checkAndLoadFacilities(true, true);
@@ -1352,6 +1412,7 @@ export default function FacilityMapScreen() {
     }).start();
   };
 
+  //Run the search and show results.
   const handleSearch = async () => {
     const cleanSearch = search.trim();
 
@@ -1410,6 +1471,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Move the map to a pin.
   const goToPinOnMap = (pin: MapPin) => {
     mapRef.current?.animateToRegion(
       {
@@ -1422,6 +1484,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Show pin details and focus on it.
   const openPinDetails = (pin: MapPin) => {
     console.log(pin);
 
@@ -1430,12 +1493,14 @@ export default function FacilityMapScreen() {
     goToPinOnMap(pin);
   };
 
+  //Check if a pin is the logged in facility.
   const isOwnFacilityPin = (pin: MapPin | null) => {
     if (!pin || pin.type !== "facilities") return false;
 
     return String(pin.id) === String(facility?.id || "");
   };
 
+  //Open the facility profile screen.
   const viewFacilityProfile = (pin: MapPin) => {
     if (pin.type !== "facilities") return;
 
@@ -1452,6 +1517,7 @@ export default function FacilityMapScreen() {
     });
   };
 
+  //Stop tracking and clear the route.
   const stopNavigation = async () => {
     try {
       if (locationSubscriptionRef.current) {
@@ -1468,6 +1534,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Start directions to the selected pin.
   const startNavigation = async (pin: MapPin) => {
     try {
       if (isOwnFacilityPin(pin)) {
@@ -1584,6 +1651,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Update results while typing.
   const handleSearchTextChange = (text: string) => {
     setSearch(text);
 
@@ -1609,6 +1677,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Clear the search box.
   const clearSearch = () => {
     setSearch("");
     setSelectedPin(null);
@@ -1619,6 +1688,7 @@ export default function FacilityMapScreen() {
     updateNearestList(currentPins, "");
   };
 
+  //Switch between facilities and bins.
   const switchMapMode = async (mode: MapMode) => {
     setMapMode(mode);
     setSearch("");
@@ -1634,6 +1704,7 @@ export default function FacilityMapScreen() {
     }
   };
 
+  //Render a label and value row.
   const renderFacilityInfoRow = (label: string, value: string) => {
     return (
       <View style={styles.facilityInfoRow}>
@@ -1643,6 +1714,7 @@ export default function FacilityMapScreen() {
     );
   };
 
+  //Pins currently shown on the map.
   const currentMapPins =
     search.trim().length > 0
       ? filterPinsBySearch([...facilities, ...dropOffBins], search)
@@ -1653,6 +1725,7 @@ export default function FacilityMapScreen() {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={{ flex: 1 }}>
+        {/*Search bar and help button.*/}
         <View style={styles.searchContainer}>
           <View
             ref={searchBarRef}
@@ -1695,6 +1768,7 @@ export default function FacilityMapScreen() {
           />
         </View>
 
+        {/*Map mode toggle buttons.*/}
         <View style={styles.modeButtonContainer}>
           <TouchableOpacity
             ref={facilitiesModeRef}
@@ -1733,6 +1807,7 @@ export default function FacilityMapScreen() {
           </TouchableOpacity>
         </View>
 
+        {/*Button to open the pins list.*/}
         <TouchableOpacity
           ref={showListRef}
           style={styles.button}
@@ -1749,6 +1824,7 @@ export default function FacilityMapScreen() {
           )}
         </TouchableOpacity>
 
+        {/*Map with pins and route.*/}
         <MapView
           ref={mapRef}
           style={{ flex: 1, paddingBottom: NAV_HEIGHT }}
@@ -1790,6 +1866,7 @@ export default function FacilityMapScreen() {
             </Marker>
           ))}
 
+          {/*Route line while navigating.*/}
           {isNavigating && userLocation && navigationTarget && (
             <Polyline
               coordinates={
@@ -1812,6 +1889,7 @@ export default function FacilityMapScreen() {
           )}
         </MapView>
 
+        {/*Map legend.*/}
         <View ref={legendRef} collapsable={false} style={styles.legend}>
           <Text style={styles.legendTitle}>Legend</Text>
 
@@ -1838,6 +1916,7 @@ export default function FacilityMapScreen() {
           )}
         </View>
 
+        {/*Active route info with cancel button.*/}
         {isNavigating && navigationTarget && (
           <View style={styles.routeBox}>
             <View style={styles.routeInfo}>
@@ -1863,6 +1942,7 @@ export default function FacilityMapScreen() {
           </View>
         )}
 
+        {/*Selected pin details panel.*/}
         {selectedPin && (
           <View style={styles.detailsBox}>
             <ScrollView
@@ -1884,6 +1964,7 @@ export default function FacilityMapScreen() {
                   "No address provided"}
               </Text>
 
+              {/*Extra facility details.*/}
               {selectedPin.type === "facilities" && (
                 <View style={styles.facilityInfoBox}>
                   {renderFacilityInfoRow(
@@ -1922,6 +2003,7 @@ export default function FacilityMapScreen() {
 
             </ScrollView>
 
+            {/*Profile and directions buttons.*/}
             <View style={styles.detailsButtonRow}>
               {selectedPin.type === "facilities" && (
                 <TouchableOpacity
@@ -1959,6 +2041,7 @@ export default function FacilityMapScreen() {
           </View>
         )}
 
+        {/*Swipeable list of nearby pins.*/}
         {showList && (
           <Animated.View
             style={[
@@ -2026,9 +2109,11 @@ export default function FacilityMapScreen() {
           </Animated.View>
         )}
 
+        {/*Bottom navigation bar.*/}
         <FacilityBottomNav facilityId={facility?.id || ""} active="map" />
       </View>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -2038,6 +2123,7 @@ export default function FacilityMapScreen() {
   );
 }
 
+//Styles for the map screen.
 const styles = StyleSheet.create({
   searchContainer: {
     position: "absolute",

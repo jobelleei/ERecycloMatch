@@ -48,12 +48,15 @@ import {
   formatSensitiveInfoList,
 } from "../../utils/sensitiveInfo";
 
+//Chat screen between a facility and a user.
 export default function FacilityChat() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //Message list ref used for auto scrolling.
   const flatListRef = useRef<FlatList<any>>(null);
 
+  //Scroll to the newest message when the keyboard opens.
   useEffect(() => {
     const subscription = Keyboard.addListener("keyboardDidShow", () => {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
@@ -61,6 +64,7 @@ export default function FacilityChat() {
     return () => subscription.remove();
   }, []);
 
+  //Conversation and item info from the route params.
   const conversationId = String(params.conversationId || "");
   const userIdParam = String(params.user_id || "");
   const userNameParam = String(params.user_name || "User");
@@ -69,6 +73,7 @@ export default function FacilityChat() {
   const itemNameParam = String(params.item_name || params.itemName || "");
   const itemImageParam = String(params.item_image || params.itemImage || "");
 
+  //Conversation, messages and input state.
   const [facility, setFacility] = useState<any>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -82,15 +87,18 @@ export default function FacilityChat() {
   const [messageText, setMessageText] = useState("");
   const [requestItem, setRequestItem] = useState<any>(null);
   const [sending, setSending] = useState(false);
+  //Which message shows its full timestamp.
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(
     null,
   );
 
+  //Other user's profile details.
   const [userProfile, setUserProfile] = useState({
     name: "User",
     profileImage: "",
   });
 
+  //Feedback and report modal state.
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [selectedRating, setSelectedRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState("");
@@ -99,6 +107,7 @@ export default function FacilityChat() {
   const [reportReason, setReportReason] = useState("");
   const [reportDetails, setReportDetails] = useState("");
 
+  //Reasons a facility can report a user.
   const reportReasons = [
     "Scam or fraud",
     "Harassment or inappropriate behavior",
@@ -109,10 +118,12 @@ export default function FacilityChat() {
     "Other",
   ];
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
 
+  //Load the chat and poll every 15 seconds.
   useEffect(() => {
     if (!conversationId) return;
 
@@ -127,6 +138,7 @@ export default function FacilityChat() {
     return () => clearInterval(interval);
   }, [conversationId]);
 
+  //Load all transactions between this user and facility.
   useEffect(() => {
     const threadUserId = conversation?.user_id;
     const threadFacilityId = conversation?.facility_id;
@@ -157,18 +169,21 @@ export default function FacilityChat() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation?.user_id, conversation?.facility_id, conversationId]);
 
+  //Live updates for messages and conversation.
   useChatRealtime(
     conversationId,
     () => fetchMessages(),
     () => fetchConversation(),
   );
 
+  //Add a pending warning while the match is not accepted.
   useEffect(() => {
     if (conversation?.id && isPendingMatch()) {
       addPendingMatchWarningIfNeeded();
     }
   }, [conversation?.id, conversation?.status, conversation?.request_status]);
 
+  //Load the user's profile.
   useEffect(() => {
     const currentUserId = String(conversation?.user_id || userIdParam || "");
 
@@ -177,6 +192,7 @@ export default function FacilityChat() {
     }
   }, [conversation?.user_id, userIdParam]);
 
+  //Load the requested item details.
   useEffect(() => {
     const activeItemId = String(conversation?.item_id || itemIdParam || "");
 
@@ -210,12 +226,14 @@ export default function FacilityChat() {
     itemImageParam,
   ]);
 
+  //Make sure a pending match has its request message.
   useEffect(() => {
     if (conversation?.status === "match_pending" && conversation?.id) {
       ensureMatchRequestMessage(String(conversation.id));
     }
   }, [conversation?.id, conversation?.status, conversation?.item_id]);
 
+  //Scroll to the bottom when messages change.
   useEffect(() => {
     if (messages.length > 0) {
       setTimeout(() => {
@@ -224,6 +242,7 @@ export default function FacilityChat() {
     }
   }, [messages]);
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -265,6 +284,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -282,6 +302,7 @@ export default function FacilityChat() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -295,6 +316,7 @@ export default function FacilityChat() {
     return data?.publicUrl || "";
   };
 
+  //Fetch the user's profile from Supabase.
   const fetchUserProfile = async (targetUserId: string) => {
     try {
       const { data, error } = await supabase
@@ -346,6 +368,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Get the user's image.
   const getUserImage = () => {
     const imagePath =
       userProfile.profileImage ||
@@ -378,6 +401,7 @@ export default function FacilityChat() {
     };
   };
 
+  //Get the requested item name and image.
   const getRequestItemName = () => {
     return String(
       requestItem?.item_name ||
@@ -434,6 +458,7 @@ export default function FacilityChat() {
     };
   };
 
+  //Fetch the requested item from Supabase.
   const fetchRequestItem = async (targetItemId: string) => {
     try {
       if (!targetItemId) return;
@@ -477,6 +502,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Date and time formatters.
   const formatMessageTimeOnly = (value: string) => {
     if (!value) return "";
     const date = new Date(value);
@@ -503,6 +529,7 @@ export default function FacilityChat() {
     });
   };
 
+  //Checks for special system messages.
   const isMatchRequestMessage = (item: any) => {
     const message = String(item?.message || "")
       .trim()
@@ -567,6 +594,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Fetch the conversation record.
   const fetchConversation = async () => {
     try {
       if (!conversationId) return;
@@ -590,6 +618,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Fetch messages for every transaction in the thread.
   const fetchMessages = async () => {
     try {
       if (!conversationId) return;
@@ -634,6 +663,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Add a "Match request sent" message once.
   const ensureMatchRequestMessage = async (targetConversationId: string) => {
     try {
       const { data: existingRequestMessages, error: findError } = await supabase
@@ -678,6 +708,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Update the conversation record.
   const updateConversation = async (updates: any) => {
     const { error } = await supabase
       .from("conversations")
@@ -692,6 +723,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Add a system message to the chat.
   const addSystemMessage = async (text: string) => {
     try {
       const now = new Date().toISOString();
@@ -758,6 +790,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Add a pending match notice once.
   const addPendingMatchWarningIfNeeded = async () => {
     try {
       const warningMessage =
@@ -808,6 +841,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Accept the match request.
   const acceptMatch = async () => {
     Alert.alert(
       "Accept Match",
@@ -864,6 +898,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Reject the match request.
   const rejectMatch = async () => {
     Alert.alert("Reject Match", "Are you sure you want to reject this match?", [
       {
@@ -912,6 +947,7 @@ export default function FacilityChat() {
     ]);
   };
 
+  //Cancel the match.
   const cancelMatch = async () => {
     const userAlreadyFinished = Boolean(conversation?.user_finished);
     const facilityAlreadyFinished = Boolean(conversation?.facility_finished);
@@ -979,6 +1015,7 @@ export default function FacilityChat() {
     ]);
   };
 
+  //Save the finished match to recycling history.
   const createRecyclingHistoryRecord = async (finishedAt: string) => {
     try {
       let itemData: any = null;
@@ -1062,6 +1099,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Mark the match as finished.
   const finishMatch = async () => {
     Alert.alert(
       "Finish Match",
@@ -1139,6 +1177,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Submit a rating, feedback and optional report.
   const submitFeedback = async () => {
     try {
       Keyboard.dismiss();
@@ -1267,6 +1306,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Match status checks.
   const getCurrentStatus = () => {
     return String(conversation?.status || "match_pending")
       .trim()
@@ -1371,6 +1411,7 @@ export default function FacilityChat() {
     });
   };
 
+  //Check if the facility can send a message.
   const canSendOfferMessage = () => {
     return isCurrentAccountRequester() && !hasCurrentAccountSentOffer();
   };
@@ -1379,6 +1420,7 @@ export default function FacilityChat() {
     return isAcceptedMatch() || canSendOfferMessage();
   };
 
+  //Input placeholder based on the match status.
   const getInputPlaceholder = () => {
     if (isAcceptedMatch()) return "Message";
 
@@ -1395,6 +1437,7 @@ export default function FacilityChat() {
     return "Chat is locked until the match is active";
   };
 
+  //Send the typed message or selected photo.
   const sendMessage = () => {
     const sensitiveInfo = detectSensitiveInfo(messageText);
 
@@ -1420,6 +1463,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Explain how to allow camera or gallery access.
   const showPermissionBlocked = (what: "camera" | "gallery", canAskAgain: boolean) => {
     const title = what === "camera" ? "Camera access blocked" : "Gallery access blocked";
     const message =
@@ -1438,6 +1482,7 @@ export default function FacilityChat() {
     ]);
   };
 
+  //Take a photo with the camera.
   const pickFromCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -1457,6 +1502,7 @@ export default function FacilityChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
+  //Pick a photo from the gallery.
   const pickFromGallery = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
@@ -1477,6 +1523,7 @@ export default function FacilityChat() {
     setSelectedImageUri(result.assets[0].uri);
   };
 
+  //Ask whether to use the camera or gallery.
   const handlePickImage = () => {
     if (!canSendMessage()) {
       Alert.alert(
@@ -1601,6 +1648,7 @@ export default function FacilityChat() {
     }
   };
 
+  //Status text and dot color under the name.
   const getSubtitle = () => {
     const status = conversation?.status || "match_pending";
 
@@ -1629,6 +1677,7 @@ export default function FacilityChat() {
     return "#888";
   };
 
+  //Render buttons based on the match status.
   const renderTopButtons = () => {
     const status = conversation?.status || "match_pending";
     const facilityFinished = Boolean(conversation?.facility_finished);
@@ -1755,6 +1804,7 @@ export default function FacilityChat() {
     return null;
   };
 
+  //Render the requested item card.
   const renderRequestItemCard = (requestMsg?: any) => {
     const pastTransaction =
       requestMsg &&
@@ -1794,6 +1844,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Open edit options for a message.
   const openMessageOptions = (item: any) => {
     Alert.alert("Message", "Fix a typo in this message?", [
       { text: "Cancel", style: "cancel" },
@@ -1801,6 +1852,7 @@ export default function FacilityChat() {
     ]);
   };
 
+  //Save an edited message.
   const handleSaveEdit = async (newText: string) => {
     if (!editingMessage) return;
 
@@ -1834,6 +1886,7 @@ export default function FacilityChat() {
     setEditingMessage(null);
   };
 
+  //Add a divider before each new transaction.
   const renderThreadItem = (args: any) => {
     const { item, index } = args;
     const content = renderMessage(args);
@@ -1858,6 +1911,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Render a chat message.
   const renderMessage = ({ item, index }: any) => {
     if (isOldEmptyRequestBubble(item)) {
       return null;
@@ -2012,6 +2066,7 @@ export default function FacilityChat() {
     );
   };
 
+  //Header and lock state.
   const headerName =
     userProfile.name || conversation?.user_name || userNameParam || "User";
 
@@ -2026,6 +2081,7 @@ export default function FacilityChat() {
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={{ flex: 1 }}>
+            {/*Header with back button, user name and status.*/}
             <View style={styles.header}>
               <TouchableOpacity onPress={() => router.back()}>
                 <Text style={styles.back}>‹</Text>
@@ -2050,6 +2106,7 @@ export default function FacilityChat() {
 
             {renderTopButtons()}
 
+            {/*Message list.*/}
             <FlatList
               ref={flatListRef}
               data={messages}
@@ -2061,6 +2118,7 @@ export default function FacilityChat() {
               }
             />
 
+            {/*Selected photo preview.*/}
             {selectedImageUri && (
               <View style={styles.imagePreviewContainer}>
                 <Image
@@ -2076,6 +2134,7 @@ export default function FacilityChat() {
               </View>
             )}
 
+            {/*Message input with attach and send buttons.*/}
             <View style={styles.inputRow}>
               <TouchableOpacity
                 style={styles.attachButton}
@@ -2120,6 +2179,7 @@ export default function FacilityChat() {
           </View>
         </TouchableWithoutFeedback>
 
+        {/*Rate and report modal.*/}
         <Modal
           visible={feedbackModalVisible}
           transparent
@@ -2148,6 +2208,7 @@ export default function FacilityChat() {
                       How was your match with {headerName}?
                     </Text>
 
+                    {/*Star rating.*/}
                     <View style={styles.starsRow}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <TouchableOpacity
@@ -2169,6 +2230,7 @@ export default function FacilityChat() {
                       ))}
                     </View>
 
+                    {/*Feedback comment.*/}
                     <TextInput
                       value={feedbackComment}
                       onChangeText={setFeedbackComment}
@@ -2182,6 +2244,7 @@ export default function FacilityChat() {
                       onSubmitEditing={Keyboard.dismiss}
                     />
 
+                    {/*Optional report section.*/}
                     <View style={styles.reportSection}>
                       <TouchableOpacity
                         style={styles.reportToggle}
@@ -2282,6 +2345,7 @@ export default function FacilityChat() {
                       )}
                     </View>
 
+                    {/*Cancel and submit buttons.*/}
                     <View style={styles.modalButtons}>
                       <TouchableOpacity
                         style={styles.modalCancelButton}
@@ -2315,6 +2379,7 @@ export default function FacilityChat() {
         </Modal>
       </ChatKeyboardAvoidingView>
 
+      {/*Edit message modal.*/}
       <EditMessageModal
         visible={Boolean(editingMessage)}
         initialText={String(editingMessage?.message || "")}
@@ -2326,6 +2391,7 @@ export default function FacilityChat() {
   );
 }
 
+//Styles for the chat screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

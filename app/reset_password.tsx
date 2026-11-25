@@ -20,26 +20,31 @@ export default function ResetPassword() {
   const router = useRouter();
   const params = useLocalSearchParams<{ email?: string; mode?: string }>();
 
+  //Setting the current password reset step
   const [mode, setMode] = useState<"otp" | "new_password">(
     params.mode === "new_password" ? "new_password" : "otp",
   );
 
+  //Store the user's email and OTP code
   const [emailInput, setEmailInput] = useState(
     typeof params.email === "string" ? params.email : "",
   );
   const [otpCode, setOtpCode] = useState("");
   const [verifyingOtp, setVerifyingOtp] = useState(false);
 
+  //Store the new password and visibility settings
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [updating, setUpdating] = useState(false);
 
+  //Verify the OTP code entered by the user
   const handleVerifyOtp = async () => {
     const cleanEmail = emailInput.trim().toLowerCase();
     const cleanToken = otpCode.trim();
 
+    //Check if the email is empty
     if (!cleanEmail) {
       Toast.show({
         type: "error",
@@ -49,6 +54,7 @@ export default function ResetPassword() {
       return;
     }
 
+    //Check if the OTP code is valid
     if (!cleanToken || cleanToken.length < 6) {
       Toast.show({
         type: "error",
@@ -59,14 +65,14 @@ export default function ResetPassword() {
     }
 
     setVerifyingOtp(true);
-    try {
+    try { //Verify the recovery code using Supabase
       const { data, error } = await supabase.auth.verifyOtp({
         email: cleanEmail,
         token: cleanToken,
         type: "recovery",
       });
 
-      if (error) {
+      if (error) { //Display an error if verification fails
         Toast.show({
           type: "error",
           text1: "Verification Failed",
@@ -77,6 +83,7 @@ export default function ResetPassword() {
 
       console.log("OTP verified for user ID:", data?.user?.id);
 
+      //Proceed to the new password screen
       Toast.show({
         type: "success",
         text1: "Code Verified",
@@ -84,7 +91,7 @@ export default function ResetPassword() {
       });
 
       setMode("new_password");
-    } catch (err: any) {
+    } catch (err: any) { //Handle unexpected verification errors
       Toast.show({
         type: "error",
         text1: "Server Error",
@@ -95,6 +102,7 @@ export default function ResetPassword() {
     }
   };
 
+   //Update the user's password
   const handleUpdatePassword = async () => {
     const cleanPassword = password.trim();
     const cleanConfirm = confirmPassword.trim();
@@ -104,7 +112,7 @@ export default function ResetPassword() {
       .trim()
       .toLowerCase();
 
-    if (!cleanPassword) {
+    if (!cleanPassword) { //Check if the new password is empty
       Toast.show({
         type: "error",
         text1: "Password Required",
@@ -113,6 +121,7 @@ export default function ResetPassword() {
       return;
     }
 
+    //Require at least 6 characters
     if (cleanPassword.length < 6) {
       Toast.show({
         type: "error",
@@ -122,6 +131,7 @@ export default function ResetPassword() {
       return;
     }
 
+    //Check if both passwords match
     if (cleanPassword !== cleanConfirm) {
       Toast.show({
         type: "error",
@@ -133,13 +143,13 @@ export default function ResetPassword() {
 
     setUpdating(true);
 
-    try {
+    try { //Save the new password to Supabase Auth
       const { data: authData, error: authError } =
         await supabase.auth.updateUser({
           password: cleanPassword,
         });
 
-      if (authError) {
+      if (authError) { //Stop if the password update fails
         Toast.show({
           type: "error",
           text1: "Update Failed",
@@ -148,14 +158,14 @@ export default function ResetPassword() {
         return;
       }
 
-      if (targetEmail) {
+      if (targetEmail) { //Clear the old password field in the profile table
         const { data: updatedRows, error: dbError } = await supabase
           .from("profiles")
           .update({ password: null })
           .eq("email", targetEmail)
           .select();
 
-        if (dbError) {
+        if (dbError) { //Handle database update errors
           console.error("Profiles update error:", dbError);
           Toast.show({
             type: "error",
@@ -168,7 +178,7 @@ export default function ResetPassword() {
         console.log("Profile rows updated:", updatedRows);
       }
 
-      await supabase.auth.signOut();
+      await supabase.auth.signOut(); //Sign out after successfully changing the password
 
       Toast.show({
         type: "success",
@@ -176,11 +186,11 @@ export default function ResetPassword() {
         text2: "Your password has been changed. Please sign in.",
       });
 
-      setTimeout(() => {
+      setTimeout(() => { //Return to the sign-in screen
         router.replace("/signin");
       }, 1400);
     } catch (err: any) {
-      Toast.show({
+      Toast.show({ //Handle unexpected password update errors
         type: "error",
         text1: "Error",
         text2: err?.message || "Failed to update password.",
@@ -213,7 +223,8 @@ export default function ResetPassword() {
             </Pressable>
           </View>
 
-          <View
+           {/* Header image */}
+          <View 
             style={{ alignItems: "center", marginTop: 10, marginBottom: -10 }}
           >
             <Image
@@ -222,6 +233,7 @@ export default function ResetPassword() {
             />
           </View>
 
+          {/* OTP verification screen */}
           {mode === "otp" && (
             <View>
               <Text
@@ -249,6 +261,7 @@ export default function ResetPassword() {
                 Enter the verification code sent to your email.
               </Text>
 
+              {/* Email and OTP input fields */}
               <View
                 style={{
                   backgroundColor: "#FFFFFF",
@@ -343,6 +356,7 @@ export default function ResetPassword() {
                 </View>
               </View>
 
+              {/* Verify OTP button */}
               <Pressable
                 onPress={handleVerifyOtp}
                 disabled={verifyingOtp}
@@ -370,6 +384,7 @@ export default function ResetPassword() {
                 )}
               </Pressable>
 
+              {/* Request a new OTP code */}
               <Pressable
                 onPress={() => router.replace("/forgot_password")}
                 style={{ alignItems: "center", paddingVertical: 8 }}
@@ -388,6 +403,7 @@ export default function ResetPassword() {
             </View>
           )}
 
+          {/* New password screen */}
           {mode === "new_password" && (
             <View>
               <Text
@@ -415,6 +431,7 @@ export default function ResetPassword() {
                 Choose a secure password of at least 6 characters.
               </Text>
 
+              {/* New password input fields */}
               <View
                 style={{
                   backgroundColor: "#FFFFFF",
@@ -463,6 +480,8 @@ export default function ResetPassword() {
                       color: "#333",
                     }}
                   />
+
+                  {/* Toggle password visibility */}
                   <Pressable onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons
                       name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -506,6 +525,8 @@ export default function ResetPassword() {
                       color: "#333",
                     }}
                   />
+
+                  {/* Toggle confirm password visibility */}
                   <Pressable
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
@@ -520,6 +541,7 @@ export default function ResetPassword() {
                 </View>
               </View>
 
+              {/* Update password button */}
               <Pressable
                 onPress={handleUpdatePassword}
                 disabled={updating}

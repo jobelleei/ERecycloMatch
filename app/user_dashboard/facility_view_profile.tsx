@@ -25,10 +25,12 @@ import { supabase } from "../../utils/supabase";
 import { alertIfTransactionBlocked } from "../../utils/accountSuspension";
 import { isActivePosting } from "../../utils/transactionItem";
 
+//Screen showing a facility's public profile.
 export default function FacilityViewProfile() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  //Facility id from the route params.
   const facilityId = String(
     params.facility_id ||
       params.facilityId ||
@@ -40,6 +42,7 @@ export default function FacilityViewProfile() {
       ""
   );
 
+  //Facility profile details.
   const [facility, setFacility] = useState({
   id: "",
   name: "",
@@ -58,6 +61,7 @@ export default function FacilityViewProfile() {
   availableServices: "",
 });
 
+  //Postings, feedbacks and screen state.
   const [postings, setPostings] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -74,6 +78,7 @@ export default function FacilityViewProfile() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  //Sort feedbacks by the selected option.
   const sortedFeedbacks = useMemo(() => {
     return [...feedbacks].sort((a, b) => {
       if (feedbackSort === "newest") {
@@ -102,6 +107,7 @@ export default function FacilityViewProfile() {
     });
   }, [feedbacks, feedbackSort]);
 
+  //Load the profile when the facility id changes.
   useEffect(() => {
     if (facilityId) {
       refreshFacilityProfile();
@@ -127,6 +133,7 @@ export default function FacilityViewProfile() {
     }
   }, [facilityId]);
 
+  //Load the logged in user.
   useEffect(() => {
   getStoredUser().then((data) => {
     if (data) {
@@ -135,6 +142,7 @@ export default function FacilityViewProfile() {
   });
 }, []);
 
+  //Reload the profile when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       if (facilityId) {
@@ -143,6 +151,7 @@ export default function FacilityViewProfile() {
     }, [facilityId])
   );
 
+  //Auto refresh the profile every 5 seconds.
   useEffect(() => {
     if (!facilityId) return;
 
@@ -153,12 +162,14 @@ export default function FacilityViewProfile() {
     return () => clearInterval(interval);
   }, [facilityId]);
 
+  //Reload profile, postings and feedbacks.
   const refreshFacilityProfile = async () => {
     await fetchFacilityProfile();
     await fetchPostings();
     await fetchFeedbacks();
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -176,6 +187,7 @@ export default function FacilityViewProfile() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -189,6 +201,7 @@ export default function FacilityViewProfile() {
     return data?.publicUrl || "";
   };
 
+  //Return the first non-empty value from a list of keys.
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -205,6 +218,7 @@ export default function FacilityViewProfile() {
     return "";
   };
 
+  //Posting field getters.
   const getPostingItemNeeded = (post: any) => {
     return String(
       getValueFromKeys(post, [
@@ -255,6 +269,7 @@ export default function FacilityViewProfile() {
     ).trim();
   };
 
+  //Render a star rating.
   const renderStars = (rating: number) => {
     const cleanRating = Math.max(
       0,
@@ -264,6 +279,7 @@ export default function FacilityViewProfile() {
     return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
   };
 
+  //Format operating hours for display.
   const formatOperatingHours = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
     const cleanTo = String(to || "").trim();
@@ -275,6 +291,7 @@ export default function FacilityViewProfile() {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Format opening days for display.
   const formatOpeningDays = (from?: string, to?: string) => {
   const cleanFrom = String(from || "").trim();
   const cleanTo = String(to || "").trim();
@@ -286,6 +303,7 @@ export default function FacilityViewProfile() {
   return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Clean up comma separated text.
   const formatCommaText = (value?: string) => {
     const cleaned = String(value || "").trim();
 
@@ -298,6 +316,7 @@ export default function FacilityViewProfile() {
       .join(", ");
   };
 
+  //Render a label and value row in the header.
   const renderHeaderInfoRow = (label: string, value: string) => {
     return (
       <View style={styles.headerInfoRow}>
@@ -307,6 +326,7 @@ export default function FacilityViewProfile() {
     );
   };
 
+  //Get the logged in user from storage.
   const getStoredUser = async () => {
     const stored = await AsyncStorage.getItem("user");
 
@@ -340,6 +360,7 @@ export default function FacilityViewProfile() {
     };
   };
 
+  //Fetch the facility profile from Supabase.
   const fetchFacilityProfile = async () => {
     try {
       if (!facilityId) return;
@@ -440,6 +461,7 @@ export default function FacilityViewProfile() {
     }
   };
 
+  //Fetch the facility's item postings.
   const fetchPostings = async () => {
     try {
       if (!facilityId) {
@@ -466,6 +488,7 @@ export default function FacilityViewProfile() {
     }
   };
 
+  //Fetch feedbacks and compute the average rating.
   const fetchFeedbacks = async () => {
     try {
       if (!facilityId) {
@@ -508,12 +531,14 @@ export default function FacilityViewProfile() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refreshFacilityProfile();
     setRefreshing(false);
   }, [facilityId]);
 
+  //Date formatters.
   const formatDate = (value: string) => {
     if (!value) return "No date available";
 
@@ -549,10 +574,12 @@ export default function FacilityViewProfile() {
     });
   };
 
+  //Navigate to a page.
   const goToPage = (path: string) => {
     router.push(path as any);
   };
 
+  //Add a "Match request sent" message once per conversation.
   const createMatchRequestMessageIfNeeded = async (
     conversationId: string,
     now: string
@@ -594,9 +621,11 @@ export default function FacilityViewProfile() {
     }
   };
 
+  //Offer item picker state.
   const [offerPost, setOfferPost] = useState<any>(null);
   const [offerUserId, setOfferUserId] = useState("");
 
+  //Open the picker to choose an item to offer.
   const openOfferPicker = async (post: any) => {
     const user = await getStoredUser();
 
@@ -616,6 +645,7 @@ export default function FacilityViewProfile() {
     setOfferPost(post);
   };
 
+  //Send a match request to the facility.
   const handleMatchWithFacility = async (post: any, offer: OfferedItem) => {
     try {
       const user = await getStoredUser();
@@ -752,6 +782,7 @@ export default function FacilityViewProfile() {
     }
   };
 
+  //Render a facility posting card.
   const renderPosting = ({ item }: any) => {
     const itemNeeded = getPostingItemNeeded(item);
     const description = getPostingDescription(item);
@@ -773,6 +804,7 @@ export default function FacilityViewProfile() {
           {description || "No description added."}
         </Text>
 
+        {/*Location and date row.*/}
         <View style={styles.postMetaRow}>
           <View style={styles.locationRow}>
             <Image
@@ -787,6 +819,7 @@ export default function FacilityViewProfile() {
           <Text style={styles.dateText}>{formatDate(item.created_at)}</Text>
         </View>
 
+        {/*Match button.*/}
         <View style={styles.divider} />
 
         <TouchableOpacity
@@ -805,9 +838,11 @@ export default function FacilityViewProfile() {
     );
   };
 
+  //Render a feedback card.
   const renderFeedback = ({ item }: any) => {
     return (
       <View style={styles.feedbackCard}>
+        {/*Rater name and stars.*/}
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackName}>
             {item.rater_name || "Anonymous User"}
@@ -822,6 +857,7 @@ export default function FacilityViewProfile() {
           {renderStars(Number(item.rating || 0))}
         </Text>
 
+        {/*Feedback comment.*/}
         {item.comment ? (
           <Text style={styles.feedbackMessage}>{item.comment}</Text>
         ) : (
@@ -831,6 +867,7 @@ export default function FacilityViewProfile() {
     );
   };
 
+  //Render feedback sort options.
   const renderFeedbackSort = () => {
     if (activeSection !== "feedbacks") return null;
 
@@ -848,6 +885,7 @@ export default function FacilityViewProfile() {
       <View style={styles.filterWrapper}>
         <Text style={styles.filterTitle}>Sort Feedbacks</Text>
 
+        {/*Sort option chips.*/}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -877,6 +915,7 @@ export default function FacilityViewProfile() {
     );
   };
 
+  //Data for the active tab.
   const listData = activeSection === "postings" ? postings : sortedFeedbacks;
 
   return (
@@ -898,6 +937,7 @@ export default function FacilityViewProfile() {
         }
         ListHeaderComponent={
           <View>
+            {/*Profile header with photo, location and info.*/}
             <View style={styles.profileHeader}>
               <TouchableOpacity
                 style={styles.backButton}
@@ -958,6 +998,7 @@ export default function FacilityViewProfile() {
                 )}
               </View>
 
+              {/*Average rating summary.*/}
               <View style={styles.ratingSummaryBox}>
                 <Text style={styles.ratingSummaryStars}>
                   {renderStars(Math.round(averageRating))}
@@ -973,6 +1014,7 @@ export default function FacilityViewProfile() {
               </View>
             </View>
 
+            {/*Postings and feedbacks tabs.*/}
             <View style={styles.sectionTabs}>
               <TouchableOpacity
                 style={[
@@ -1023,6 +1065,7 @@ export default function FacilityViewProfile() {
         }
       />
 
+      {/*Picker for choosing an item to offer.*/}
       <OfferItemPicker
         visible={Boolean(offerPost)}
         userId={offerUserId}
@@ -1035,6 +1078,7 @@ export default function FacilityViewProfile() {
         }}
       />
 
+      {/*Bottom navigation bar.*/}
       {currentUser && (
         <UserBottomNav
           userId={currentUser.id}
@@ -1045,6 +1089,7 @@ export default function FacilityViewProfile() {
   );
 }
 
+//Styles for the facility profile screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

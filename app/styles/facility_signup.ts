@@ -1,17 +1,21 @@
 import { StyleSheet } from "react-native";
 
+//Styles for the facility sign up screen.
 export default StyleSheet.create({
+  //Full screen background image.
   backgroundImage: {
     position: "absolute",
     width: "100%",
     height: "100%",
   },
 
+  //Dark layer over the background.
   overlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(207,232,198,0.85)",
   },
 
+  //Back button in the top corner.
   backButton: {
     position: "absolute",
     top: 50,
@@ -19,23 +23,27 @@ export default StyleSheet.create({
     zIndex: 10,
   },
 
+  //Back arrow icon.
   backButtonIcon: {
     width: 24,
     height: 24,
   },
 
+  //Scrollable form content.
   scrollContent: {
     alignItems: "center",
     paddingTop: 100,
     paddingBottom: 40,
   },
 
+  //App logo.
   logo: {
     width: 90,
     height: 90,
     marginBottom: 10,
   },
 
+  //Screen title.
   title: {
     fontSize: 22,
     fontWeight: "bold",
@@ -43,6 +51,7 @@ export default StyleSheet.create({
     marginBottom: 20,
   },
 
+  //Individual/facility tab switcher.
   toggleContainer: {
     flexDirection: "row",
     width: "85%",
@@ -53,6 +62,7 @@ export default StyleSheet.create({
     marginBottom: 20,
   },
 
+  //Selected tab.
   activeTab: {
     flex: 1,
     backgroundColor: "#1B5E20",
@@ -60,6 +70,7 @@ export default StyleSheet.create({
     alignItems: "center",
   },
 
+  //Unselected tab.
   inactiveTab: {
     flex: 1,
     backgroundColor: "#E5E5E5",
@@ -67,15 +78,18 @@ export default StyleSheet.create({
     alignItems: "center",
   },
 
+  //Selected tab text.
   activeText: {
     color: "#fff",
     fontWeight: "bold",
   },
 
+  //Unselected tab text.
   inactiveText: {
     color: "#000",
   },
 
+  //Input field label.
   label: {
     alignSelf: "flex-start",
     marginLeft: "8%",
@@ -83,6 +97,7 @@ export default StyleSheet.create({
     fontWeight: "600",
   },
 
+  //Input wrapper with icon.
   inputBox: {
     width: "85%",
     height: 50,
@@ -94,6 +109,7 @@ export default StyleSheet.create({
     marginBottom: 12,
   },
 
+  //Icon inside the input.
   icon: {
     width: 20,
     height: 20,
@@ -101,12 +117,14 @@ export default StyleSheet.create({
     tintColor: "#666",
   },
 
+  //Show/hide password icon.
   eye: {
     width: 20,
     height: 20,
     tintColor: "#666",
   },
 
+  //Text input.
   input: {
     flex: 1,
     color: "#000000",
@@ -130,6 +148,7 @@ uploadedImage: {
   resizeMode: "contain",
 },
 
+  //Helper text under an input.
   helper: {
     fontSize: 10,
     color: "#2E7D32",
@@ -137,6 +156,7 @@ uploadedImage: {
     width: "85%",
   },
 
+  //Main action button.
   button: {
     width: "70%",
     height: 50,
@@ -147,11 +167,13 @@ uploadedImage: {
     marginTop: 10,
   },
 
+  //Main action button text.
   buttonText: {
     color: "#fff",
     fontWeight: "bold",
   },
 
+  //Text link.
   link: {
     marginTop: 15,
   },

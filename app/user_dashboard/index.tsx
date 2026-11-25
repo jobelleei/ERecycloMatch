@@ -25,7 +25,9 @@ import OnboardingTour, {
 import UserBottomNav from "../../components/UserBottomNav";
 import { supabase } from "../../utils/supabase";
 
+//Home dashboard for individual users.
 export default function UserDashboard() {
+  //User info and dashboard data state.
   const [userName, setUserName] = useState("");
   const [submitterName, setSubmitterName] = useState("");
   const [userId, setUserId] = useState("");
@@ -38,6 +40,7 @@ export default function UserDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
+  //Facility search state.
   const [searchText, setSearchText] = useState("");
   const [searchedFacilities, setSearchedFacilities] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -45,6 +48,7 @@ export default function UserDashboard() {
 
   const router = useRouter();
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const searchRef = useRef<ComponentRef<typeof View>>(null);
@@ -64,9 +68,11 @@ export default function UserDashboard() {
     settings: useRef<any>(null),
   };
 
+  //Scroll the page to a section for the tour.
   const scrollToY = (y: number) =>
     scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -175,6 +181,7 @@ export default function UserDashboard() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
     scrollToY(0);
@@ -184,6 +191,7 @@ export default function UserDashboard() {
     }
   };
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!userId) return;
 
@@ -192,11 +200,13 @@ export default function UserDashboard() {
     });
   }, [userId]);
 
+  //Load the user and facilities on mount.
   useEffect(() => {
     loadUser();
     fetchApprovedFacilities();
   }, []);
 
+  //Reload data when the internet comes back.
   useEffect(() => {
     let wasOffline = false;
 
@@ -216,6 +226,7 @@ export default function UserDashboard() {
     return unsubscribe;
   }, []);
 
+  //Reload the user when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadUser();
@@ -226,6 +237,7 @@ export default function UserDashboard() {
     }, [userId]),
   );
 
+  //Reload recent items when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       if (userId) {
@@ -234,6 +246,7 @@ export default function UserDashboard() {
     }, [userId]),
   );
 
+  //Track unread messages with a realtime subscription.
   useEffect(() => {
   if (!userId) {
     setUnreadNotificationCount(0);
@@ -265,6 +278,7 @@ export default function UserDashboard() {
   };
 }, [userId]);
 
+  //Search facilities after the user stops typing.
   useEffect(() => {
     const delaySearch = setTimeout(() => {
       if (searchText.trim().length > 0) {
@@ -278,6 +292,7 @@ export default function UserDashboard() {
     return () => clearTimeout(delaySearch);
   }, [searchText]);
 
+    //Count conversations with unread messages.
     const fetchUnreadNotificationCount = async (currentUserId = userId) => {
       try {
         if (!currentUserId) {
@@ -310,6 +325,7 @@ export default function UserDashboard() {
       }
     };
 
+  //Load the logged in user from storage.
   const loadUser = async () => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
@@ -375,6 +391,7 @@ export default function UserDashboard() {
     }
   };
 
+  //Get the display status of an item.
   const getItemStatus = (item: any) => {
     const status = String(
       item?.status ||
@@ -409,6 +426,7 @@ export default function UserDashboard() {
     return "Pending";
   };
 
+  //Get the time used to sort items.
   const getItemTimeValue = (item: any) => {
     const dateValue =
       item.updated_at ||
@@ -434,10 +452,12 @@ export default function UserDashboard() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Sort items from newest to oldest.
   const sortByLatestSubmitted = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
   };
 
+  //Check if an item should show on the dashboard.
   const isVisibleDashboardItem = (item: any) => {
     const status = String(item?.status || "")
       .trim()
@@ -450,6 +470,7 @@ export default function UserDashboard() {
     return status === "listed" && matchStatus === "listed";
   };
 
+  //Fetch the user's recent items.
   const fetchRecentItems = async (currentUserId = userId) => {
     try {
       if (!currentUserId) {
@@ -502,6 +523,7 @@ export default function UserDashboard() {
     }
   };
 
+  //Fetch approved partner facilities.
   const fetchApprovedFacilities = async () => {
     try {
       setLoadingFacilities(true);
@@ -542,6 +564,7 @@ export default function UserDashboard() {
     }
   };
 
+    //Pull to refresh handler.
     const onRefresh = async () => {
     setRefreshing(true);
 
@@ -555,6 +578,7 @@ export default function UserDashboard() {
     setRefreshing(false);
   };
 
+  //Search approved facilities by name or location.
   const searchApprovedFacilities = async (keyword: string) => {
     try {
       setIsSearching(true);
@@ -598,6 +622,7 @@ export default function UserDashboard() {
     }
   };
 
+  //Clear the search box.
   const clearSearch = () => {
     setSearchText("");
     setSearchedFacilities([]);
@@ -605,6 +630,7 @@ export default function UserDashboard() {
     Keyboard.dismiss();
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -622,6 +648,7 @@ export default function UserDashboard() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -636,6 +663,7 @@ export default function UserDashboard() {
     return data?.publicUrl ? encodeURI(data.publicUrl) : "";
   };
 
+  //Get the image for an item.
   const getItemImageSource = (item: any) => {
     const imagePath =
       item?.item_image ||
@@ -662,6 +690,7 @@ export default function UserDashboard() {
     };
   };
 
+  //Get the facility profile image.
   const getFacilityProfileImageSource = (facility: any) => {
     const profileImage = facility.profile_image || "";
 
@@ -686,6 +715,7 @@ export default function UserDashboard() {
     return require("../../assets/icons/icon.png");
   };
 
+  //Get the facility location text.
   const getFacilityLocation = (facility: any) => {
     const location =
       facility.location || facility.address || facility.facility_location || "";
@@ -693,6 +723,7 @@ export default function UserDashboard() {
     return String(location).trim() !== "" ? location : "No location provided";
   };
 
+  //Get the style for an item status.
   const getStatusStyle = (status: string) => {
     const normalizedStatus = String(status || "")
       .trim()
@@ -710,6 +741,7 @@ export default function UserDashboard() {
     return styles.statusGray;
   };
 
+  //Open a facility's profile.
   const openFacilityProfile = (facility: any) => {
     router.push({
       pathname: "/user_dashboard/facility_view_profile" as any,
@@ -732,6 +764,7 @@ export default function UserDashboard() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         >
+          {/*Header with welcome text, help and notifications.*/}
           <View style={styles.header}>
             <Text style={styles.welcome} numberOfLines={1}>
               Welcome Back{userName ? `, ${userName}` : ""}!
@@ -774,6 +807,7 @@ export default function UserDashboard() {
             </View>
           </View>
 
+          {/*Search bar and results.*/}
           <View style={styles.searchArea}>
             <View ref={searchRef} collapsable={false} style={styles.searchBox}>
               <TextInput
@@ -803,6 +837,7 @@ export default function UserDashboard() {
               )}
             </View>
 
+            {/*Search results dropdown.*/}
             {showSearchResults && searchText.trim().length > 0 && (
               <View style={styles.searchResultsBox}>
                 {isSearching ? (
@@ -858,6 +893,7 @@ export default function UserDashboard() {
             )}
           </View>
 
+          {/*Promo banner.*/}
           <ImageBackground
           source={require("../../assets/images/banner.jpg")}
           style={styles.banner}
@@ -877,6 +913,7 @@ export default function UserDashboard() {
           </Text>
         </ImageBackground>
 
+          {/*Recent items section header.*/}
           <View
             ref={recentItemsRef}
             collapsable={false}
@@ -890,6 +927,7 @@ export default function UserDashboard() {
           </Text>
         </View>
 
+          {/*Recent items list or empty message.*/}
           {recentItems.length > 0 ? (
             recentItems.map((item) => {
               const currentStatus = getItemStatus(item);
@@ -930,6 +968,7 @@ export default function UserDashboard() {
             </View>
           )}
 
+          {/*Partner facilities section header.*/}
           <View
             ref={facilitiesRef}
             collapsable={false}
@@ -961,6 +1000,7 @@ export default function UserDashboard() {
           </TouchableOpacity>
         </View>
 
+          {/*Facility slider, loading or empty message.*/}
           {loadingFacilities ? (
             <View style={styles.emptyCard}>
               <ActivityIndicator size="small" color="#2f7d1f" />
@@ -1023,9 +1063,11 @@ export default function UserDashboard() {
           )}
         </ScrollView>
 
+        {/*Bottom navigation bar.*/}
         <UserBottomNav userId={userId} active="home" tourRefs={navRefs} />
       </View>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1035,6 +1077,7 @@ export default function UserDashboard() {
   );
 }
 
+//Styles for the home dashboard screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

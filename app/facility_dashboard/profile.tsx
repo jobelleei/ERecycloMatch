@@ -30,6 +30,7 @@ import { supabase } from "../../utils/supabase";
 import { alertIfSelfSuspended } from "../../utils/accountSuspension";
 import { isActivePosting } from "../../utils/transactionItem";
 
+//E-waste items a facility can request, with their conditions.
 const ITEM_OPTIONS = [
   "Laptop",
   "Smartphone",
@@ -115,9 +116,11 @@ const ITEM_OPTIONS = [
   "Unknown",
 ];
 
+//Profile screen for facilities.
 export default function FacilityProfile() {
   const router = useRouter();
 
+  //Facility profile details.
   const [facility, setFacility] = useState({
     id: "",
     name: "",
@@ -133,6 +136,7 @@ export default function FacilityProfile() {
     availableServices: "",
   });
 
+  //Postings, feedbacks and screen state.
   const [postings, setPostings] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState(0);
@@ -146,18 +150,22 @@ export default function FacilityProfile() {
 
   const [refreshing, setRefreshing] = useState(false);
 
+  //Create/edit posting modal state.
   const [postModalVisible, setPostModalVisible] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
 
+  //Posting form fields.
   const [itemName, setItemName] = useState("");
   const [description, setDescription] = useState("");
   const [conditionsAccepted, setConditionsAccepted] = useState("");
   const [conditionsRejected, setConditionsRejected] = useState("");
 
+  //Item suggestions dropdown.
   const [showDropdown, setShowDropdown] = useState(false);
 
   const [savingPost, setSavingPost] = useState(false);
 
+  //Item suggestions matching the typed name.
   const filteredItems = useMemo(() => {
     if (!showDropdown || !itemName.trim()) return [];
 
@@ -166,6 +174,7 @@ export default function FacilityProfile() {
     ).slice(0, 20);
   }, [itemName, showDropdown]);
 
+  //Sort feedbacks by the selected option.
   const sortedFeedbacks = useMemo(() => {
     return [...feedbacks].sort((a, b) => {
       if (feedbackSort === "newest") {
@@ -194,20 +203,24 @@ export default function FacilityProfile() {
     });
   }, [feedbacks, feedbackSort]);
 
+  //Navigate to a page.
   const goToPage = (path: string) => {
     router.push(path as any);
   };
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
 
+  //Reload the facility when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadFacility();
     }, []),
   );
 
+  //Load postings and feedbacks once the facility is known.
   useEffect(() => {
     if (facility.id) {
       fetchPostings();
@@ -215,6 +228,7 @@ export default function FacilityProfile() {
     }
   }, [facility.id]);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const infoBoxRef = useRef<ComponentRef<typeof View>>(null);
   const ratingRef = useRef<ComponentRef<typeof View>>(null);
@@ -223,6 +237,7 @@ export default function FacilityProfile() {
   const createPostRef = useRef<any>(null);
   const profileHelpRef = useRef<any>(null);
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facility.id) return;
 
@@ -233,6 +248,7 @@ export default function FacilityProfile() {
     );
   }, [facility.id]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -290,6 +306,7 @@ export default function FacilityProfile() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -298,6 +315,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
 
@@ -309,6 +327,7 @@ export default function FacilityProfile() {
     return data.publicUrl;
   };
 
+  //Comma separated value helpers.
   const splitCommaValues = (value: string) => {
     return String(value || "")
       .split(",")
@@ -332,16 +351,19 @@ export default function FacilityProfile() {
     return uniqueValues.join(", ");
   };
 
+  //Find the item option by name.
   const findItemOption = (name: string) =>
     ITEM_OPTIONS.find(
       (option) => option.toLowerCase() === String(name || "").trim().toLowerCase(),
     ) || "";
 
+  //Conditions for the selected item.
   const selectedItemOption = findItemOption(itemName);
   const itemConditions = selectedItemOption
     ? getItemConditions(selectedItemOption)
     : [];
 
+  //Condition checkbox helpers.
   const hasCondition = (value: string, condition: string) =>
     splitCommaValues(value).some(
       (item) => item.toLowerCase() === condition.toLowerCase(),
@@ -367,6 +389,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Change the item and drop conditions it does not allow.
   const changeItemName = (name: string) => {
     setItemName(name);
 
@@ -383,6 +406,7 @@ export default function FacilityProfile() {
     setConditionsRejected((value) => keepAllowed(value));
   };
 
+  //Render a star rating.
   const renderStars = (rating: number) => {
     const cleanRating = Math.max(
       0,
@@ -392,6 +416,7 @@ export default function FacilityProfile() {
     return "★".repeat(cleanRating) + "☆".repeat(5 - cleanRating);
   };
 
+  //Format operating hours for display.
   const formatOperatingHours = (from?: string, to?: string) => {
     const cleanFrom = String(from || "").trim();
     const cleanTo = String(to || "").trim();
@@ -403,6 +428,7 @@ export default function FacilityProfile() {
     return `${cleanFrom} - ${cleanTo}`;
   };
 
+  //Clean up comma separated text.
   const formatCommaText = (value?: string) => {
     const cleaned = normalizeCommaValues(String(value || ""));
 
@@ -411,6 +437,7 @@ export default function FacilityProfile() {
     return cleaned;
   };
 
+  //Render a label and value row in the header.
   const renderHeaderInfoRow = (label: string, value: string) => {
     return (
       <View style={styles.headerInfoRow}>
@@ -420,6 +447,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -500,6 +528,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Fetch the facility profile from Supabase.
   const fetchFacilityFromSupabase = async (
     facilityId: string,
     fallbackData: any,
@@ -615,6 +644,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Lowercase and trim text for matching.
   const normalizeMatchText = (value: any) => {
     return String(value || "")
       .trim()
@@ -624,6 +654,7 @@ export default function FacilityProfile() {
       .trim();
   };
 
+  //Check if a conversation is an active match.
   const isActiveMatchedConversation = (conversation: any) => {
     const status = String(conversation?.status || "")
       .trim()
@@ -643,6 +674,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Check if a posting is used by an active match.
   const isPostingUsedByActiveMatch = (
     posting: any,
     activeConversation: any,
@@ -694,6 +726,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Fetch the facility's postings.
   const fetchPostings = async () => {
     try {
       if (!facility.id) {
@@ -750,6 +783,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Fetch feedbacks and compute the average rating.
   const fetchFeedbacks = async () => {
     try {
       if (!facility.id) {
@@ -792,6 +826,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     setRefreshing(true);
     await loadFacility();
@@ -800,6 +835,7 @@ export default function FacilityProfile() {
     setRefreshing(false);
   };
 
+  //Open the modal to create a posting.
   const openCreateModal = () => {
     setEditingPost(null);
     setItemName("");
@@ -810,6 +846,7 @@ export default function FacilityProfile() {
     setPostModalVisible(true);
   };
 
+  //Create or update a posting.
   const savePosting = async () => {
     if (!facility.id) {
       Alert.alert("Facility Error", "Facility ID not found.");
@@ -872,6 +909,7 @@ export default function FacilityProfile() {
     }
   };
 
+  //Date formatters.
   const formatDate = (value: string) => {
     if (!value) return "No date available";
 
@@ -907,6 +945,7 @@ export default function FacilityProfile() {
     });
   };
 
+  //Close the posting modal and reset fields.
   const closePostModal = () => {
     setPostModalVisible(false);
     setEditingPost(null);
@@ -917,6 +956,7 @@ export default function FacilityProfile() {
     setShowDropdown(false);
   };
 
+  //Render condition checkboxes for a list.
   const renderConditionCheckboxes = (
     label: string,
     list: "accepted" | "rejected",
@@ -931,6 +971,7 @@ export default function FacilityProfile() {
     <View>
       <Text style={styles.modalLabel}>{label}</Text>
 
+      {/*Condition checkboxes.*/}
       <View style={styles.conditionList}>
         {availableConditions.length === 0 && (
           <Text style={styles.conditionHint}>
@@ -969,6 +1010,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Render a posting card.
   const renderPosting = ({ item }: any) => {
     return (
       <View style={styles.postCard}>
@@ -997,6 +1039,7 @@ export default function FacilityProfile() {
           {formatCommaText(item.conditions_rejected)}
         </Text>
 
+        {/*Location and date.*/}
         <View style={styles.postMetaContainer}>
           <View style={styles.locationRow}>
             <Image
@@ -1015,9 +1058,11 @@ export default function FacilityProfile() {
     );
   };
 
+  //Render a feedback card.
   const renderFeedback = ({ item }: any) => {
     return (
       <View style={styles.feedbackCard}>
+        {/*Rater name and stars.*/}
         <View style={styles.feedbackHeader}>
           <Text style={styles.feedbackName}>
             {item.rater_name || "Anonymous User"}
@@ -1032,6 +1077,7 @@ export default function FacilityProfile() {
           {renderStars(Number(item.rating || 0))}
         </Text>
 
+        {/*Feedback comment.*/}
         {item.comment ? (
           <Text style={styles.feedbackMessage}>{item.comment}</Text>
         ) : (
@@ -1041,6 +1087,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Render feedback sort options.
   const renderFeedbackSort = () => {
     if (activeSection !== "feedbacks") return null;
 
@@ -1058,6 +1105,7 @@ export default function FacilityProfile() {
       <View style={styles.filterWrapper}>
         <Text style={styles.filterTitle}>Sort Feedbacks</Text>
 
+        {/*Sort option chips.*/}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -1087,6 +1135,7 @@ export default function FacilityProfile() {
     );
   };
 
+  //Data for the active tab.
   const listData = activeSection === "postings" ? postings : sortedFeedbacks;
 
   return (
@@ -1108,6 +1157,7 @@ export default function FacilityProfile() {
         }
         ListHeaderComponent={
           <View>
+            {/*Profile header with photo, location and info.*/}
             <View style={styles.profileHeader}>
               <TouchableOpacity
                 style={styles.backButton}
@@ -1179,6 +1229,7 @@ export default function FacilityProfile() {
                 )}
               </View>
 
+              {/*Average rating summary.*/}
               <View
                 ref={ratingRef}
                 collapsable={false}
@@ -1198,6 +1249,7 @@ export default function FacilityProfile() {
               </View>
             </View>
 
+            {/*Postings and feedbacks tabs.*/}
             <View style={styles.sectionTabs}>
               <TouchableOpacity
                 ref={postingsTabRef}
@@ -1249,6 +1301,7 @@ export default function FacilityProfile() {
         }
       />
 
+      {/*Button to create a new posting.*/}
       <TouchableOpacity
         ref={createPostRef}
         style={styles.floatingButton}
@@ -1257,6 +1310,7 @@ export default function FacilityProfile() {
         <Text style={styles.floatingPlus}>＋</Text>
       </TouchableOpacity>
 
+      {/*Create/edit posting modal.*/}
       <Modal visible={postModalVisible} transparent animationType="fade">
         <View style={styles.overlay}>
           <KeyboardAvoidingView
@@ -1275,6 +1329,7 @@ export default function FacilityProfile() {
                   can match their listed items with your request.
                 </Text>
 
+                {/*Item needed input with suggestions.*/}
                 <Text style={styles.modalLabel}>Item Needed</Text>
 
                 <TextInput
@@ -1312,6 +1367,7 @@ export default function FacilityProfile() {
                   </View>
                 )}
 
+                {/*Description input.*/}
                 <Text style={styles.modalLabel}>Description</Text>
 
                 <TextInput
@@ -1323,6 +1379,7 @@ export default function FacilityProfile() {
                   textAlignVertical="top"
                 />
 
+                {/*Accepted and rejected conditions.*/}
                 {selectedItemOption ? (
                   <>
                     {renderConditionCheckboxes(
@@ -1347,6 +1404,7 @@ export default function FacilityProfile() {
                   </>
                 )}
 
+                {/*Cancel and save buttons.*/}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={styles.cancelButton}
@@ -1374,8 +1432,10 @@ export default function FacilityProfile() {
         </View>
       </Modal>
 
+      {/*Bottom navigation bar.*/}
       <FacilityBottomNav facilityId={facility.id} active="profile" />
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1385,6 +1445,7 @@ export default function FacilityProfile() {
   );
 }
 
+//Styles for the facility profile screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

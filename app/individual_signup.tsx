@@ -30,6 +30,7 @@ import styles from "./styles/individual_signup";
 
 const PSGC_API = "https://psgc.gitlab.io/api";
 
+//Available identification types
 const ID_TYPES = [
   "Student ID",
   "National ID",
@@ -43,32 +44,40 @@ const ID_TYPES = [
 export default function IndividualSignup() {
   const router = useRouter();
 
+  //Store personal information
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
 
+  //Store address information
   const [address, setAddress] = useState("");
   const [province, setProvince] = useState("");
   const [city, setCity] = useState("");
   const [barangay, setBarangay] = useState("");
 
+  //Store available address options
   const [provinces, setProvinces] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [barangays, setBarangays] = useState<string[]>([]);
 
+  //Store password information
   const [password, setPassword] = useState("");
   const [confirmpass, setConfirmPass] = useState("");
 
+  //Store ID image and selected ID type
   const [image, setImage] = useState<any>(null);
   const [idType, setIdType] = useState("");
 
+  //Control password visibility and signup loading
   const [secure1, setSecure1] = useState(true);
   const [secure2, setSecure2] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  //Control Terms and Conditions acceptance
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
 
+  //Store dropdown information
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const [dropdownTitle, setDropdownTitle] = useState("");
   const [dropdownOptions, setDropdownOptions] = useState<string[]>([]);
@@ -76,10 +85,12 @@ export default function IndividualSignup() {
     ((value: string) => void) | null
   >(null);
 
+  //Load provinces when the screen opens
   useEffect(() => {
     fetchProvinces();
   }, []);
 
+  //Open the terms modal or uncheck acceptance
   const handleCheckboxClick = () => {
     if (!termsAccepted) {
       setShowTermsModal(true);
@@ -88,11 +99,13 @@ export default function IndividualSignup() {
     }
   };
 
+  //Accept the Terms and Conditions
   const handleAcceptTerms = () => {
     setTermsAccepted(true);
     setShowTermsModal(false);
   };
 
+  //Display a dropdown with the given options
   const openDropdown = (
     title: string,
     options: string[],
@@ -104,6 +117,7 @@ export default function IndividualSignup() {
     setDropdownVisible(true);
   };
 
+  //Save the selected dropdown value
   const selectDropdownValue = (value: string) => {
     if (dropdownOnSelect) {
       dropdownOnSelect(value);
@@ -112,6 +126,7 @@ export default function IndividualSignup() {
     setDropdownVisible(false);
   };
 
+  //Fetch all provinces from the PSGC API
   const fetchProvinces = async () => {
     try {
       const response = await axios.get(`${PSGC_API}/provinces`);
@@ -124,6 +139,7 @@ export default function IndividualSignup() {
     }
   };
 
+  //Fetch cities based on the selected province
   const fetchCities = async (selectedProvince: string) => {
     try {
       const provincesResponse = await axios.get(`${PSGC_API}/provinces`);
@@ -150,6 +166,7 @@ export default function IndividualSignup() {
     }
   };
 
+  //Fetch barangays based on the selected city
   const fetchBarangays = async (selectedCity: string) => {
     try {
       const response = await axios.get(`${PSGC_API}/cities-municipalities`);
@@ -178,6 +195,7 @@ export default function IndividualSignup() {
     }
   };
 
+  //Check email format and spaces
   const emailRules = [
     {
       label: "Enter a valid email address",
@@ -189,6 +207,7 @@ export default function IndividualSignup() {
     },
   ];
 
+  //Check username requirements
   const usernameRules = [
     {
       label: "At least 4 characters",
@@ -200,6 +219,7 @@ export default function IndividualSignup() {
     },
   ];
 
+  //Check password strength requirements
   const passwordRules = [
     { label: "At least 8 characters", met: password.length >= 8 },
     {
@@ -225,6 +245,7 @@ export default function IndividualSignup() {
     },
   ];
 
+  //Check if both passwords match
   const confirmRules = [
     {
       label: "Passwords match",
@@ -232,6 +253,7 @@ export default function IndividualSignup() {
     },
   ];
 
+  //Display an individual validation rule
   const RuleItem = ({ label, met }: { label: string; met: boolean }) => (
     <View
       style={{
@@ -264,6 +286,7 @@ export default function IndividualSignup() {
     </View>
   );
 
+  //Display multiple validation rules
   const RulesBox = ({
     rules,
   }: {
@@ -288,6 +311,7 @@ export default function IndividualSignup() {
     </View>
   );
 
+  //Reusable dropdown input component
   const DropdownBox = ({
     value,
     placeholder,
@@ -329,11 +353,13 @@ export default function IndividualSignup() {
     </Pressable>
   );
 
+  //Open the camera to capture an ID image
   const openCamera = async () => {
     Keyboard.dismiss();
 
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
+    //Check camera permission
     if (!permission.granted) {
       if (!permission.canAskAgain) {
         Alert.alert(
@@ -354,11 +380,13 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Launch the camera
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
       quality: 0.8,
     });
 
+    //Save the captured image
     if (!result.canceled) {
       const asset = result.assets[0];
 
@@ -370,6 +398,7 @@ export default function IndividualSignup() {
     }
   };
 
+  //Get the image file extension
   const getImageExtension = (uri: string) => {
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
@@ -382,6 +411,7 @@ export default function IndividualSignup() {
     return "jpg";
   };
 
+  //Get the image MIME type
   const getContentType = (extension: string) => {
     if (extension === "png") return "image/png";
     if (extension === "webp") return "image/webp";
@@ -389,6 +419,7 @@ export default function IndividualSignup() {
     return "image/jpeg";
   };
 
+  //Upload the captured ID image to Supabase Storage
   const uploadIdImage = async () => {
     if (!image?.uri) {
       throw new Error("No ID image selected");
@@ -397,6 +428,7 @@ export default function IndividualSignup() {
     const extension = getImageExtension(image.uri);
     const contentType = getContentType(extension);
 
+    //Create a safe filename using the username
     const safeUsername =
       username
         .trim()
@@ -407,12 +439,15 @@ export default function IndividualSignup() {
 
     console.log("UPLOADING ID IMAGE TO:", filePath);
 
+    //Convert the image into Base64 format
     const base64 = await FileSystem.readAsStringAsync(image.uri, {
       encoding: FileSystem.EncodingType.Base64,
     });
 
+    //Convert Base64 data into an ArrayBuffer
     const arrayBuffer = decode(base64);
 
+    //Upload the image to the ID images bucket
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from("id-images")
       .upload(filePath, arrayBuffer, {
@@ -427,11 +462,13 @@ export default function IndividualSignup() {
       throw uploadError;
     }
 
+    //Get the public image URL
     const { data } = supabase.storage.from("id-images").getPublicUrl(filePath);
 
     return data.publicUrl;
   };
 
+  //Verify the uploaded ID using the OCR function
   const checkIdWithOCR = async (imageUrl: string) => {
     try {
       const { data, error } = await supabase.functions.invoke(
@@ -443,6 +480,7 @@ export default function IndividualSignup() {
         },
       );
 
+      //Return an unsuccessful result if OCR fails
       if (error) {
         console.log("OCR FUNCTION ERROR:", error);
 
@@ -468,6 +506,7 @@ export default function IndividualSignup() {
     }
   };
 
+  //Standardize names before comparing them
   const normalizeName = (value: string) => {
     return value
       .toLowerCase()
@@ -478,6 +517,7 @@ export default function IndividualSignup() {
       .trim();
   };
 
+  //Check if the entered name matches the OCR text
   const isNameMatch = (enteredName: string, ocrText: string) => {
     const normalizedName = normalizeName(enteredName);
     const normalizedOCR = normalizeName(ocrText);
@@ -491,15 +531,18 @@ export default function IndividualSignup() {
     return nameParts.every((part) => normalizedOCR.includes(part));
   };
 
+  //Validate information and register the individual user
   const handleSignUp = async () => {
     console.log("SIGNUP CLICKED");
 
+    //Combine the selected address details
     const finalAddress =
       address ||
       [province, city, barangay]
         .filter((part) => String(part).trim() !== "")
         .join(", ");
 
+    //Check if all required fields are completed
     if (
       !name.trim() ||
       !email.trim() ||
@@ -520,6 +563,7 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Require agreement to the Terms and Conditions
     if (!termsAccepted) {
       Toast.show({
         type: "error",
@@ -529,6 +573,7 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Validate the email address
     if (!emailRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
@@ -538,6 +583,7 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Validate the username
     if (!usernameRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
@@ -547,6 +593,7 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Check if passwords match
     if (password !== confirmpass) {
       Toast.show({
         type: "error",
@@ -556,6 +603,7 @@ export default function IndividualSignup() {
       return;
     }
 
+    //Check password requirements
     if (!passwordRules.every((r) => r.met)) {
       Toast.show({
         type: "error",
@@ -570,6 +618,7 @@ export default function IndividualSignup() {
       const cleanEmail = email.trim().toLowerCase();
       const cleanUsername = username.trim().toLowerCase();
 
+      //Check if the email already exists
       const { data: existingEmail, error: emailCheckError } = await supabase
         .from("profiles")
         .select("id")
@@ -588,6 +637,7 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Stop registration if the email is already registered
       if (existingEmail) {
         Toast.show({
           type: "error",
@@ -598,6 +648,7 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Check if the username already exists
       const { data: existingUsername, error: usernameCheckError } =
         await supabase
           .from("profiles")
@@ -617,6 +668,7 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Stop registration if the username is already taken
       if (existingUsername) {
         Toast.show({
           type: "error",
@@ -627,10 +679,12 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Upload the ID image before creating the account
       const idImageUrl = await uploadIdImage();
 
       console.log("ID IMAGE URL:", idImageUrl);
 
+      //Create the user account in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password,
@@ -654,6 +708,7 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Save the user's information in the profiles table
       const { data: insertData, error: insertError } = await supabase
         .from("profiles")
         .insert([
@@ -688,12 +743,14 @@ export default function IndividualSignup() {
         return;
       }
 
+      //Notify the user that registration was successful
       Toast.show({
         type: "success",
         text1: "Thank you for signing up!",
         text2: "We sent a verification link to your email.",
       });
 
+      //Navigate to the email verification screen
       router.replace({
         pathname: "/verify_email",
         params: { email: cleanEmail, role: "user", approved: "0" },
@@ -719,6 +776,7 @@ export default function IndividualSignup() {
       }}
       edges={[]}
     >
+      {/* Background image */}
       <ImageBackground
         source={require("../assets/images/secondbg.png")}
         style={[styles.backgroundImage, { opacity: 0.5 }]}
@@ -733,6 +791,7 @@ export default function IndividualSignup() {
       >
       </ImageBackground>
 
+      {/* Back button */}
       <Pressable onPress={() => router.push("/")} style={styles.backButton}>
         <Image
           source={require("../assets/icons/backbutton.png")}
@@ -740,6 +799,7 @@ export default function IndividualSignup() {
         />
       </Pressable>
 
+      {/* Scrollable signup form */}
       <KeyboardAwareScrollView
         style={{
           flex: 1,
@@ -760,307 +820,330 @@ export default function IndividualSignup() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* App logo */}
+        <Image
+          source={require("../assets/icons/icon.png")}
+          style={styles.logo}
+        />
+
+        <Text style={styles.title}>Sign up and join the platform today.</Text>
+
+        {/* Account type selection */}
+        <View style={styles.toggleContainer}>
+          <Pressable style={styles.activeTab}>
+            <Text style={styles.activeText}>Individual</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.inactiveTab}
+            onPress={() => router.push("/facility_signup")}
+          >
+            <Text style={styles.inactiveText}>Facility/Shop</Text>
+          </Pressable>
+        </View>
+
+        {/* Name input */}
+        <Text style={styles.label}>Name</Text>
+        <View style={styles.inputBox}>
           <Image
-            source={require("../assets/icons/icon.png")}
-            style={styles.logo}
+            source={require("../assets/icons/individual.png")}
+            style={styles.icon}
           />
 
-          <Text style={styles.title}>Sign up and join the platform today.</Text>
+          <TextInput
+            placeholder="Enter your name"
+            value={name}
+            onChangeText={setName}
+            style={styles.input}
+            placeholderTextColor="#7a7a7a"
+          />
+        </View>
 
-          <View style={styles.toggleContainer}>
-            <Pressable style={styles.activeTab}>
-              <Text style={styles.activeText}>Individual</Text>
-            </Pressable>
+        {/* Email input */}
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/email.png")}
+            style={styles.icon}
+          />
 
-            <Pressable
-              style={styles.inactiveTab}
-              onPress={() => router.push("/facility_signup")}
-            >
-              <Text style={styles.inactiveText}>Facility/Shop</Text>
-            </Pressable>
-          </View>
+          <TextInput
+            placeholder="Enter your email address"
+            value={email}
+            onChangeText={setEmail}
+            style={styles.input}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            placeholderTextColor="#7a7a7a"
+            autoCorrect={false}
+          />
+        </View>
 
-          <Text style={styles.label}>Name</Text>
-          <View style={styles.inputBox}>
-            <Image
-              source={require("../assets/icons/individual.png")}
-              style={styles.icon}
-            />
+        {/* Email notification information */}
+        <Text
+          style={{
+            width: "85%",
+            alignSelf: "center",
+            marginTop: -6,
+            marginBottom: 10,
+            fontSize: 11,
+            color: "#2E7D32",
+            fontWeight: "500",
+            lineHeight: 15,
+          }}
+        >
+          Please use a working email address. Your approval or rejection
+          message will be sent to this email.
+        </Text>
 
-            <TextInput
-              placeholder="Enter your name"
-              value={name}
-              onChangeText={setName}
-              style={styles.input}
-              placeholderTextColor="#7a7a7a"
-            />
-          </View>
+        {/* Display email validation errors */}
+        {email.length > 0 && emailRules.some((r) => !r.met) && (
+          <RulesBox rules={emailRules.filter((r) => !r.met)} />
+        )}
 
-          <Text style={styles.label}>Email</Text>
-          <View style={styles.inputBox}>
-            <Image
-              source={require("../assets/icons/email.png")}
-              style={styles.icon}
-            />
+        {/* Username input */}
+        <Text style={styles.label}>Username</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/individual.png")}
+            style={styles.icon}
+          />
 
-            <TextInput
-              placeholder="Enter your email address"
-              value={email}
-              onChangeText={setEmail}
-              style={styles.input}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              placeholderTextColor="#7a7a7a"
-              autoCorrect={false}
-            />
-          </View>
+          <TextInput
+            placeholder="Create a username"
+            value={username}
+            onChangeText={setUsername}
+            style={styles.input}
+            autoCapitalize="none"
+            placeholderTextColor="#7a7a7a"
+            autoCorrect={false}
+          />
+        </View>
 
+        {/* Display username validation errors */}
+        {username.length > 0 && usernameRules.some((r) => !r.met) && (
+          <RulesBox rules={usernameRules.filter((r) => !r.met)} />
+        )}
+
+        {/* Address selection */}
+        <Text style={styles.label}>Address</Text>
+
+        {/* Select province */}
+        <DropdownBox
+          value={province}
+          placeholder="Select Province"
+          options={provinces}
+          onSelect={(value) => {
+            setProvince(value);
+            setCity("");
+            setBarangay("");
+            setCities([]);
+            setBarangays([]);
+
+            setAddress(value);
+
+            if (value) {
+              fetchCities(value);
+            }
+          }}
+        />
+
+        {/* Select city or municipality */}
+        <DropdownBox
+          value={city}
+          placeholder="Select City / Municipality"
+          options={cities}
+          disabled={!province}
+          onSelect={(value) => {
+            setCity(value);
+            setBarangay("");
+            setBarangays([]);
+
+            setAddress([province, value].filter(Boolean).join(", "));
+
+            if (value) {
+              fetchBarangays(value);
+            }
+          }}
+        />
+
+        {/* Select barangay */}
+        <DropdownBox
+          value={barangay}
+          placeholder="Select Barangay"
+          options={barangays}
+          disabled={!city}
+          onSelect={(value) => {
+            setBarangay(value);
+
+            setAddress([province, city, value].filter(Boolean).join(", "));
+          }}
+        />
+
+        {/* Select identification type */}
+        <Text style={styles.label}>Type of ID</Text>
+
+        <Pressable
+          onPress={() =>
+            openDropdown("Type of ID", ID_TYPES, (value) => {
+              setIdType(value);
+            })
+          }
+          style={[styles.inputBox, { justifyContent: "space-between" }]}
+        >
           <Text
             style={{
-              width: "85%",
-              alignSelf: "center",
-              marginTop: -6,
-              marginBottom: 10,
-              fontSize: 11,
-              color: "#2E7D32",
-              fontWeight: "500",
-              lineHeight: 15,
+              color: idType ? "#333" : "#7a7a7a",
+              flex: 1,
+              fontSize: 14,
             }}
           >
-            Please use a working email address. Your approval or rejection
-            message will be sent to this email.
+            {idType || "Select ID type"}
           </Text>
 
-          {email.length > 0 && emailRules.some((r) => !r.met) && (
-            <RulesBox rules={emailRules.filter((r) => !r.met)} />
+          <Text style={{ color: "#666", fontSize: 13 }}>▼</Text>
+        </Pressable>
+
+        {/* Capture ID for verification */}
+        <Text style={styles.label}>ID Verification</Text>
+        <Pressable
+          onPress={openCamera}
+          style={[
+            styles.uploadBox,
+            image && {
+              height: (image.height / image.width) * 300,
+            },
+          ]}
+        >
+          {image ? (
+            <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
+          ) : (
+            <Text>Tap to take photo</Text>
           )}
+        </Pressable>
 
-          <Text style={styles.label}>Username</Text>
-          <View style={styles.inputBox}>
-            <Image
-              source={require("../assets/icons/individual.png")}
-              style={styles.icon}
+        {/* Password input */}
+        <Text style={styles.label}>Password</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
+
+          <TextInput
+            secureTextEntry={secure1}
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Create a password"
+            style={[styles.input, { flex: 1 }]}
+            placeholderTextColor="#7a7a7a"
+          />
+
+          {/* Toggle password visibility */}
+          <Pressable onPress={() => setSecure1(!secure1)}>
+            <Ionicons
+              name={secure1 ? "eye-off" : "eye"}
+              size={22}
+              color="#666"
             />
-
-            <TextInput
-              placeholder="Create a username"
-              value={username}
-              onChangeText={setUsername}
-              style={styles.input}
-              autoCapitalize="none"
-              placeholderTextColor="#7a7a7a"
-              autoCorrect={false}
-            />
-          </View>
-
-          {username.length > 0 && usernameRules.some((r) => !r.met) && (
-            <RulesBox rules={usernameRules.filter((r) => !r.met)} />
-          )}
-
-          <Text style={styles.label}>Address</Text>
-
-          <DropdownBox
-            value={province}
-            placeholder="Select Province"
-            options={provinces}
-            onSelect={(value) => {
-              setProvince(value);
-              setCity("");
-              setBarangay("");
-              setCities([]);
-              setBarangays([]);
-
-              setAddress(value);
-
-              if (value) {
-                fetchCities(value);
-              }
-            }}
-          />
-
-          <DropdownBox
-            value={city}
-            placeholder="Select City / Municipality"
-            options={cities}
-            disabled={!province}
-            onSelect={(value) => {
-              setCity(value);
-              setBarangay("");
-              setBarangays([]);
-
-              setAddress([province, value].filter(Boolean).join(", "));
-
-              if (value) {
-                fetchBarangays(value);
-              }
-            }}
-          />
-
-          <DropdownBox
-            value={barangay}
-            placeholder="Select Barangay"
-            options={barangays}
-            disabled={!city}
-            onSelect={(value) => {
-              setBarangay(value);
-
-              setAddress([province, city, value].filter(Boolean).join(", "));
-            }}
-          />
-
-          <Text style={styles.label}>Type of ID</Text>
-
-          <Pressable
-            onPress={() =>
-              openDropdown("Type of ID", ID_TYPES, (value) => {
-                setIdType(value);
-              })
-            }
-            style={[styles.inputBox, { justifyContent: "space-between" }]}
-          >
-            <Text
-              style={{
-                color: idType ? "#333" : "#7a7a7a",
-                flex: 1,
-                fontSize: 14,
-              }}
-            >
-              {idType || "Select ID type"}
-            </Text>
-
-            <Text style={{ color: "#666", fontSize: 13 }}>▼</Text>
           </Pressable>
+        </View>
 
-          <Text style={styles.label}>ID Verification</Text>
-          <Pressable
-            onPress={openCamera}
-            style={[
-              styles.uploadBox,
-              image && {
-                height: (image.height / image.width) * 300,
-              },
-            ]}
-          >
-            {image ? (
-              <Image source={{ uri: image.uri }} style={styles.uploadedImage} />
-            ) : (
-              <Text>Tap to take photo</Text>
-            )}
+        {/* Display password requirements */}
+        {password.length > 0 && passwordRules.some((r) => !r.met) && (
+          <RulesBox rules={passwordRules.filter((r) => !r.met)} />
+        )}
+
+        {/* Confirm password input */}
+        <Text style={styles.label}>Confirm Password</Text>
+        <View style={styles.inputBox}>
+          <Image
+            source={require("../assets/icons/padlock.png")}
+            style={styles.icon}
+          />
+
+          <TextInput
+            secureTextEntry={secure2}
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={confirmpass}
+            onChangeText={setConfirmPass}
+            placeholder="Confirm your password"
+            style={[styles.input, { flex: 1 }]}
+            placeholderTextColor="#7a7a7a"
+          />
+
+          {/* Toggle confirm password visibility */}
+          <Pressable onPress={() => setSecure2(!secure2)}>
+            <Ionicons
+              name={secure2 ? "eye-off" : "eye"}
+              size={22}
+              color="#666"
+            />
           </Pressable>
+        </View>
 
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputBox}>
-            <Image
-              source={require("../assets/icons/padlock.png")}
-              style={styles.icon}
-            />
-
-            <TextInput
-              secureTextEntry={secure1}
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Create a password"
-              style={[styles.input, { flex: 1 }]}
-              placeholderTextColor="#7a7a7a"
-            />
-
-            <Pressable onPress={() => setSecure1(!secure1)}>
-              <Ionicons
-                name={secure1 ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
-              />
-            </Pressable>
-          </View>
-
-          {password.length > 0 && passwordRules.some((r) => !r.met) && (
-            <RulesBox rules={passwordRules.filter((r) => !r.met)} />
-          )}
-
-          <Text style={styles.label}>Confirm Password</Text>
-          <View style={styles.inputBox}>
-            <Image
-              source={require("../assets/icons/padlock.png")}
-              style={styles.icon}
-            />
-
-            <TextInput
-              secureTextEntry={secure2}
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={confirmpass}
-              onChangeText={setConfirmPass}
-              placeholder="Confirm your password"
-              style={[styles.input, { flex: 1 }]}
-              placeholderTextColor="#7a7a7a"
-            />
-
-            <Pressable onPress={() => setSecure2(!secure2)}>
-              <Ionicons
-                name={secure2 ? "eye-off" : "eye"}
-                size={22}
-                color="#666"
-              />
-            </Pressable>
-          </View>
-
-          {confirmpass.length > 0 && (
-            <RulesBox
-              rules={[
-                {
-                  label: confirmRules[0].met
-                    ? "Passwords match"
-                    : "Passwords do not match",
-                  met: confirmRules[0].met,
-                },
-              ]}
-            />
-          )}
-
-          <View style={localStyles.termsCheckboxContainer}>
-            <TouchableOpacity
-              style={[
-                localStyles.checkboxBox,
-                termsAccepted && localStyles.checkboxBoxChecked,
-              ]}
-              onPress={handleCheckboxClick}
-              activeOpacity={0.7}
-            >
-              {termsAccepted && (
-                <Ionicons name="checkmark" size={16} color="#ffffff" />
-              )}
-            </TouchableOpacity>
-
-            <Pressable
-              onPress={handleCheckboxClick}
-              style={localStyles.termsTextContainer}
-            >
-              <Text style={localStyles.termsLabel}>
-                I agree to the{" "}
-                <Text style={localStyles.termsLink}>Terms and Conditions</Text>
-              </Text>
-            </Pressable>
-          </View>
-
-          <Pressable
-            style={[
-              styles.button,
+        {/* Display password matching status */}
+        {confirmpass.length > 0 && (
+          <RulesBox
+            rules={[
               {
-                zIndex: 10,
-                opacity: isSubmitting || !termsAccepted ? 0.6 : 1,
+                label: confirmRules[0].met
+                  ? "Passwords match"
+                  : "Passwords do not match",
+                met: confirmRules[0].met,
               },
             ]}
-            onPress={handleSignUp}
-            disabled={isSubmitting || !termsAccepted}
+          />
+        )}
+
+        {/* Terms and Conditions checkbox */}
+        <View style={localStyles.termsCheckboxContainer}>
+          <TouchableOpacity
+            style={[
+              localStyles.checkboxBox,
+              termsAccepted && localStyles.checkboxBoxChecked,
+            ]}
+            onPress={handleCheckboxClick}
+            activeOpacity={0.7}
           >
-            <Text style={styles.buttonText}>
-              {isSubmitting ? "Submitting..." : "Sign Up"}
+            {termsAccepted && (
+              <Ionicons name="checkmark" size={16} color="#ffffff" />
+            )}
+          </TouchableOpacity>
+
+          <Pressable
+            onPress={handleCheckboxClick}
+            style={localStyles.termsTextContainer}
+          >
+            <Text style={localStyles.termsLabel}>
+              I agree to the{" "}
+              <Text style={localStyles.termsLink}>Terms and Conditions</Text>
             </Text>
           </Pressable>
+        </View>
+
+        {/* Submit signup form */}
+        <Pressable
+          style={[
+            styles.button,
+            {
+              zIndex: 10,
+              opacity: isSubmitting || !termsAccepted ? 0.6 : 1,
+            },
+          ]}
+          onPress={handleSignUp}
+          disabled={isSubmitting || !termsAccepted}
+        >
+          <Text style={styles.buttonText}>
+            {isSubmitting ? "Submitting..." : "Sign Up"}
+          </Text>
+        </Pressable>
       </KeyboardAwareScrollView>
 
+      {/* Terms and Conditions modal */}
       <Modal
         visible={showTermsModal}
         animationType="slide"
@@ -1069,6 +1152,7 @@ export default function IndividualSignup() {
       >
         <View style={localStyles.modalOverlay}>
           <View style={localStyles.modalContainer}>
+            {/* Modal header */}
             <View style={localStyles.modalHeader}>
               <Text style={localStyles.modalTitle}>Terms and Conditions</Text>
               <TouchableOpacity
@@ -1079,6 +1163,7 @@ export default function IndividualSignup() {
               </TouchableOpacity>
             </View>
 
+            {/* Scrollable terms content */}
             <ScrollView
               style={localStyles.modalBody}
               showsVerticalScrollIndicator={true}
@@ -1311,6 +1396,7 @@ export default function IndividualSignup() {
               </Text>
             </ScrollView>
 
+            {/* Accept or decline the terms */}
             <View style={localStyles.modalFooter}>
               <TouchableOpacity
                 style={localStyles.declineButton}
@@ -1333,6 +1419,7 @@ export default function IndividualSignup() {
         </View>
       </Modal>
 
+      {/* Dropdown selection modal */}
       <Modal
         visible={dropdownVisible}
         transparent
@@ -1359,6 +1446,7 @@ export default function IndividualSignup() {
             }}
             onPress={(event) => event.stopPropagation()}
           >
+            {/* Dropdown title */}
             <View
               style={{
                 padding: 16,
@@ -1377,6 +1465,7 @@ export default function IndividualSignup() {
               </Text>
             </View>
 
+            {/* Display available dropdown options */}
             <ScrollView>
               {dropdownOptions.length > 0 ? (
                 dropdownOptions.map((option, index) => (
@@ -1401,6 +1490,7 @@ export default function IndividualSignup() {
                   </Pressable>
                 ))
               ) : (
+                // Display message when no options are available
                 <View
                   style={{
                     padding: 20,
@@ -1425,6 +1515,7 @@ export default function IndividualSignup() {
   );
 }
 
+// Styles for the terms checkbox and modal
 const localStyles = StyleSheet.create({
   termsCheckboxContainer: {
     flexDirection: "row",

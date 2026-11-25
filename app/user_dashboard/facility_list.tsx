@@ -21,20 +21,24 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
+//Screen listing all approved recycling facilities.
 export default function FacilityList() {
   const router = useRouter();
+  //Facility list and search state.
   const [facilities, setFacilities] = useState<any[]>([]);
   const [filteredFacilities, setFilteredFacilities] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const [tourUserId, setTourUserId] = useState("");
   const searchRef = useRef<ComponentRef<typeof View>>(null);
   const firstCardRef = useRef<any>(null);
   const listHelpRef = useRef<any>(null);
 
+  //Load the logged in user id for the tour.
   useEffect(() => {
     const loadTourUser = async () => {
       try {
@@ -52,6 +56,7 @@ export default function FacilityList() {
     loadTourUser();
   }, []);
 
+  //Show the tour once the list has loaded.
   useEffect(() => {
     if (!tourUserId || loading) return;
 
@@ -60,6 +65,7 @@ export default function FacilityList() {
     });
   }, [tourUserId, loading]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -99,6 +105,7 @@ export default function FacilityList() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -107,10 +114,12 @@ export default function FacilityList() {
     }
   };
 
+  //Load facilities on mount.
   useEffect(() => {
     fetchFacilities();
   }, []);
 
+  //Fetch approved facilities from Supabase.
   const fetchFacilities = async () => {
     try {
       setLoading(true);
@@ -134,6 +143,7 @@ export default function FacilityList() {
     }
   };
 
+  //Filter facilities by name or location.
   const handleSearch = (text: string) => {
     setSearch(text);
     if (!text.trim()) {
@@ -150,6 +160,7 @@ export default function FacilityList() {
     setFilteredFacilities(matches);
   };
 
+  //Get the facility image or a default icon.
   const getProfileImage = (facility: any) => {
     const img = facility.profile_image;
     if (!img) return require("../../assets/icons/icon.png");
@@ -165,6 +176,7 @@ export default function FacilityList() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      {/*Header with back and help buttons.*/}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -182,6 +194,7 @@ export default function FacilityList() {
         </TouchableOpacity>
       </View>
 
+      {/*Search bar.*/}
       <View style={styles.searchWrapper}>
         <View ref={searchRef} collapsable={false} style={styles.searchBox}>
           <TextInput
@@ -191,6 +204,7 @@ export default function FacilityList() {
             onChangeText={handleSearch}
             style={styles.searchInput}
           />
+          {/*Clear search button or search icon.*/}
           {search.length > 0 ? (
             <TouchableOpacity onPress={() => handleSearch("")}>
               <Ionicons name="close-circle" size={18} color="#777" />
@@ -201,6 +215,7 @@ export default function FacilityList() {
         </View>
       </View>
 
+      {/*Loading spinner or facility list.*/}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#1B5E20" />
@@ -263,6 +278,7 @@ export default function FacilityList() {
         />
       )}
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -272,6 +288,7 @@ export default function FacilityList() {
   );
 }
 
+//Styles for the facility list screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -29,6 +29,7 @@ import OnboardingTour, {
 import { supabase } from "../../utils/supabase";
 import { clearPushTokenForProfile } from "../../services/notifications";
 
+//E-waste types a facility can accept.
 const ACCEPTED_ITEM_OPTIONS = [
   "Laptop",
   "Smartphone",
@@ -108,6 +109,7 @@ const ACCEPTED_ITEM_OPTIONS = [
   "Digital Clock",
 ];
 
+//Services a facility can offer.
 const SERVICE_OPTIONS = [
   "Buying recyclable items",
   "E-Waste collection",
@@ -121,6 +123,7 @@ const SERVICE_OPTIONS = [
   "Parts recovery",
 ];
 
+//Options for the time picker.
 const HOUR_OPTIONS = [
   "1",
   "2",
@@ -153,6 +156,7 @@ const MINUTE_OPTIONS = [
 
 const PERIOD_OPTIONS = ["AM", "PM"];
 
+//Options for the day picker.
 const DAY_OPTIONS = [
   "Monday",
   "Tuesday",
@@ -163,11 +167,14 @@ const DAY_OPTIONS = [
   "Sunday",
 ];
 
+//Which time is being picked.
 type TimeTarget = "from" | "to";
 
+//Settings screen for facilities.
 export default function FacilitySettings() {
   const router = useRouter();
 
+  //Facility profile details.
   const [facility, setFacility] = useState({
     id: "",
     name: "",
@@ -187,10 +194,12 @@ export default function FacilitySettings() {
     availableServices: "",
 });
 
+  //Edit profile modal state.
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
+  //Edit form fields.
   const [editName, setEditName] = useState("");
   const [editProfileImage, setEditProfileImage] = useState("");
   const [editProfileImagePath, setEditProfileImagePath] = useState("");
@@ -200,21 +209,25 @@ export default function FacilitySettings() {
   const [editAcceptedItemTypes, setEditAcceptedItemTypes] = useState("");
   const [editAvailableServices, setEditAvailableServices] = useState("");
 
+  //Opening days and day picker state.
   const [editOpeningDayFrom, setEditOpeningDayFrom] = useState("");
 const [editOpeningDayTo, setEditOpeningDayTo] = useState("");
 
 const [dayPickerVisible, setDayPickerVisible] = useState(false);
 const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
 
+  //Suggestion dropdowns state.
   const [acceptedDropdownVisible, setAcceptedDropdownVisible] = useState(false);
   const [servicesDropdownVisible, setServicesDropdownVisible] = useState(false);
 
+  //Time picker state.
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [timeTarget, setTimeTarget] = useState<TimeTarget>("from");
   const [selectedHour, setSelectedHour] = useState("8");
   const [selectedMinute, setSelectedMinute] = useState("00");
   const [selectedPeriod, setSelectedPeriod] = useState("AM");
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const myPostingsRef = useRef<any>(null);
@@ -224,9 +237,11 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
   const deleteAccountRef = useRef<any>(null);
   const settingsHelpRef = useRef<any>(null);
 
+  //Scroll helpers used by the tour.
   const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -289,6 +304,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
     scrollToTop();
@@ -298,6 +314,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     }
   };
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facility.id) return;
 
@@ -308,10 +325,12 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     );
   }, [facility.id]);
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -327,11 +346,13 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     return data?.publicUrl || "";
   };
 
+  //Get the profile image url.
   const getProfileImageUrl = (image: string) => {
     if (!image || String(image).trim() === "") return "";
     return getPublicImageUrl("profile-images", image);
   };
 
+  //Get the file extension of an image.
   const getImageExtension = (uri: string) => {
     const cleanUri = uri.split("?")[0];
     const extension = cleanUri.split(".").pop()?.toLowerCase();
@@ -344,6 +365,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     return "jpg";
   };
 
+  //Get the content type for an image extension.
   const getContentType = (extension: string) => {
     if (extension === "png") return "image/png";
     if (extension === "webp") return "image/webp";
@@ -351,6 +373,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     return "image/jpeg";
   };
 
+  //Comma separated value helpers.
   const splitCommaValues = (value: string) => {
     return String(value || "")
       .split(",")
@@ -374,11 +397,13 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     return uniqueValues.join(", ");
   };
 
+  //Get the word currently being typed.
   const getCurrentTypingValue = (value: string) => {
     const parts = String(value || "").split(",");
     return parts[parts.length - 1]?.trim() || "";
   };
 
+  //Get options that match the typed text.
   const getFilteredOptions = (options: string[], value: string) => {
     const keyword = getCurrentTypingValue(value).toLowerCase();
 
@@ -401,12 +426,14 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     return options.filter((option) => option.toLowerCase().includes(keyword));
   };
 
+  //Check if an option is already selected.
   const isOptionSelected = (currentValue: string, option: string) => {
     return splitCommaValues(currentValue).some(
       (item) => item.toLowerCase() === option.toLowerCase()
     );
   };
 
+  //Add or remove an option from the list.
   const toggleDropdownOption = (
     currentValue: string,
     option: string,
@@ -448,6 +475,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     setter(normalizeCommaValues([...baseValues, option].join(", ")));
   };
 
+  //Split a time like "8:00 AM" into parts.
   const parseTimeValue = (value: string) => {
     const cleanValue = String(value || "").trim();
     const match = cleanValue.match(/^(\d{1,2}):(\d{2})\s?(AM|PM)$/i);
@@ -467,6 +495,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     };
   };
 
+  //Open the time picker for opening or closing time.
   const openTimePicker = (target: TimeTarget) => {
     Keyboard.dismiss();
     setAcceptedDropdownVisible(false);
@@ -484,6 +513,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     setTimePickerVisible(true);
   };
 
+  //Save the picked time.
   const confirmTimePicker = () => {
     const finalTime = `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
 
@@ -496,6 +526,7 @@ const [dayTarget, setDayTarget] = useState<"from" | "to">("from");
     setTimePickerVisible(false);
   };
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -587,6 +618,7 @@ openingDaysTo:
     }
   };
 
+  //Fetch the facility profile from Supabase.
   const fetchFacilityFromSupabase = async (
     facilityId: string,
     fallbackFacility: any
@@ -714,6 +746,7 @@ openingDaysTo:
     }
   };
 
+  //Fill the edit form and open the modal.
   const openEditProfileModal = () => {
     setEditName(facility.name || "");
     setEditProfileImage(facility.profileImage || "");
@@ -730,6 +763,7 @@ openingDaysTo:
     setEditModalVisible(true);
   };
 
+  //Validate the edit profile form.
   const validateEditProfile = () => {
     if (!editName.trim()) {
       Alert.alert("Missing Name", "Please enter your facility name.");
@@ -765,6 +799,7 @@ openingDaysTo:
     return true;
   };
 
+  //Pick and upload a new profile photo.
   const changeProfilePhotoInModal = async () => {
     try {
       if (!facility.id) {
@@ -835,6 +870,7 @@ openingDaysTo:
     }
   };
 
+  //Save profile changes to Supabase.
   const saveProfileChanges = async () => {
     try {
       const cleanedAcceptedItems = normalizeCommaValues(editAcceptedItemTypes);
@@ -1010,6 +1046,7 @@ openingDaysTo:
     }
   };
 
+  //Clear the session and go to sign in.
   const logout = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -1028,6 +1065,7 @@ openingDaysTo:
     router.replace("/signin" as any);
   };
 
+  //Ask before logging out.
   const confirmLogout = () => {
     Alert.alert("Logout", "Are you sure you want to logout?", [
       { text: "Cancel", style: "cancel" },
@@ -1035,6 +1073,7 @@ openingDaysTo:
     ]);
   };
 
+  //Ask before deleting the account.
   const deleteAccount = () => {
     Alert.alert(
       "Delete Account",
@@ -1050,6 +1089,7 @@ openingDaysTo:
     );
   };
 
+  //Delete the facility account and log out.
   const deleteFacilityAccount = async () => {
     try {
       if (!facility.id) {
@@ -1090,6 +1130,7 @@ openingDaysTo:
     }
   };
 
+  //Render an input with a suggestions dropdown.
   const renderDropdownInput = (
     label: string,
     helper: string,
@@ -1102,6 +1143,7 @@ openingDaysTo:
   ) => {
     const filteredOptions = getFilteredOptions(options, value);
 
+    //Close the dropdown and clean the value.
     const closeAndClean = () => {
       setter(normalizeCommaValues(value));
       setVisible(false);
@@ -1127,6 +1169,7 @@ openingDaysTo:
           multiline
         />
 
+        {/*Suggestions dropdown.*/}
         {visible && (
           <View style={styles.dropdownBox}>
             <View style={styles.dropdownHeader}>
@@ -1184,6 +1227,7 @@ openingDaysTo:
     );
   };
 
+  //Render a scrollable column in the time picker.
   const renderTimeColumn = (
     title: string,
     options: string[],
@@ -1228,6 +1272,7 @@ openingDaysTo:
     );
   };
 
+  //Render the time picker popup.
   const renderTimePickerPanel = () => {
     if (!timePickerVisible) return null;
 
@@ -1247,6 +1292,7 @@ openingDaysTo:
             {selectedHour}:{selectedMinute} {selectedPeriod}
           </Text>
 
+          {/*Hour, minute and AM/PM columns.*/}
           <View style={styles.centerTimePickerRow}>
             {renderTimeColumn(
               "Hour",
@@ -1270,6 +1316,7 @@ openingDaysTo:
             )}
           </View>
 
+          {/*Cancel and confirm buttons.*/}
           <View style={styles.centerTimeButtons}>
             <TouchableOpacity
               style={styles.timeCancelButton}
@@ -1290,6 +1337,7 @@ openingDaysTo:
     );
   };
   
+  //Render the day picker popup.
   const renderDayPicker = () => {
   if (!dayPickerVisible) return null;
 
@@ -1305,6 +1353,7 @@ openingDaysTo:
           Select Opening Day
         </Text>
 
+        {/*Day options.*/}
         <ScrollView
           style={{ maxHeight: 300 }}
           showsVerticalScrollIndicator={false}
@@ -1337,6 +1386,7 @@ openingDaysTo:
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+        {/*Top bar with back and help buttons.*/}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => router.replace("/facility_dashboard/profile" as any)}>
             <Text style={styles.back}>←</Text>
@@ -1353,6 +1403,7 @@ openingDaysTo:
           </TouchableOpacity>
         </View>
 
+        {/*Profile photo, name and location.*/}
         <View style={styles.profileHeader}>
           <Image
             source={
@@ -1378,6 +1429,7 @@ openingDaysTo:
           </View>
         </View>
 
+        {/*My Postings and History links.*/}
         <View style={styles.profileSectionSpacing}>
           <View style={styles.menu}>
             <TouchableOpacity
@@ -1416,6 +1468,7 @@ openingDaysTo:
 
         <Text style={styles.sectionTitle}>Account</Text>
 
+        {/*Edit profile link.*/}
         <View style={styles.menu}>
           <TouchableOpacity
             ref={editProfileRef}
@@ -1434,6 +1487,7 @@ openingDaysTo:
 
         <Text style={styles.sectionTitle}>About</Text>
 
+        {/*App version.*/}
         <View style={styles.menu}>
           <View style={styles.item}>
             <Image
@@ -1446,6 +1500,7 @@ openingDaysTo:
           </View>
         </View>
 
+        {/*Logout button.*/}
         <TouchableOpacity
           ref={logoutRef}
           style={styles.logoutBox}
@@ -1459,6 +1514,7 @@ openingDaysTo:
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
+        {/*Delete account button.*/}
         <TouchableOpacity
           ref={deleteAccountRef}
           style={styles.deleteBox}
@@ -1473,6 +1529,7 @@ openingDaysTo:
         </TouchableOpacity>
       </ScrollView>
 
+      {/*Edit facility details modal.*/}
       <Modal visible={editModalVisible} transparent animationType="fade">
         <KeyboardAvoidingView
           style={styles.modalKeyboardWrapper}
@@ -1488,6 +1545,7 @@ openingDaysTo:
                 nestedScrollEnabled
                 contentContainerStyle={styles.editModalScrollContent}
               >
+                {/*Profile photo and change button.*/}
                 <View style={styles.profilePhotoSection}>
                   <Image
                     source={
@@ -1512,6 +1570,7 @@ openingDaysTo:
                   </TouchableOpacity>
                 </View>
 
+                {/*Name, email and location inputs.*/}
                 <Text style={styles.inputLabel}>Facility Name</Text>
                 <TextInput
                   value={editName}
@@ -1542,6 +1601,7 @@ openingDaysTo:
                   multiline
                 />
 
+                {/*Opening days pickers.*/}
                 <Text style={styles.inputLabel}>Opening Days</Text>
 
               <View style={styles.timeInputRow}>
@@ -1588,6 +1648,7 @@ openingDaysTo:
                 </View>
               </View>
 
+                {/*Operating hours pickers.*/}
                 <Text style={styles.inputLabel}>Operating Hours</Text>
 
                 <View style={styles.timeInputRow}>
@@ -1628,6 +1689,7 @@ openingDaysTo:
                   </View>
                 </View>
 
+                {/*Accepted items and services inputs.*/}
                 {renderDropdownInput(
                   "Accepted Items",
                   "Tap the field and type to search. Select from the guide or type your own items separated by comma.",
@@ -1650,6 +1712,7 @@ openingDaysTo:
                   "Example: Buying recyclable items, E-Waste collection"
                 )}
 
+                {/*Cancel and save buttons.*/}
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={styles.cancelButton}
@@ -1679,6 +1742,7 @@ openingDaysTo:
                 </View>
               </ScrollView>
 
+              {/*Time and day picker popups.*/}
               {renderTimePickerPanel()}
               {renderDayPicker()}
             </View>
@@ -1686,6 +1750,7 @@ openingDaysTo:
         </KeyboardAvoidingView>
       </Modal>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1695,6 +1760,7 @@ openingDaysTo:
   );
 }
 
+//Styles for the facility settings screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

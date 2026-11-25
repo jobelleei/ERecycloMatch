@@ -22,17 +22,21 @@ import { savePushTokenForProfile } from "../services/notifications";
 export default function Signin() {
   const router = useRouter();
 
+  //Storing the user's login details and screen states
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secure, setSecure] = useState(true);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
+  //Handling user sign-in
   const handleSignIn = async () => {
     console.log("SIGN IN CLICKED");
 
+    //Removing extra spaces and convert the email to lowercase
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
+    //Checking if all required fields are filled in
     if (!cleanEmail || !cleanPassword) {
       Toast.show({
         type: "error",
@@ -45,6 +49,7 @@ export default function Signin() {
     try {
       setIsSigningIn(true);
 
+      //Getting user's profile details from the database
       const { data: profile, error } = await supabase
         .from("profiles")
         .select(
@@ -70,6 +75,7 @@ export default function Signin() {
 
       console.log("SUPABASE SIGNIN ERROR:", error);
 
+      //Checking if there was an error retrieving the profile
       if (error) {
         Toast.show({
           type: "error",
@@ -79,6 +85,7 @@ export default function Signin() {
         return;
       }
 
+      //Checkingif the email is registered
       if (!profile) {
         Toast.show({
           type: "error",
@@ -88,6 +95,7 @@ export default function Signin() {
         return;
       }
 
+      //Standardize the account status and role for checking
       const databaseStatus = String(profile.status || "")
         .trim()
         .toLowerCase();
@@ -98,11 +106,13 @@ export default function Signin() {
       console.log("NORMALIZED STATUS:", databaseStatus);
       console.log("NORMALIZED ROLE:", databaseRole);
 
+      //Verify the user's email and password through Supabase Auth
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: cleanPassword,
       });
 
+      //If the email is not verified, send another verification link
       if (authError?.code === "email_not_confirmed") {
         await supabase.auth.resend({
           type: "signup",
@@ -127,6 +137,7 @@ export default function Signin() {
         return;
       }
 
+      //Checking the old password record for accounts using the previous login method
       if (authError) {
         const { data: legacy } = await supabase
           .from("profiles")
@@ -136,6 +147,7 @@ export default function Signin() {
 
         const legacyPassword = String(legacy?.password || "").trim();
 
+        //Stop the login if the password does not match
         if (!legacyPassword || legacyPassword !== cleanPassword) {
           Toast.show({
             type: "error",
@@ -146,6 +158,7 @@ export default function Signin() {
         }
       }
 
+      //Checking if the account is still waiting for admin approval
       if (databaseStatus === "pending") {
         Toast.show({
           type: "error",
@@ -155,6 +168,7 @@ export default function Signin() {
         return;
       }
 
+      //Check if the account was rejected by the admin
       if (databaseStatus === "rejected") {
         Toast.show({
           type: "error",
@@ -166,6 +180,7 @@ export default function Signin() {
         return;
       }
 
+      //Prevent deleted accounts from signing in
       if (databaseStatus === "deleted") {
         Toast.show({
           type: "error",
@@ -175,6 +190,7 @@ export default function Signin() {
         return;
       }
 
+      //Only approved accounts can continue to the dashboard
       if (databaseStatus !== "approved") {
         Toast.show({
           type: "error",
@@ -184,6 +200,7 @@ export default function Signin() {
         return;
       }
 
+      //Preparing the user's information for local storage
       const userData = {
         id: String(profile.id || ""),
         name: profile.name || "",
@@ -202,16 +219,20 @@ export default function Signin() {
 
       console.log("SAVED USER DATA:", userData);
 
+      //Saving user's information for use in other screens
       await AsyncStorage.setItem("user", JSON.stringify(userData));
 
+      //Saving the device's push notification token
       savePushTokenForProfile(profile.id);
 
+      //Show a confirmation message after successful login
       Toast.show({
         type: "success",
         text1: "Welcome Back!",
         text2: "Login successful!",
       });
 
+       //Navigate to the dashboard based on the user's role
       if (databaseRole === "user") {
         router.replace("/user_dashboard" as any);
         return;
@@ -222,6 +243,7 @@ export default function Signin() {
         return;
       }
 
+      //Show an error if the account has an unsupported role
       Toast.show({
         type: "error",
         text1: "Login Failed",
@@ -230,6 +252,7 @@ export default function Signin() {
     } catch (error: any) {
       console.log("SUPABASE SIGNIN ERROR:", error);
 
+      //Show a message if the connection or login process fails
       Toast.show({
         type: "error",
         text1: "Connection Error",

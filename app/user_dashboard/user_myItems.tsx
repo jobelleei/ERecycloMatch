@@ -31,11 +31,14 @@ import { supabase } from "../../utils/supabase";
 import { alertIfSelfSuspended } from "../../utils/accountSuspension";
 import { NEARBY_NOTIFICATION_RADIUS_KM } from "../../config";
 
+//Get screen dimensions
 const screenWidth = Dimensions.get("window").width;
 const screenHeight = Dimensions.get("window").height;
 
+//Set nearby notification radius
 const NEARBY_RADIUS_KM = NEARBY_NOTIFICATION_RADIUS_KM;
 
+//Calculate distance between two locations
 const calculateDistanceKm = (
   latitude1: number,
   longitude1: number,
@@ -68,12 +71,14 @@ const calculateDistanceKm = (
 export default function MyItems() {
   const router = useRouter();
 
+  //Store user items and selected item
   const [items, setItems] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [submitterName, setSubmitterName] = useState("");
   const [userId, setUserId] = useState("");
 
+  //Manage onboarding tour
   const [showTour, setShowTour] = useState(false);
   const statsRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -81,6 +86,7 @@ export default function MyItems() {
   const firstDotsRef = useRef<any>(null);
   const itemsHelpRef = useRef<any>(null);
 
+  //Check if onboarding tour is completed
   useEffect(() => {
     if (!userId) return;
 
@@ -88,18 +94,22 @@ export default function MyItems() {
       if (!completed) setShowTour(true);
     });
   }, [userId]);
+
+  //Manage item refreshing and filtering
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("All");
 
+  //Manage item editing
   const [editVisible, setEditVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [editedDescription, setEditedDescription] = useState("");
 
-
+  //Manage image preview
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImageSource, setPreviewImageSource] = useState<any>(null);
   const [previewTitle, setPreviewTitle] = useState("");
 
+  //Determine the current item status
   const getItemStatus = (item: any) => {
     const matchStatus = String(item?.match_status || "")
       .trim()
@@ -142,6 +152,7 @@ export default function MyItems() {
     return "Pending";
   };
 
+  //Get item timestamp for sorting
   const getItemTimeValue = (item: any) => {
     const dateValue =
       item.listed_at ||
@@ -164,19 +175,23 @@ export default function MyItems() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Sort items from newest to oldest
   const sortByLatest = (list: any[]) => {
     return [...list].sort((a, b) => getItemTimeValue(b) - getItemTimeValue(a));
   };
 
+  //Filter items based on selected status
   const filteredItems =
     filter === "All"
       ? items
       : items.filter((item) => getItemStatus(item) === filter);
 
+  //Load user information on screen mount
   useEffect(() => {
     loadUser();
   }, []);
 
+  //Refresh items whenever the screen is focused
   useFocusEffect(
     useCallback(() => {
       const refreshMyItems = async () => {
@@ -191,12 +206,14 @@ export default function MyItems() {
     }, [userId]),
   );
 
+  //Fetch items when user ID becomes available
   useEffect(() => {
     if (userId) {
       fetchItems();
     }
   }, [userId]);
 
+  //Load logged-in user from local storage
   const loadUser = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -231,6 +248,7 @@ export default function MyItems() {
     }
   };
 
+  //Fetch items belonging to the logged-in user
   const fetchItems = async () => {
     try {
       if (!userId) {
@@ -256,6 +274,7 @@ export default function MyItems() {
         return;
       }
 
+      //Exclude items already matched or completed
       const visibleItems = (data || []).filter((item: any) => {
         const matchStatus = String(item?.match_status || "")
           .trim()
@@ -278,12 +297,14 @@ export default function MyItems() {
     }
   };
 
+  //Refresh the item list manually
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchItems();
     setRefreshing(false);
   };
 
+  //Notify nearby approved facilities about a new listing
   const notifyNearbyFacilities = async (item: any) => {
     try {
       const itemLatitude = Number(item?.latitude);
@@ -293,6 +314,7 @@ export default function MyItems() {
         return;
       }
 
+      //Fetch facility locations and accepted item types
       const { data: facilities, error: facilitiesError } = await supabase
         .from("profiles")
         .select(
@@ -303,6 +325,7 @@ export default function MyItems() {
         return;
       }
 
+      //Get only approved facilities
       const approvedFacilities = (facilities || []).filter((facility: any) => {
         const role = String(facility?.role || "")
           .trim()
@@ -323,6 +346,7 @@ export default function MyItems() {
 
       const notificationsToInsert: any[] = [];
 
+      //Check each facility's distance and accepted items
       for (const facility of approvedFacilities) {
         const facilityLatitude = Number(facility.latitude);
         const facilityLongitude = Number(facility.longitude);
@@ -345,6 +369,7 @@ export default function MyItems() {
           continue;
         }
 
+        //Check if facility accepts the listed item type
         const acceptedTypes = String(facility.accepted_item_types || "")
           .toLowerCase()
           .split(/[,;|]/)
@@ -363,6 +388,7 @@ export default function MyItems() {
           continue;
         }
 
+        //Prepare notification for eligible facilities
         notificationsToInsert.push({
           profile_id: facility.id,
           title: "New Nearby Listing",
@@ -380,6 +406,7 @@ export default function MyItems() {
         });
       }
 
+      //Insert notifications for nearby facilities
       if (notificationsToInsert.length === 0) return;
 
       await supabase.from("notifications").insert(notificationsToInsert);
@@ -388,6 +415,7 @@ export default function MyItems() {
     }
   };
 
+  //List an approved item for recycling facilities
   const listItem = async (item: any) => {
     const status = getItemStatus(item);
 
@@ -411,11 +439,13 @@ export default function MyItems() {
       return;
     }
 
+    //Check if the user's account is suspended
     if (await alertIfSelfSuspended(userId)) return;
 
     try {
       const listedAt = new Date().toISOString();
 
+      //Update item status in the database
       const { error } = await supabase
         .from("items")
         .update({
@@ -438,10 +468,12 @@ export default function MyItems() {
         listed_at: listedAt,
       };
 
+      //Notify eligible nearby facilities
       await notifyNearbyFacilities(listedItem);
 
       Alert.alert("List Item", "Item listed successfully.");
 
+      //Update the item list after successful listing
       setItems((prevItems) =>
         sortByLatest(
           prevItems.map((currentItem) =>
@@ -465,6 +497,7 @@ export default function MyItems() {
     }
   };
 
+  //Generate a public image URL from Supabase storage
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path) return "";
 
@@ -479,6 +512,7 @@ export default function MyItems() {
     return data?.publicUrl || "";
   };
 
+  //Extract storage file path from an image URL
   const extractStoragePath = (value: string, bucketName: string) => {
     if (!value || String(value).trim() === "") return "";
 
@@ -499,6 +533,7 @@ export default function MyItems() {
     return decodeURIComponent(pathWithQuery.split("?")[0]);
   };
 
+  //Get the item's image or default placeholder
   const getItemImageSource = (item: any) => {
     const imagePath =
       item?.item_image ||
@@ -525,6 +560,7 @@ export default function MyItems() {
     };
   };
 
+  //Open the selected image in preview mode
   const openImagePreview = (source: any, title: string) => {
     setPreviewImageSource(source);
     setPreviewTitle(title);
@@ -536,6 +572,7 @@ export default function MyItems() {
     }, 250);
   };
 
+  //Close image preview and return to item details
   const closeImagePreview = () => {
     setPreviewVisible(false);
     setPreviewImageSource(null);
@@ -548,12 +585,14 @@ export default function MyItems() {
     }
   };
 
+  //Open item details for editing
   const openItemModal = (item: any) => {
     setEditingItem(item);
     setEditedDescription(item.description || "");
     setEditVisible(true);
   };
 
+  //Update item description in the database
   const updateDescription = async () => {
     if (!editingItem) return;
 
@@ -589,6 +628,7 @@ export default function MyItems() {
     }
   };
 
+  //Delete an item and its associated images
   const deleteItem = async (item: any) => {
     Alert.alert(
       "Delete Item",
@@ -603,6 +643,7 @@ export default function MyItems() {
           style: "destructive",
           onPress: async () => {
             try {
+              //Get the item's image storage path
               const itemImageValue =
                 item?.item_image ||
                 item?.image ||
@@ -618,11 +659,13 @@ export default function MyItems() {
                 "item-images",
               );
 
+              //Fetch associated issue photos
               const { data: issuePhotosData } = await supabase
                 .from("item_issue_photos")
                 .select("*")
                 .eq("item_id", item.id);
 
+              //Extract issue photo storage paths
               const issuePhotoPaths =
                 issuePhotosData
                   ?.map((photo: any) => {
@@ -642,23 +685,27 @@ export default function MyItems() {
                     (path: string) => path && String(path).trim() !== "",
                   ) || [];
 
+              //Remove item image from storage
               if (itemImagePath) {
                 await supabase.storage
                   .from("item-images")
                   .remove([itemImagePath]);
               }
 
+              //Remove associated issue photos
               if (issuePhotoPaths.length > 0) {
                 await supabase.storage
                   .from("item-issue-photos")
                   .remove(issuePhotoPaths);
               }
 
+              //Delete issue photo records
               await supabase
                 .from("item_issue_photos")
                 .delete()
                 .eq("item_id", item.id);
 
+              //Delete the item record
               const { error: itemDeleteError } = await supabase
                 .from("items")
                 .delete()
@@ -672,6 +719,7 @@ export default function MyItems() {
 
               Alert.alert("Delete Item", "Item deleted successfully.");
 
+              //Remove deleted item from the screen
               setItems((prevItems) =>
                 prevItems.filter(
                   (currentItem) => String(currentItem.id) !== String(item.id),
@@ -690,6 +738,7 @@ export default function MyItems() {
     );
   };
 
+  //Get status-specific text styles
   const getStatusStyle = (status: string) => {
     if (status === "Pending") return styles.pending;
     if (status === "Approved") return styles.approved;
@@ -699,6 +748,7 @@ export default function MyItems() {
     return styles.pending;
   };
 
+  //Get the status displayed on item cards
   const getDisplayStatus = (item: any) => {
     const status = getItemStatus(item);
     if (status === "Approved") {
@@ -707,6 +757,7 @@ export default function MyItems() {
     return status;
   };
 
+  //Get the review decision displayed in the popup
   const getPopupDecisionLabel = (item: any) => {
     const status = getItemStatus(item);
     const approvalSource = String(item?.approval_source || "")
@@ -728,6 +779,7 @@ export default function MyItems() {
     return "Approved by ERecycloMatch";
   };
 
+  //Display available actions based on item status
   const renderActionButtons = (item: any) => {
     const status = getItemStatus(item);
 
@@ -799,6 +851,7 @@ export default function MyItems() {
     );
   };
 
+  //Convert item issues into a readable list
   const getIssueList = (issues: any): string[] => {
     if (!issues) return [];
 
@@ -813,11 +866,13 @@ export default function MyItems() {
       .filter(Boolean);
   };
 
+  //Render an individual item card
   const renderItem = ({ item, index }: any) => {
     const status = getItemStatus(item);
     const uniqueKey = `${item.id}-${status}`;
     const isMenuOpen = openMenuId === String(item.id);
 
+    //Format item date and time
     const itemTimestamp = item.updated_at || item.created_at;
     const formattedDate = itemTimestamp
       ? new Date(itemTimestamp).toLocaleString("en-PH", {
@@ -853,6 +908,7 @@ export default function MyItems() {
             </Text>
           </View>
 
+          {/*Open item review information*/}
           <TouchableOpacity
             ref={index === 0 ? firstDotsRef : undefined}
             style={styles.dotsButton}
@@ -876,11 +932,13 @@ export default function MyItems() {
           )}
         </TouchableOpacity>
 
+        {/*Show actions for the selected item*/}
         {selectedItem === uniqueKey && renderActionButtons(item)}
       </View>
     );
   };
 
+  //Define onboarding guide steps
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -930,6 +988,7 @@ export default function MyItems() {
     },
   ];
 
+  //Complete and save onboarding tour
   const finishTour = () => {
     setShowTour(false);
 
@@ -938,6 +997,7 @@ export default function MyItems() {
     }
   };
 
+  //Render My Items screen
   return (
     <TouchableWithoutFeedback
       onPress={() => {
@@ -945,6 +1005,7 @@ export default function MyItems() {
       }}
     >
       <SafeAreaView style={styles.container}>
+        {/*Display screen header and help button*/}
         <View style={styles.headerRow}>
           <Text style={styles.header}>My Items</Text>
 
@@ -960,6 +1021,7 @@ export default function MyItems() {
           </TouchableOpacity>
         </View>
 
+        {/*Display item statistics*/}
         <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
           <View style={styles.statsCard}>
             <Text style={styles.statsNumber}>{items.length}</Text>
@@ -994,6 +1056,7 @@ export default function MyItems() {
           </View>
         </View>
 
+        {/*Filter items by status*/}
         <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
           <ScrollView
             horizontal
@@ -1027,6 +1090,7 @@ export default function MyItems() {
           </ScrollView>
         </View>
 
+        {/*Display filtered items*/}
         <FlatList
           data={filteredItems}
           keyExtractor={(item) => `${item.id}-${getDisplayStatus(item)}`}
@@ -1043,6 +1107,7 @@ export default function MyItems() {
           }
         />
 
+        {/*Item details and update modal*/}
         <Modal visible={editVisible} transparent animationType="fade">
           <View style={styles.overlay}>
             <KeyboardAvoidingView
@@ -1065,6 +1130,7 @@ export default function MyItems() {
 
                   {editingItem && (
                     <>
+                      {/*Display item photo*/}
                       <TouchableOpacity
                         activeOpacity={0.85}
                         onPress={() =>
@@ -1084,6 +1150,7 @@ export default function MyItems() {
                         Tap the image to view the whole photo.
                       </Text>
 
+                      {/*Display item information*/}
                       <Text style={styles.modalLabel}>Item Name</Text>
                       <Text style={styles.readOnlyText}>
                         {editingItem.item_name}
@@ -1110,6 +1177,7 @@ export default function MyItems() {
                         )}
                       </View>
 
+                      {/*Display item evaluation results*/}
                       <Text style={styles.modalLabel}>Hazard Status</Text>
                       <Text style={styles.readOnlyText}>
                         {editingItem.hazard_status}%
@@ -1120,6 +1188,7 @@ export default function MyItems() {
                         {editingItem.recyclability}%
                       </Text>
 
+                      {/*Display approval information*/}
                       <Text style={styles.modalLabel}>Status</Text>
                       <Text
                         style={[
@@ -1140,6 +1209,7 @@ export default function MyItems() {
                             : "Pending Review"}
                       </Text>
 
+                      {/*Display rejection reason when applicable*/}
                       {getItemStatus(editingItem) === "Rejected" && (
                         <>
                           <Text style={styles.modalLabel}>
@@ -1157,6 +1227,7 @@ export default function MyItems() {
                         </>
                       )}
 
+                      {/*Allow description updates for eligible items*/}
                       <Text style={styles.modalLabel}>Description</Text>
 
                       {getItemStatus(editingItem) === "Rejected" ? (
@@ -1175,6 +1246,7 @@ export default function MyItems() {
                     </>
                   )}
 
+                  {/*Display modal actions*/}
                   <View style={styles.modalButtons}>
                     <TouchableOpacity
                       style={[
@@ -1209,6 +1281,7 @@ export default function MyItems() {
           </View>
         </Modal>
 
+        {/*Full-screen image preview*/}
         <Modal
           visible={previewVisible}
           transparent={false}
@@ -1249,6 +1322,7 @@ export default function MyItems() {
           </View>
         </Modal>
 
+        {/*Display bottom navigation and onboarding guide*/}
         <UserBottomNav userId={userId} active="profile" />
 
         <OnboardingTour
@@ -1261,6 +1335,7 @@ export default function MyItems() {
   );
 }
 
+//Define screen and component styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1587,12 +1662,6 @@ const styles = StyleSheet.create({
     color: "red",
     fontWeight: "bold",
   },
-
-
-
-
-
-
 
   input: {
     backgroundColor: "#fff",

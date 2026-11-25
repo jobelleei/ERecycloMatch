@@ -37,12 +37,13 @@ import {
   type IssueOption,
 } from "../../utils/itemConditions";
 
+//Stores the logged-in user's information.
 type LoggedInUser = {
   userId: number;
   submitterName: string;
 };
 
-
+//Stores the automatic decision and approval details.
 type AutoDecision = {
   status: "Approved" | "Rejected" | "Pending";
   match_status: "Approved" | "Rejected" | "Pending";
@@ -54,6 +55,7 @@ type AutoDecision = {
 
 const EWASTE_DROP_OFFS_ROUTE = "/user_dashboard/user_map";
 
+//Defines the information for each e-waste drop-off location.
 type DropOffBin = {
   id: string;
   name: string;
@@ -63,6 +65,7 @@ type DropOffBin = {
   distanceKm?: number | null;
 };
 
+//Default drop-off locations displayed when no facility match is found.
 const DROP_OFF_BINS: DropOffBin[] = [
   {
     id: "default-bin-1",
@@ -88,6 +91,7 @@ const DROP_OFF_BINS: DropOffBin[] = [
   },
 ];
 
+//Standardizes text before comparing item names and facility information.
 const normalizeText = (value: any) => {
   return String(value || "")
     .toLowerCase()
@@ -97,6 +101,7 @@ const normalizeText = (value: any) => {
     .trim();
 };
 
+//Gets the image file extension from its URI.
 const getImageExtension = (uri: string) => {
   const cleanUri = uri.split("?")[0];
   const extension = cleanUri.split(".").pop()?.toLowerCase();
@@ -109,13 +114,14 @@ const getImageExtension = (uri: string) => {
   return "jpg";
 };
 
+//Determines the correct MIME type for an uploaded image.
 const getContentType = (extension: string) => {
   if (extension === "png") return "image/png";
   if (extension === "webp") return "image/webp";
   return "image/jpeg";
 };
 
-
+//Formats disposal suggestions into a readable text block.
 const formatSuggestionBlock = (title: string, suggestions: string[]) => {
   const suggestionText = suggestions
     .map((suggestion) => `• ${suggestion}`)
@@ -125,22 +131,27 @@ const formatSuggestionBlock = (title: string, suggestions: string[]) => {
 };
 
 export default function ScanResult() {
+  //Retrieves the scanned image and detected item name from the route.
   const { image: imageParam, label } = useLocalSearchParams();
   const router = useRouter();
 
+  //Gets the original and display versions of the scanned image.
   const image =
     getScanPhotoUri() || (typeof imageParam === "string" ? imageParam : "");
   const displayImage = getScanPhotoDisplayUri() || image;
 
+  //Determines the detected item and retrieves its related information.
   const itemName = typeof label === "string" ? label : "Unknown";
   const isUnknownItem = normalizeText(itemName) === "unknown";
   const itemData = getItemData(itemName);
 
+  //Stores the item description, selected issues, and upload state.
   const [description, setDescription] = useState("");
   const [selectedIssues, setSelectedIssues] = useState<IssueOption[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  //Stores the onboarding tour visibility and logged-in user ID.
   const [showTour, setShowTour] = useState(false);
   const [tourUserId, setTourUserId] = useState("");
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
@@ -153,6 +164,7 @@ export default function ScanResult() {
   const closeRef = useRef<any>(null);
   const resultHelpRef = useRef<any>(null);
 
+  //Stores facility matching results and related modal information.
   const [matchModalVisible, setMatchModalVisible] = useState(false);
   const [matchFound, setMatchFound] = useState(false);
   const [matchedFacilities, setMatchedFacilities] = useState<any[]>([]);
@@ -162,6 +174,8 @@ export default function ScanResult() {
   const [nearestDropOffBins, setNearestDropOffBins] =
     useState<DropOffBin[]>(DROP_OFF_BINS);
   const [dropOffLocationLoading, setDropOffLocationLoading] = useState(false);
+
+  //Stores the upload result modal information.
   const [resultModalVisible, setResultModalVisible] = useState(false);
   const [resultModalTitle, setResultModalTitle] = useState("");
   const [resultModalMessage, setResultModalMessage] = useState("");
@@ -171,6 +185,7 @@ export default function ScanResult() {
   const [resultModalUploadedItem, setResultModalUploadedItem] =
     useState<any>(null);
 
+  //Calculates the total deductions and hazard level from selected issues.
   const totalDeduction = selectedIssues.reduce(
     (sum, issue) => sum + issue.deduction,
     0,
@@ -181,11 +196,14 @@ export default function ScanResult() {
     0,
   );
 
+  //Calculates the final recyclability and hazard percentages.
   const recyclability = Math.max(100 - totalDeduction, 0);
   const hazardStatus = Math.min(totalHazard, 100);
 
+  //Excludes the "None" option when identifying actual item issues.
   const actualIssues = selectedIssues.filter((issue) => issue.name !== "None");
 
+  //Calculates the distance between two coordinates using the Haversine formula.
   const calculateDistanceKm = (
     userLatitude: number,
     userLongitude: number,
@@ -210,6 +228,7 @@ export default function ScanResult() {
     return earthRadiusKm * c;
   };
 
+  //Gets the user's location and sorts drop-off bins by distance.
   const prepareNearestDropOffBins = async () => {
     try {
       setDropOffLocationLoading(true);
@@ -247,6 +266,7 @@ export default function ScanResult() {
     }
   };
 
+  //Converts the distance into meters or kilometers for display.
   const formatDistance = (distanceKm?: number | null) => {
     if (distanceKm === undefined || distanceKm === null) {
       return "Distance unavailable";
@@ -259,6 +279,7 @@ export default function ScanResult() {
     return `${distanceKm.toFixed(2)} km away`;
   };
 
+  //Determines whether the scanned item is approved or needs admin review.
   const getAutoDecision = (
     recyclabilityValue: number,
     hazardValue: number,
@@ -314,6 +335,7 @@ export default function ScanResult() {
     };
   };
 
+  //Retrieves the logged-in user's ID and name from local storage.
   const getLoggedInUser = async (): Promise<LoggedInUser> => {
     const storedUser = await AsyncStorage.getItem("user");
 
@@ -361,6 +383,7 @@ export default function ScanResult() {
     };
   };
 
+  //Adds or removes an issue from the selected issues list.
   const toggleIssue = (issue: IssueOption) => {
     const alreadySelected = selectedIssues.some(
       (selected) => selected.name === issue.name,
@@ -387,6 +410,7 @@ export default function ScanResult() {
     setSelectedIssues([...filteredIssues, issue]);
   };
 
+  //Checks whether all required information is provided before uploading.
   const validateForm = () => {
     if (!image) {
       Alert.alert("Missing Image", "Please scan an item first.");
@@ -415,6 +439,7 @@ export default function ScanResult() {
     return true;
   };
 
+  //Converts the image into binary data and uploads it to Supabase Storage.
   const uploadImageToBucket = async (
     bucket: string,
     filePath: string,
@@ -497,6 +522,7 @@ export default function ScanResult() {
   };
 
 
+  //Retrieves the first available value from a list of possible object keys.
   const getValueFromKeys = (object: any, keys: string[]) => {
     if (!object) return "";
 
@@ -513,6 +539,7 @@ export default function ScanResult() {
     return "";
   };
 
+  //Removes extra condition details and scoring words from issue descriptions.
   const cleanIssuesText = (issues: string) => {
     if (!issues) return "";
 
@@ -524,6 +551,7 @@ export default function ScanResult() {
       .trim();
   };
 
+  //Removes common words to focus on meaningful matching keywords.
   const getUsefulTokens = (value: any) => {
     const stopWords = [
       "the",
@@ -574,6 +602,7 @@ export default function ScanResult() {
       .filter((word) => word.length >= 3 && !stopWords.includes(word));
   };
 
+  //Checks whether two texts contain at least one matching keyword.
   const hasCommonToken = (textA: any, textB: any) => {
     const tokensA = getUsefulTokens(textA);
     const tokensB = getUsefulTokens(textB);
@@ -587,6 +616,7 @@ export default function ScanResult() {
     return tokensA.some((token) => setB.has(token));
   };
 
+  //Calculates the similarity score based on matching keywords.
   const getTokenScore = (textA: any, textB: any) => {
     const tokensA = getUsefulTokens(textA);
     const tokensB = getUsefulTokens(textB);
@@ -601,6 +631,7 @@ export default function ScanResult() {
     return matchedTokens.length / Math.max(tokensA.length, tokensB.length);
   };
 
+  //Returns the keywords shared by two texts.
   const getMatchedTokens = (textA: any, textB: any) => {
     const tokensA = getUsefulTokens(textA);
     const tokensB = getUsefulTokens(textB);
@@ -610,6 +641,7 @@ export default function ScanResult() {
     return tokensA.filter((token) => setB.has(token));
   };
 
+  //Retrieves the requested item name from a facility post.
   const getPostItemNeededText = (post: any) => {
     return getValueFromKeys(post, [
       "item_needed",
@@ -626,6 +658,7 @@ export default function ScanResult() {
     ]);
   };
 
+  //Retrieves the description or details from a facility post.
   const getPostDescriptionText = (post: any) => {
     return getValueFromKeys(post, [
       "description",
@@ -640,6 +673,7 @@ export default function ScanResult() {
     ]);
   };
 
+  //Retrieves the issue or condition information from a facility post.
   const getPostIssuesText = (post: any) => {
     return getValueFromKeys(post, [
       "issues",
@@ -654,6 +688,7 @@ export default function ScanResult() {
     ]);
   };
 
+  //Retrieves the facility ID using possible database column names.
   const getFacilityIdFromPost = (post: any) => {
     return String(
       getValueFromKeys(post, [
@@ -672,6 +707,7 @@ export default function ScanResult() {
     ).trim();
   };
 
+  //Retrieves the facility name from a post.
   const getFacilityNameFromPost = (post: any) => {
     return getValueFromKeys(post, [
       "facility_name",
@@ -687,6 +723,7 @@ export default function ScanResult() {
     ]);
   };
 
+  //Retrieves the facility address from a post.
   const getFacilityAddressFromPost = (post: any) => {
     return getValueFromKeys(post, [
       "facility_location",
@@ -697,6 +734,7 @@ export default function ScanResult() {
     ]);
   };
 
+  //Gets the facility's display name from its profile.
   const getProfileName = (profile: any) => {
     return (
       getValueFromKeys(profile, [
@@ -713,6 +751,7 @@ export default function ScanResult() {
     );
   };
 
+  //Gets the facility's address from its profile.
   const getProfileAddress = (profile: any) => {
     return (
       getValueFromKeys(profile, [
@@ -725,6 +764,7 @@ export default function ScanResult() {
     );
   };
 
+  //Retrieves the facility image from its profile or post.
   const getProfileImageValue = (profile: any, post: any) => {
     return (
       getValueFromKeys(profile, [
@@ -754,6 +794,7 @@ export default function ScanResult() {
     );
   };
 
+  //Generates an image source from a URL or Supabase Storage bucket.
   const getFacilityImageSource = (profileImage: string) => {
     if (!profileImage || String(profileImage).trim() === "") {
       return require("../../assets/icons/icon.png");
@@ -788,6 +829,7 @@ export default function ScanResult() {
     return require("../../assets/icons/icon.png");
   };
 
+  //Checks whether a facility post is currently available.
   const isPostActive = (post: any) => {
     const status = normalizeText(
       getValueFromKeys(post, ["status", "post_status", "state"]) || "active",
@@ -805,6 +847,7 @@ export default function ScanResult() {
     );
   };
 
+  //Checks whether a profile belongs to a facility account.
   const isFacilityProfile = (profile: any) => {
     const role = normalizeText(profile?.role || profile?.account_type || "");
 
@@ -813,6 +856,7 @@ export default function ScanResult() {
     return role.includes("facility");
   };
 
+  //Checks whether the scanned item name matches the requested item.
   const checkNameMatch = (itemText: any, neededText: any) => {
     const item = normalizeText(itemText);
     const needed = normalizeText(neededText);
@@ -832,6 +876,7 @@ export default function ScanResult() {
     return hasCommonToken(item, needed);
   };
 
+  //Scores a facility post based on item name, description, and issue matches.
   const calculateMatchScore = (
     scannedItemName: string,
     scannedDescription: string,
@@ -889,6 +934,7 @@ export default function ScanResult() {
     };
   };
 
+  //Creates a match request and opens the conversation with the selected facility.
   const createOrOpenConversation = async (facility: any) => {
     try {
       const loggedInUser = await getLoggedInUser();
@@ -905,6 +951,7 @@ export default function ScanResult() {
       const cleanUserId = String(loggedInUser.userId);
       const cleanFacilityId = String(facility.id);
 
+      //Prevents users from sending requests to blocked or suspended accounts.
       if (await alertIfTransactionBlocked(cleanUserId, cleanFacilityId)) return;
 
       const cleanItemId = String(itemToMatch.id);
@@ -940,6 +987,7 @@ export default function ScanResult() {
         "finish_pending",
       ];
 
+      //Checks for an existing unfinished conversation with the facility.
       const { data: unfinishedConversations, error: unfinishedError } =
         await supabase
           .from("conversations")
@@ -990,6 +1038,7 @@ export default function ScanResult() {
         return;
       }
 
+      //Prepares the conversation record for the new match request.
       const requestConversationData: any = {
         user_id: cleanUserId,
         facility_id: cleanFacilityId,
@@ -1005,6 +1054,7 @@ export default function ScanResult() {
         updated_at: now,
       };
 
+      //Saves the new conversation in Supabase.
       const { error: insertError } = await supabase
         .from("conversations")
         .insert([
@@ -1021,12 +1071,14 @@ export default function ScanResult() {
         return;
       }
 
+      //Removes any duplicate request messages for the conversation.
       await supabase
         .from("messages")
         .delete()
         .eq("conversation_id", conversationId)
         .in("message", ["Request sent", "Match request sent"]);
 
+      //Creates the match request message containing the item details.
       const richRequestMessage: any = {
         conversation_id: conversationId,
         sender_id: cleanUserId,
@@ -1049,6 +1101,7 @@ export default function ScanResult() {
         return;
       }
 
+      //Closes the modals and navigates to the chat screen.
       setMatchModalVisible(false);
       setResultModalVisible(false);
 
@@ -1074,11 +1127,13 @@ export default function ScanResult() {
     }
   };
 
+  //Closes the match modal and opens the user's saved items.
   const addToMyItemsFromMatchModal = () => {
     setMatchModalVisible(false);
     router.replace("/user_dashboard/user_myItems" as any);
   };
 
+  //Searches possible database tables for available facility posts.
   const fetchFacilityPosts = async () => {
     const possibleTables = [
       "facility_item_requests",
@@ -1111,6 +1166,7 @@ export default function ScanResult() {
     return [];
   };
 
+  //Retrieves all facility profiles from the profiles table.
   const fetchAllFacilityProfiles = async () => {
     try {
       const { data, error } = await supabase.from("profiles").select("*");
@@ -1129,6 +1185,7 @@ export default function ScanResult() {
     }
   };
 
+  //Finds the facility profile connected to a specific post.
   const findBestProfileForPost = (post: any, profiles: any[]) => {
     const postFacilityId = getFacilityIdFromPost(post);
     const postFacilityName = getFacilityNameFromPost(post);
@@ -1216,6 +1273,7 @@ export default function ScanResult() {
     return null;
   };
 
+  //Opens the map and focuses on the selected drop-off bin.
   const openDropOffBinInAppMap = (bin: any) => {
     setMatchModalVisible(false);
 
@@ -1258,6 +1316,7 @@ export default function ScanResult() {
     });
   };
 
+  //Opens the general map view showing available e-waste drop-off bins.
   const openGeneralDropOffBinsMap = () => {
     setResultModalVisible(false);
     setMatchModalVisible(false);
@@ -1281,6 +1340,7 @@ export default function ScanResult() {
     });
   };
 
+  //Finds facilities that accept the scanned item based on their posts.
   const findMatchingFacilities = async (
     scannedItemName: string,
     scannedDescription = description,
@@ -1292,13 +1352,16 @@ export default function ScanResult() {
       setMatchedFacilities([]);
       setMatchFound(false);
 
+      //Retrieves facility posts and profiles for comparison.
       const facilityPosts = await fetchFacilityPosts();
       const facilityProfiles = await fetchAllFacilityProfiles();
 
+      //Filters out inactive posts before checking for matches.
       const activePosts = (facilityPosts || []).filter((post: any) =>
         isPostActive(post),
       );
 
+      //Calculates and ranks matches based on their matching scores.
       const scoredMatches = activePosts
         .map((post: any) => {
           const matchResult = calculateMatchScore(
@@ -1326,6 +1389,7 @@ export default function ScanResult() {
         return;
       }
 
+      //Keeps only the highest-scoring post for each facility.
       const bestMatchByFacility: any = {};
 
       scoredMatches.forEach((match: any) => {
@@ -1353,6 +1417,7 @@ export default function ScanResult() {
         }
       });
 
+      //Prepares the facility information displayed in the match results.
       const facilities = Object.keys(bestMatchByFacility).map((facilityKey) => {
         const match = bestMatchByFacility[facilityKey];
         const post = match.post;
@@ -1407,6 +1472,7 @@ export default function ScanResult() {
     }
   };
 
+  //Prepares the title, message, and decision shown after an item upload.
   const showUploadResultAlert = (
     finalDecision: AutoDecision,
     scannedItemName: string,
@@ -1425,11 +1491,13 @@ export default function ScanResult() {
     setResultModalVisible(true);
   };
 
+  //Closes the result modal and navigates to My Items.
   const closeResultModalToMyItems = () => {
     setResultModalVisible(false);
     router.replace("/user_dashboard/user_myItems" as any);
   };
 
+  //Starts searching for matching facilities from the result modal.
   const handleFindMatchFromResultModal = () => {
     setResultModalVisible(false);
 
@@ -1440,16 +1508,19 @@ export default function ScanResult() {
     findMatchingFacilities(resultModalItemName || itemName);
   };
 
+  //Opens the drop-off bin map from the result modal.
   const handleCheckDropOffsFromResultModal = () => {
     openGeneralDropOffBinsMap();
   };
 
+  //Validates, uploads, and saves the scanned item for verification.
   const handleUploadForVerification = async () => {
     try {
       if (!validateForm()) return;
 
       setUploading(true);
 
+      //Retrieves the logged-in user's information.
       const loggedInUser = await getLoggedInUser();
 
       if (!loggedInUser.submitterName || !loggedInUser.userId) {
@@ -1460,11 +1531,13 @@ export default function ScanResult() {
         return;
       }
 
+      //Prevents suspended users from submitting items.
       if (await alertIfSelfSuspended(loggedInUser.userId)) return;
 
       let listingLatitude: number | null = null;
       let listingLongitude: number | null = null;
 
+      //Attempts to retrieve the user's coordinates for the item listing.
       try {
         const permission = await Location.requestForegroundPermissionsAsync();
 
@@ -1490,12 +1563,14 @@ export default function ScanResult() {
         console.log("GET LISTING LOCATION ERROR:", locationError);
       }
 
+      //Determines the item's automatic verification decision.
       const finalDecision = getAutoDecision(
         recyclability,
         hazardStatus,
         itemData.disposalSuggestions,
       );
 
+      //Uploads the scanned image to the item-images storage bucket.
       const imageUri = image as string;
       const extension = getImageExtension(imageUri);
       const filePath = `items/${loggedInUser.userId}-${Date.now()}.${extension}`;
@@ -1506,6 +1581,7 @@ export default function ScanResult() {
         imageUri,
       );
 
+      //Saves the item details and verification results in Supabase.
       const { data: insertedItem, error: insertError } = await supabase
         .from("items")
         .insert([
@@ -1550,6 +1626,7 @@ export default function ScanResult() {
       }
 
 
+      //Stores the uploaded item and displays its verification result.
       setUploadedItemForMatch(insertedItem);
       showUploadResultAlert(finalDecision, itemName, insertedItem);
     } catch (error: any) {
@@ -1565,6 +1642,7 @@ export default function ScanResult() {
     }
   };
 
+  //Provides scrolling shortcuts for the onboarding tour.
   const scrollToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: true });
   const scrollToCard = () =>
     scrollRef.current?.scrollTo({
@@ -1573,6 +1651,7 @@ export default function ScanResult() {
     });
   const scrollToBottom = () => scrollRef.current?.scrollToEnd({ animated: true });
 
+  //Defines the instructions shown during the scan result onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -1645,6 +1724,7 @@ export default function ScanResult() {
     },
   ];
 
+  //Finishes the onboarding tour and saves its completion status.
   const finishTour = () => {
     setShowTour(false);
     scrollToTop();
@@ -1654,6 +1734,7 @@ export default function ScanResult() {
     }
   };
 
+  //Checks whether the current user has already completed the onboarding tour.
   useEffect(() => {
     getLoggedInUser().then(async (loggedInUser) => {
       const id = String(loggedInUser?.userId || "");
@@ -1667,9 +1748,11 @@ export default function ScanResult() {
     });
   }, []);
 
+  //Displays the scanned item, its details, and the available actions.
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView ref={scrollRef} contentContainerStyle={styles.container}>
+        {/*Header containing the page title, help button, and close button.*/}
         <View style={styles.header}>
           <Text style={styles.title}>Scanning E-Waste</Text>
 
@@ -1692,6 +1775,7 @@ export default function ScanResult() {
           </View>
         </View>
 
+        {/*Displays the scanned image or a placeholder when unavailable.*/}
         {image ? (
           <ExpoImage
             source={{ uri: displayImage }}
@@ -1712,6 +1796,7 @@ export default function ScanResult() {
           <Text style={styles.identified}>Item identified</Text>
         )}
 
+        {/*Displays item information, scores, description, and issue selection.*/}
         <View
           style={styles.card}
           onLayout={(event) => {
@@ -1731,6 +1816,7 @@ export default function ScanResult() {
             </View>
           )}
 
+          {/*Shows the calculated hazard and recyclability percentages.*/}
           <View ref={scoresRef} collapsable={false}>
             <Text style={styles.statusText}>
               Hazard Status: <Text style={styles.bold}>{hazardStatus}%</Text>
@@ -1760,6 +1846,7 @@ export default function ScanResult() {
 
           <Text style={styles.label}>Issues:</Text>
 
+          {/*Opens the list of possible issues for the scanned item.*/}
           <TouchableOpacity
             ref={issuesRef}
             style={styles.dropdown}
@@ -1783,6 +1870,7 @@ export default function ScanResult() {
             </Text>
           </TouchableOpacity>
 
+          {/*Modal for selecting one or more item issues.*/}
           <Modal visible={modalVisible} transparent animationType="fade">
             <View style={styles.overlay}>
               <View style={styles.modalBox}>
@@ -1824,6 +1912,7 @@ export default function ScanResult() {
 
         </View>
 
+        {/*Displays the automatic verification decision and next actions.*/}
         <Modal visible={resultModalVisible} transparent animationType="fade">
           <View style={styles.resultOverlay}>
             <View style={styles.resultCard}>
@@ -1837,6 +1926,7 @@ export default function ScanResult() {
                 {resultModalTitle}
               </Text>
 
+              {/*Displays the decision message and disposal suggestions.*/}
               <ScrollView
                 style={styles.resultMessageScroll}
                 contentContainerStyle={styles.resultMessageContent}
@@ -1879,6 +1969,7 @@ export default function ScanResult() {
                 </View>
               </ScrollView>
 
+              {/*Shows actions depending on the item's verification status.*/}
               {resultModalDecision?.status === "Approved" ? (
                 <>
                   <TouchableOpacity
@@ -1934,6 +2025,7 @@ export default function ScanResult() {
           </View>
         </Modal>
 
+        {/*Displays matching facilities or nearby drop-off bins.*/}
         <Modal visible={matchModalVisible} transparent animationType="fade">
           <View style={styles.matchOverlay}>
             <View style={styles.matchCard}>
@@ -1955,6 +2047,7 @@ export default function ScanResult() {
                 </>
               )}
 
+              {/*Shows the facilities that match the scanned item.*/}
               {matchFound && matchedFacilities.length > 0 ? (
                 <ScrollView
                   style={styles.matchScroll}
@@ -1976,6 +2069,7 @@ export default function ScanResult() {
                         {facility.address}
                       </Text>
 
+                      {/*Displays the facility's requested item and matching details.*/}
                       <View style={styles.matchInfoBox}>
                         <Text style={styles.matchInfoLabel}>Item Needed:</Text>
                         <Text style={styles.matchInfoText}>
@@ -2005,6 +2099,7 @@ export default function ScanResult() {
                         ) : null}
                       </View>
 
+                      {/*Sends a match request to the selected facility.*/}
                       <TouchableOpacity
                         style={styles.matchGreenButton}
                         onPress={() => createOrOpenConversation(facility)}
@@ -2028,6 +2123,7 @@ export default function ScanResult() {
                   ))}
                 </ScrollView>
               ) : (
+                /* Shows the nearest available drop-off bins when no match exists. */
                 <ScrollView
                   style={styles.dropOffScroll}
                   showsVerticalScrollIndicator={false}
@@ -2071,6 +2167,7 @@ export default function ScanResult() {
           </View>
         </Modal>
 
+        {/*Uploads the item for verification and prevents repeated submissions.*/}
         <TouchableOpacity
           ref={uploadRef}
           style={[styles.button, uploading && styles.disabledButton]}
@@ -2082,6 +2179,7 @@ export default function ScanResult() {
           </Text>
         </TouchableOpacity>
 
+        {/*Returns to the scanner to scan another item.*/}
         <Text
           ref={scanAgainRef}
           style={styles.scanAgain}
@@ -2091,6 +2189,7 @@ export default function ScanResult() {
         </Text>
       </ScrollView>
 
+      {/*Displays the interactive onboarding guide.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -2100,6 +2199,7 @@ export default function ScanResult() {
   );
 }
 
+//Defines the styles for the scan result screen and its modals.
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -2283,13 +2383,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-
-
-
-
-
-
-
+  //Styles for the upload result modal.
   resultOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",
@@ -2408,6 +2502,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
+  //Styles for the facility matching and drop-off bin modals.
   matchOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.25)",
@@ -2626,6 +2721,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  //Styles for the upload and scan-again buttons.
   button: {
     marginTop: 20,
     backgroundColor: "#1b5e20",

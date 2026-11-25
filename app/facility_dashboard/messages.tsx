@@ -24,6 +24,7 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
+//Conversation row that swipes left to reveal delete.
 function SwipeableConversation({
   item,
   onDelete,
@@ -33,11 +34,13 @@ function SwipeableConversation({
   onDelete: (conversation: any) => void;
   children: React.ReactNode;
 }) {
+  //Swipe position and open state.
   const translateX = useRef(new Animated.Value(0)).current;
   const openValue = -92;
   const restingX = useRef(0);
   const [isOpen, setIsOpen] = useState(false);
 
+  //Animate the row to a position.
   const animateTo = (toValue: number) => {
     restingX.current = toValue;
     setIsOpen(toValue !== 0);
@@ -51,6 +54,7 @@ function SwipeableConversation({
   const closeRow = () => animateTo(0);
   const openRow = () => animateTo(openValue);
 
+  //Snap the row open or closed after a swipe.
   const settleRow = (dx: number, vx: number) => {
     const finalX = restingX.current + dx;
 
@@ -60,6 +64,7 @@ function SwipeableConversation({
     finalX < openValue / 2 ? openRow() : closeRow();
   };
 
+  //Horizontal swipe gesture handler.
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -91,6 +96,7 @@ function SwipeableConversation({
 
   return (
     <View style={styles.swipeWrapper}>
+      {/*Delete button behind the row.*/}
       <View style={styles.deleteActionBehind}>
         <TouchableOpacity
           style={styles.deleteSwipeButton}
@@ -115,6 +121,7 @@ function SwipeableConversation({
       >
         {children}
 
+        {/*Tap outside to close the open row.*/}
         {isOpen && (
           <TouchableOpacity
             style={StyleSheet.absoluteFill}
@@ -127,21 +134,25 @@ function SwipeableConversation({
   );
 }
 
+//Messages screen listing the facility's conversations.
 export default function FacilityMessages() {
   const router = useRouter();
   const pathname = usePathname();
 
+  //Conversation list state.
   const [facility, setFacility] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const isFocusedRef = useRef(true);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const firstConversationRef = useRef<ComponentRef<typeof View>>(null);
   const firstStatusRef = useRef<ComponentRef<typeof View>>(null);
   const messagesHelpRef = useRef<any>(null);
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facility?.id || loading) return;
 
@@ -152,6 +163,7 @@ export default function FacilityMessages() {
     );
   }, [facility?.id, loading]);
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -193,6 +205,7 @@ export default function FacilityMessages() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -201,10 +214,12 @@ export default function FacilityMessages() {
     }
   };
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
 
+  //Reload the facility when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
@@ -216,6 +231,7 @@ export default function FacilityMessages() {
     }, []),
   );
 
+  //Load conversations and listen for changes.
   useEffect(() => {
     if (!facility?.id) return;
 
@@ -232,6 +248,7 @@ export default function FacilityMessages() {
     };
   }, [facility?.id]);
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -325,6 +342,7 @@ export default function FacilityMessages() {
     }
   };
 
+  //Get the latest activity time of a conversation.
   const getConversationTimeValue = (conversation: any) => {
     const dateValue =
       conversation?.last_message_at ||
@@ -344,6 +362,7 @@ export default function FacilityMessages() {
     return isNaN(numberValue) ? 0 : numberValue;
   };
 
+  //Rank conversations by status.
   const getStatusPriority = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
 
@@ -379,6 +398,7 @@ export default function FacilityMessages() {
     return 0;
   };
 
+  //Merge conversations with the same user.
   const groupConversationsByUser = (list: any[]) => {
     const grouped: Record<string, any> = {};
 
@@ -451,6 +471,7 @@ export default function FacilityMessages() {
     );
   };
 
+  //Fetch user profiles for the conversations.
   const fetchUserProfilesForConversations = async (conversationList: any[]) => {
     const updatedList = await Promise.all(
       conversationList.map(async (conversation: any) => {
@@ -496,6 +517,7 @@ export default function FacilityMessages() {
     return updatedList;
   };
 
+  //Fetch the facility's conversations.
   const fetchConversations = async (currentFacilityId = facility?.id) => {
     try {
       if (!currentFacilityId) {
@@ -619,6 +641,7 @@ export default function FacilityMessages() {
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     try {
       setRefreshing(true);
@@ -631,6 +654,7 @@ export default function FacilityMessages() {
     }
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -648,6 +672,7 @@ export default function FacilityMessages() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -662,6 +687,7 @@ export default function FacilityMessages() {
     return data?.publicUrl || "";
   };
 
+  //Get the user image for a conversation.
   const getUserImageSource = (conversation: any) => {
     const imagePath =
       conversation?.user_profile_image ||
@@ -694,6 +720,7 @@ export default function FacilityMessages() {
     };
   };
 
+  //Format a date for display.
   const formatDate = (value: string) => {
     if (!value) return "";
 
@@ -710,6 +737,7 @@ export default function FacilityMessages() {
     });
   };
 
+  //Get the status label of a conversation.
   const getConversationStatus = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const lastMessage = String(conversation?.last_message || "").toLowerCase();
@@ -747,6 +775,7 @@ export default function FacilityMessages() {
     return "Conversation";
   };
 
+  //Status text and dot colors.
   const getStatusStyle = (conversation: any) => {
     const status = String(conversation?.status || "").toLowerCase();
     const lastMessage = String(conversation?.last_message || "").toLowerCase();
@@ -787,6 +816,7 @@ export default function FacilityMessages() {
     return { backgroundColor: textStyle.color || "#777" };
   };
 
+  //Delete a conversation after confirming.
   const deleteConversation = async (conversation: any) => {
     Alert.alert(
       "Delete Conversation",
@@ -854,6 +884,7 @@ export default function FacilityMessages() {
     );
   };
 
+  //Open the chat and mark messages as read.
   const openChat = async (conversation: any) => {
     const conversationIds =
       conversation?.related_conversation_ids?.length > 0
@@ -907,6 +938,7 @@ export default function FacilityMessages() {
     });
   };
 
+  //Render a conversation row.
   const renderConversation = ({ item, index }: any) => {
     const isUnread = !!item.hasUnread;
 
@@ -926,6 +958,7 @@ export default function FacilityMessages() {
         >
           {isUnread && <View style={styles.unreadAccentBar} />}
 
+          {/*User avatar.*/}
           <View style={styles.avatarWrapper}>
             <Image
               source={getUserImageSource(item)}
@@ -934,6 +967,7 @@ export default function FacilityMessages() {
             {isUnread && <View style={styles.unreadAvatarDot} />}
           </View>
 
+          {/*Name, message preview and status.*/}
           <View style={styles.conversationInfo}>
             <View style={styles.topRow}>
               <Text
@@ -983,6 +1017,7 @@ export default function FacilityMessages() {
     );
   };
 
+  //Show a loader while loading.
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -994,6 +1029,7 @@ export default function FacilityMessages() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/*Header with help button.*/}
       <View style={styles.headerRow}>
         <Text style={styles.header}>Messages</Text>
 
@@ -1006,6 +1042,7 @@ export default function FacilityMessages() {
         </TouchableOpacity>
       </View>
 
+      {/*Conversation list.*/}
       <FlatList
         data={conversations}
         keyExtractor={(item: any, index: number) =>
@@ -1028,8 +1065,10 @@ export default function FacilityMessages() {
         }
       />
 
+      {/*Bottom navigation bar.*/}
       <FacilityBottomNav facilityId={facility?.id || ""} active="messages" />
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1039,6 +1078,7 @@ export default function FacilityMessages() {
   );
 }
 
+//Styles for the messages screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

@@ -27,11 +27,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
 
+//Screen listing the facility's item postings.
 export default function MyPostings() {
   const router = useRouter();
 
   const [facilityId, setFacilityId] = useState("");
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const statsRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -39,6 +41,7 @@ export default function MyPostings() {
   const firstActionsRef = useRef<ComponentRef<typeof View>>(null);
   const postingsHelpRef = useRef<any>(null);
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facilityId) return;
 
@@ -46,19 +49,23 @@ export default function MyPostings() {
       if (!completed) setShowTour(true);
     });
   }, [facilityId]);
+  //Facility info.
   const [facilityName, setFacilityName] = useState("");
   const [facilityLocation, setFacilityLocation] = useState("");
 
+  //Postings list and filter state.
   const [postings, setPostings] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState("All");
 
+  //Edit posting modal state.
   const [editVisible, setEditVisible] = useState(false);
   const [editingPost, setEditingPost] = useState<any>(null);
   const [editedItemNeeded, setEditedItemNeeded] = useState("");
   const [editedDescription, setEditedDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
+  //Lowercase and trim text.
   const normalizeText = (value: any) => {
     return String(value || "")
       .trim()
@@ -66,6 +73,7 @@ export default function MyPostings() {
       .replace(/\s+/g, " ");
   };
 
+  //Get the display status of a posting.
   const getStatus = (post: any) => {
     const status = normalizeText(post?.status || "Posted");
 
@@ -93,13 +101,16 @@ export default function MyPostings() {
     return "Posted";
   };
 
+  //Check if a posting is already finished.
   const isFinishedPosting = (post: any) => {
     const status = getStatus(post);
     return status === "Finished";
   };
 
+  //Postings that are still active.
   const activePostings = postings.filter((post) => !isFinishedPosting(post));
 
+  //Counts for the stats bar.
   const postedCount = activePostings.filter(
     (post) => getStatus(post) === "Posted"
   ).length;
@@ -112,11 +123,13 @@ export default function MyPostings() {
     (post) => getStatus(post) === "Pending Match"
   ).length;
 
+  //Postings matching the selected filter.
   const filteredPostings =
     filter === "All"
       ? activePostings
       : activePostings.filter((post) => getStatus(post) === filter);
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
@@ -127,6 +140,7 @@ useFocusEffect(
   }, [])
 );
 
+  //Load the logged in facility from storage.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -183,6 +197,7 @@ useFocusEffect(
     }
   };
 
+  //Check if a conversation belongs to a posting.
   const isConversationConnectedToPosting = (post: any, conversation: any) => {
     const postId = String(post?.id || "");
     const postItemName = normalizeText(post?.item_needed || "");
@@ -213,6 +228,7 @@ useFocusEffect(
     return false;
   };
 
+  //Get a posting's status from its conversations.
   const getConversationStatusForPosting = (post: any, conversations: any[]) => {
     const relatedConversations = (conversations || []).filter((conversation) =>
       isConversationConnectedToPosting(post, conversation)
@@ -268,6 +284,7 @@ useFocusEffect(
     return "Posted";
   };
 
+  //Get the newest conversation for a posting.
   const getLatestConnectedConversation = (post: any, conversations: any[]) => {
     const relatedConversations = (conversations || []).filter((conversation) =>
       isConversationConnectedToPosting(post, conversation)
@@ -288,6 +305,7 @@ useFocusEffect(
     })[0];
   };
 
+  //Fetch the facility's postings with match status.
   const fetchPostings = async (id: string) => {
     try {
       if (!id) {
@@ -387,6 +405,7 @@ useFocusEffect(
     }
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     setRefreshing(true);
 
@@ -399,6 +418,7 @@ useFocusEffect(
     setRefreshing(false);
   };
 
+  //Format a date for display.
   const formatDate = (value: string) => {
     if (!value) return "No date available";
 
@@ -416,6 +436,7 @@ useFocusEffect(
     });
   };
 
+  //Get the style for a status.
   const getStatusStyle = (status: string) => {
     if (status === "Matched") return styles.matchedStatus;
     if (status === "Pending Match") return styles.pendingMatchStatus;
@@ -423,11 +444,13 @@ useFocusEffect(
     return styles.postedStatus;
   };
 
+  //Only postings without a match can be changed.
   const canEditOrDelete = (post: any) => {
     const status = getStatus(post);
     return status === "Posted";
   };
 
+  //Open the edit modal for a posting.
   const openEditModal = (post: any) => {
     if (!canEditOrDelete(post)) {
       Alert.alert(
@@ -443,6 +466,7 @@ useFocusEffect(
     setEditVisible(true);
   };
 
+  //Close the edit modal and reset fields.
   const closeEditModal = () => {
     Keyboard.dismiss();
     setEditVisible(false);
@@ -451,6 +475,7 @@ useFocusEffect(
     setEditedDescription("");
   };
 
+  //Save posting changes to Supabase.
   const updatePosting = async () => {
     if (!editingPost) return;
 
@@ -498,6 +523,7 @@ useFocusEffect(
     }
   };
 
+  //Delete a posting after confirming.
   const deletePosting = (post: any) => {
     if (!canEditOrDelete(post)) {
       Alert.alert(
@@ -552,6 +578,7 @@ useFocusEffect(
     );
   };
 
+  //Render the match details of a posting.
   const renderMatchDetails = (item: any) => {
     const status = getStatus(item);
 
@@ -578,6 +605,7 @@ useFocusEffect(
     );
   };
 
+  //Render a posting card.
   const renderPosting = ({ item, index }: any) => {
     const status = getStatus(item);
     const locked = !canEditOrDelete(item);
@@ -596,6 +624,7 @@ useFocusEffect(
             }
           }}
         >
+          {/*Icon, item name and status.*/}
           <View style={styles.cardHeader}>
             <View style={styles.iconBox}>
               <Image
@@ -625,6 +654,7 @@ useFocusEffect(
 
           {renderMatchDetails(item)}
 
+          {/*Posted date.*/}
           <View style={styles.divider} />
 
           <View style={styles.dateRow}>
@@ -637,6 +667,7 @@ useFocusEffect(
           </Text>
         </TouchableOpacity>
 
+        {/*Edit and delete buttons.*/}
         <View
           ref={index === 0 ? firstActionsRef : undefined}
           collapsable={false}
@@ -675,6 +706,7 @@ useFocusEffect(
     );
   };
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -724,6 +756,7 @@ useFocusEffect(
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -734,6 +767,7 @@ useFocusEffect(
 
   return (
     <SafeAreaView style={styles.container}>
+      {/*Header with help button.*/}
       <View style={styles.headerRow}>
         <Text style={styles.header}>My Postings</Text>
 
@@ -746,6 +780,7 @@ useFocusEffect(
         </TouchableOpacity>
       </View>
 
+      {/*Posted, matched and pending counts.*/}
       <View ref={statsRef} collapsable={false} style={styles.statsContainer}>
         <View style={styles.statsItem}>
           <Text style={styles.statsNumber}>{postedCount}</Text>
@@ -763,6 +798,7 @@ useFocusEffect(
         </View>
       </View>
 
+      {/*Status filter buttons.*/}
       <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
         <ScrollView
           horizontal
@@ -791,6 +827,7 @@ useFocusEffect(
         </ScrollView>
       </View>
 
+      {/*Postings list.*/}
       <FlatList
         data={filteredPostings}
         keyExtractor={(item) => `posting-${item.id}`}
@@ -807,6 +844,7 @@ useFocusEffect(
         }
       />
 
+      {/*Edit posting modal.*/}
       <Modal visible={editVisible} transparent animationType="fade">
         <View style={styles.overlay}>
           <KeyboardAvoidingView
@@ -861,11 +899,13 @@ useFocusEffect(
         </View>
       </Modal>
 
+      {/*Bottom navigation bar.*/}
       <FacilityBottomNav
         facilityId={facilityId}
         active="profile"
       />
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -875,6 +915,7 @@ useFocusEffect(
   );
 }
 
+//Styles for the my postings screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

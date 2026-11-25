@@ -27,21 +27,26 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { supabase } from "../../utils/supabase";
 
+//Home dashboard for facilities.
 export default function FacilityDashboard() {
   const router = useRouter();
   const pathname = usePathname();
 
+  //Prevents showing the profile reminder twice.
   const reminderShownRef = useRef(false);
 
+  //Facility info and unread count.
   const [facility, setFacility] = useState<any>(null);
   const [facilityName, setFacilityName] = useState("");
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
+  //Missing profile fields reminder.
   const [missingProfileFields, setMissingProfileFields] = useState<string[]>(
     [],
   );
   const [showProfileReminder, setShowProfileReminder] = useState(false);
 
+  //Search and listed items state.
   const [searchText, setSearchText] = useState("");
   const [searchedUsers, setSearchedUsers] = useState<any[]>([]);
   const [searchedItems, setSearchedItems] = useState<any[]>([]);
@@ -51,6 +56,7 @@ export default function FacilityDashboard() {
   const [loadingListedItems, setLoadingListedItems] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
   const searchRef = useRef<ComponentRef<typeof View>>(null);
@@ -69,16 +75,19 @@ export default function FacilityDashboard() {
     settings: useRef<any>(null),
   };
 
+  //Load the facility on mount.
   useEffect(() => {
     loadFacility();
   }, []);
 
+  //Reload the facility when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadFacility();
     }, []),
   );
 
+  //Track unread messages with a realtime subscription.
   useEffect(() => {
     const facilityId = facility?.id;
 
@@ -125,6 +134,7 @@ export default function FacilityDashboard() {
     };
   }, [facility?.id]);
 
+  //Search after the user stops typing.
   useEffect(() => {
     const delaySearch = setTimeout(() => {
       if (searchText.trim().length > 0) {
@@ -139,6 +149,7 @@ export default function FacilityDashboard() {
     return () => clearTimeout(delaySearch);
   }, [searchText]);
 
+  //Check if a value is empty.
   const isEmptyValue = (value: any) => {
     if (value === null || value === undefined) return true;
 
@@ -153,6 +164,7 @@ export default function FacilityDashboard() {
     );
   };
 
+  //Get the first filled value from a list of keys.
   const getProfileValue = (profile: any, keys: string[]) => {
     if (!profile) return "";
 
@@ -167,12 +179,14 @@ export default function FacilityDashboard() {
     return "";
   };
 
+  //Hide the profile reminder.
   const hideFacilityProfileReminder = () => {
     setMissingProfileFields([]);
     setShowProfileReminder(false);
     reminderShownRef.current = false;
   };
 
+  //Find which profile details are still missing.
   const checkMissingFacilityProfileDetails = (profile: any) => {
     if (!profile) {
       hideFacilityProfileReminder();
@@ -281,6 +295,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Count conversations with unread messages.
   const fetchUnreadNotificationCount = async (facilityId: string) => {
     try {
       if (!facilityId) {
@@ -335,6 +350,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Load the logged in facility and its data.
   const loadFacility = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -437,6 +453,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -452,6 +469,7 @@ export default function FacilityDashboard() {
     return data?.publicUrl || "";
   };
 
+  //User and item display getters.
   const getUserProfileUrl = (user: any) => {
     const imagePath =
       user.profile_image || user.profileImage || user.profile_image_url || "";
@@ -500,6 +518,7 @@ export default function FacilityDashboard() {
     return "@No username";
   };
 
+  //Check if an item should be shown.
   const isVisibleListedItem = (item: any) => {
     const status = String(item?.status || "")
       .trim()
@@ -508,6 +527,7 @@ export default function FacilityDashboard() {
     return status === "listed";
   };
 
+  //Search users and listed items.
   const searchFacilityData = async (keyword: string) => {
     try {
       setIsSearching(true);
@@ -556,6 +576,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Add submitter profile info to items.
   const attachSubmitterProfiles = async (items: any[]) => {
     if (!items.length) return items;
 
@@ -615,6 +636,7 @@ export default function FacilityDashboard() {
     });
   };
 
+  //Fetch a random set of listed items.
   const fetchRandomListedItems = async (profileData: any = facility) => {
     try {
       setLoadingListedItems(true);
@@ -641,6 +663,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Clear the search box.
   const clearSearch = () => {
     setSearchText("");
     setSearchedUsers([]);
@@ -649,6 +672,7 @@ export default function FacilityDashboard() {
     Keyboard.dismiss();
   };
 
+  //Open a user's profile.
   const openUserProfile = (user: any) => {
     clearSearch();
     router.push({
@@ -662,6 +686,7 @@ export default function FacilityDashboard() {
     });
   };
 
+  //Open an item's details.
   const openItemDetails = (item: any) => {
     clearSearch();
     router.push({
@@ -670,15 +695,19 @@ export default function FacilityDashboard() {
     });
   };
 
+  //Go to settings to edit the profile.
   const openEditProfileSettings = () => {
     router.push("/facility_dashboard/settings" as any);
   };
 
+  //Whether the search found anything.
   const hasResults = searchedUsers.length > 0 || searchedItems.length > 0;
 
+  //Scroll the page to a section for the tour.
   const scrollToY = (y: number) =>
     scrollRef.current?.scrollTo({ y: Math.max(0, y), animated: true });
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -781,6 +810,7 @@ export default function FacilityDashboard() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
     scrollToY(0);
@@ -790,6 +820,7 @@ export default function FacilityDashboard() {
     }
   };
 
+  //Show the tour if the facility has not finished it.
   useEffect(() => {
     if (!facility?.id) return;
 
@@ -804,12 +835,14 @@ export default function FacilityDashboard() {
       edges={["top"]}
     >
       <View style={{ flex: 1 }}>
+        {/*Fixed header and search bar.*/}
         <View style={styles.topFixedSection}>
           <View style={styles.header}>
             <Text style={styles.welcome} numberOfLines={1}>
               Welcome Back{facilityName ? `, ${facilityName}` : ""}!
             </Text>
 
+            {/*Help and notification buttons.*/}
             <View style={styles.headerActions}>
               <TouchableOpacity
                 ref={homeHelpRef}
@@ -847,6 +880,7 @@ export default function FacilityDashboard() {
             </View>
           </View>
 
+          {/*Search bar.*/}
           <View ref={searchRef} collapsable={false} style={styles.searchBox}>
             <TextInput
               placeholder="Search for users, usernames, or listed items"
@@ -876,12 +910,14 @@ export default function FacilityDashboard() {
           </View>
         </View>
 
+        {/*Backdrop that closes search results.*/}
         {showSearchResults && searchText.trim().length > 0 && (
           <TouchableWithoutFeedback onPress={() => setShowSearchResults(false)}>
             <View style={styles.searchBackdrop} />
           </TouchableWithoutFeedback>
         )}
 
+        {/*Floating search results.*/}
         {showSearchResults && searchText.trim().length > 0 && (
           <View style={styles.floatingSearchResultsBox}>
             {isSearching ? (
@@ -895,6 +931,7 @@ export default function FacilityDashboard() {
                 keyboardShouldPersistTaps="handled"
                 style={styles.searchResultScroll}
               >
+                {/*Matching users.*/}
                 {searchedUsers.length > 0 && (
                   <View>
                     <Text style={styles.resultSectionTitle}>
@@ -1013,6 +1050,7 @@ export default function FacilityDashboard() {
           </View>
         )}
 
+        {/*Scrollable page content.*/}
         <ScrollView
           ref={scrollRef}
           style={styles.container}
@@ -1020,6 +1058,7 @@ export default function FacilityDashboard() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/*Reminder to complete the profile.*/}
           {showProfileReminder && missingProfileFields.length > 0 && (
             <View
               ref={reminderRef}
@@ -1053,6 +1092,7 @@ export default function FacilityDashboard() {
             </View>
           )}
 
+          {/*Promo banner.*/}
           <ImageBackground
             source={require("../../assets/images/ewaste-banner.jpg")}
             style={styles.banner}
@@ -1073,6 +1113,7 @@ export default function FacilityDashboard() {
             </Text>
           </ImageBackground>
 
+          {/*Listed items section header.*/}
           <View
             ref={listedItemsRef}
             collapsable={false}
@@ -1102,6 +1143,7 @@ export default function FacilityDashboard() {
             </TouchableOpacity>
           </View>
 
+          {/*Listed items or empty message.*/}
           {randomListedItems.length > 0 ? (
             randomListedItems.map((item, index) => {
               const itemImage = getItemImageUrl(item);
@@ -1166,6 +1208,7 @@ export default function FacilityDashboard() {
           )}
         </ScrollView>
 
+        {/*Bottom navigation bar.*/}
         <FacilityBottomNav
           facilityId={facility?.id || ""}
           active="home"
@@ -1173,6 +1216,7 @@ export default function FacilityDashboard() {
         />
       </View>
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -1182,6 +1226,7 @@ export default function FacilityDashboard() {
   );
 }
 
+//Styles for the facility home screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,

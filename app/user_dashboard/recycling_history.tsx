@@ -21,6 +21,7 @@ import OnboardingTour, {
 } from "../../components/OnboardingTour";
 import { supabase } from "../../utils/supabase";
 
+//A finished transaction record.
 type HistoryItem = {
   id: string | number;
   user_id?: string | number;
@@ -40,19 +41,23 @@ type HistoryItem = {
   created_at?: string | null;
 };
 
+//Screen showing completed recycling transactions.
 export default function RecyclingHistory() {
   const router = useRouter();
   const pathname = usePathname();
 
+  //History list and filter state.
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [filteredHistory, setFilteredHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  //Logged in account and selected filter.
   const [accountId, setAccountId] = useState("");
   const [accountRole, setAccountRole] = useState<"user" | "facility" | "">("");
   const [filter, setFilter] = useState<"Latest" | "Oldest">("Latest");
 
+  //Onboarding tour state and target refs.
   const [showTour, setShowTour] = useState(false);
   const summaryRef = useRef<ComponentRef<typeof View>>(null);
   const filtersRef = useRef<ComponentRef<typeof View>>(null);
@@ -60,6 +65,7 @@ export default function RecyclingHistory() {
   const historyHelpRef = useRef<any>(null);
   const tourName = `recycling_history_${accountRole || "user"}`;
 
+  //Show the tour if the user has not finished it.
   useEffect(() => {
     if (!accountId || loading) return;
 
@@ -68,26 +74,31 @@ export default function RecyclingHistory() {
     });
   }, [accountId, loading, tourName]);
 
+  //Load the account on mount.
   useEffect(() => {
     loadAccount();
   }, []);
 
+  //Reload the account when the screen is focused.
   useFocusEffect(
     useCallback(() => {
       loadAccount();
     }, [])
   );
 
+  //Load history once the account is known.
   useEffect(() => {
     if (accountId && accountRole) {
       fetchHistory(accountId, accountRole);
     }
   }, [accountId, accountRole]);
 
+  //Re-sort when history or filter changes.
   useEffect(() => {
     applyFilter();
   }, [history, filter]);
 
+  //Load the logged in account from storage.
   const loadAccount = async () => {
     try {
       const stored = await AsyncStorage.getItem("user");
@@ -152,6 +163,7 @@ export default function RecyclingHistory() {
     }
   };
 
+  //Fetch finished transactions for the account.
   const fetchHistory = async (
     currentAccountId: string,
     currentRole: "user" | "facility"
@@ -189,6 +201,7 @@ export default function RecyclingHistory() {
     }
   };
 
+  //Sort history by latest or oldest.
   const applyFilter = () => {
     const updated = [...history];
 
@@ -206,6 +219,7 @@ export default function RecyclingHistory() {
     setFilteredHistory(updated);
   };
 
+  //Pull to refresh handler.
   const onRefresh = async () => {
     try {
       setRefreshing(true);
@@ -218,6 +232,7 @@ export default function RecyclingHistory() {
     }
   };
 
+  //Clean a storage path for a bucket.
   const normalizeStoragePath = (path: string, bucket: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -235,6 +250,7 @@ export default function RecyclingHistory() {
     return cleanPath;
   };
 
+  //Get a public image url from storage.
   const getPublicImageUrl = (bucket: string, path: string) => {
     if (!path || String(path).trim() === "") return "";
 
@@ -249,6 +265,7 @@ export default function RecyclingHistory() {
     return data?.publicUrl || "";
   };
 
+  //Get the image for a history item.
   const getHistoryImageSource = (item: HistoryItem) => {
     const imagePath = String(item.item_image || "").trim();
 
@@ -269,6 +286,7 @@ export default function RecyclingHistory() {
     };
   };
 
+  //Format a date and time for display.
   const formatDateTime = (dateValue: any) => {
     if (!dateValue) return "N/A";
 
@@ -288,6 +306,7 @@ export default function RecyclingHistory() {
     });
   };
 
+  //Labels that depend on the account role.
   const getMatchedLabel = () => {
     if (accountRole === "facility") {
       return "Matched user:";
@@ -312,10 +331,12 @@ export default function RecyclingHistory() {
     return "Completed matches from your listed items";
   };
 
+  //Go back to the previous screen.
   const goBack = () => {
     router.back();
   };
 
+  //Render a history card.
   const renderHistoryItem = ({
     item,
     index,
@@ -331,6 +352,7 @@ export default function RecyclingHistory() {
       >
         <Image source={getHistoryImageSource(item)} style={styles.itemImage} />
 
+        {/*Item name, match info and dates.*/}
         <View style={styles.cardContent}>
           <Text style={styles.itemName}>{item.item_name || "Unnamed Item"}</Text>
 
@@ -358,11 +380,13 @@ export default function RecyclingHistory() {
     );
   };
 
+  //Render the Latest/Oldest filter buttons.
   const renderFilters = () => {
     const filters: ("Latest" | "Oldest")[] = ["Latest", "Oldest"];
 
     return (
       <View ref={filtersRef} collapsable={false} style={styles.filterWrapper}>
+        {/*Filter buttons.*/}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -392,8 +416,10 @@ export default function RecyclingHistory() {
     );
   };
 
+  //Whether the account is a facility.
   const isFacility = accountRole === "facility";
 
+  //Steps for the onboarding tour.
   const tourSteps: TourStep[] = [
     {
       key: "welcome",
@@ -437,6 +463,7 @@ export default function RecyclingHistory() {
     },
   ];
 
+  //Close the tour and save it as completed.
   const finishTour = () => {
     setShowTour(false);
 
@@ -445,6 +472,7 @@ export default function RecyclingHistory() {
     }
   };
 
+  //Show a loader while loading.
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderContainer}>
@@ -456,6 +484,7 @@ export default function RecyclingHistory() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/*Header with back and help buttons.*/}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={goBack}>
           <Text style={styles.backButton}>←</Text>
@@ -475,6 +504,7 @@ export default function RecyclingHistory() {
         </TouchableOpacity>
       </View>
 
+      {/*Total completed records.*/}
       <View ref={summaryRef} collapsable={false} style={styles.summaryBox}>
         <Text style={styles.summaryNumber}>{history.length}</Text>
         <Text style={styles.summaryLabel}>Completed Match Records</Text>
@@ -482,6 +512,7 @@ export default function RecyclingHistory() {
 
       {renderFilters()}
 
+      {/*History list.*/}
       <FlatList
         data={filteredHistory}
         keyExtractor={(item, index) => `history-${item.id || index}`}
@@ -503,6 +534,7 @@ export default function RecyclingHistory() {
         }
       />
 
+      {/*Onboarding tour overlay.*/}
       <OnboardingTour
         visible={showTour}
         steps={tourSteps}
@@ -512,6 +544,7 @@ export default function RecyclingHistory() {
   );
 }
 
+//Styles for the recycling history screen.
 const styles = StyleSheet.create({
   container: {
     flex: 1,
